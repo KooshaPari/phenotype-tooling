@@ -6,32 +6,12 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-D warnings"
-
+# Thin caller that adopts the phenoShared reusable Rust CI workflow.
+# Pinned to HEAD SHA of KooshaPari/phenoShared@main until PR #85 merges and
+# exposes `.github/workflows/reusable/ci.yml`. Once merged, re-pin to a tag
+# (e.g. @v1) per the phenoShared release policy.
 jobs:
-  check:
-    name: build + test + clippy + fmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: cargo fmt --check
-        run: cargo fmt --all -- --check
-
-      - name: cargo build --workspace
-        run: cargo build --workspace --locked
-
-      - name: cargo test --workspace
-        run: cargo test --workspace --locked
-
-      - name: cargo clippy --workspace
-        run: cargo clippy --workspace --all-targets -- -D warnings
+  rust-ci:
+    uses: KooshaPari/phenoShared/.github/workflows/reusable/ci.yml@393519642656b8f6a2f459c22e0983a4725b7acb
+    with:
+      language: rust
