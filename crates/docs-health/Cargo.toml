@@ -1,0 +1,18 @@
+[package]
+name = "docs-health"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Scans markdown files for vale/markdownlint compliance and broken links"
+
+[[bin]]
+name = "docs-health"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+walkdir = { workspace = true }

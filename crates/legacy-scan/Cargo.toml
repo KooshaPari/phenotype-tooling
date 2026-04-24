@@ -1,0 +1,18 @@
+[package]
+name = "legacy-scan"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Detects scripting-policy violations and deprecated library usage"
+
+[[bin]]
+name = "legacy-scan"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+walkdir = { workspace = true }
