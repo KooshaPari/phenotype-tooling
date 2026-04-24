@@ -6,6 +6,7 @@ members = [
     "crates/quality-gate",
     "crates/legacy-scan",
     "crates/agent-orchestrator",
+    "crates/audit-privacy",
     "crates/bench-guard",
     "crates/commit-msg-check",
     "crates/doc-link-check",

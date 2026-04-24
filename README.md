@@ -20,6 +20,7 @@ a small set of clap-based CLIs aligned to the
 | Crate | Purpose | Source |
 |-------|---------|--------|
 | [`agent-orchestrator`](crates/agent-orchestrator/) | Multi-lane agent task dispatcher and state tracker | FocalPoint `tooling/agent-orchestrator/` |
+| [`audit-privacy`](crates/audit-privacy/) | iOS privacy manifest auditing (scope: Apple plist analysis) | FocalPoint `apps/ios/FocalPoint/scripts/audit-privacy/` |
 | [`bench-guard`](crates/bench-guard/) | Benchmark regression detection and thresholds | FocalPoint `tooling/bench-guard/` |
 | [`commit-msg-check`](crates/commit-msg-check/) | Enforces conventional commits + linkage rules | FocalPoint `tooling/commit-msg-check/` |
 | [`doc-link-check`](crates/doc-link-check/) | Validates markdown links without crawling | FocalPoint `tooling/doc-link-check/` |

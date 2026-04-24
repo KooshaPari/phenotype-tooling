@@ -1,0 +1,13 @@
+[package]
+name = "audit-privacy"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+plist = "1.7"
+walkdir = { workspace = true }
+
+[[bin]]
+name = "audit-privacy"
+path = "src/main.rs"

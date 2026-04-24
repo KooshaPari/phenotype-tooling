@@ -6,7 +6,7 @@ TOOLING_ROOT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
 TARGET_DIR="${1:-.}/tooling"
 
 mkdir -p "$TARGET_DIR"
-for bin in agent-orchestrator bench-guard commit-msg-check doc-link-check fr-coverage release-cut sbom-gen fuzz-setup; do
+for bin in agent-orchestrator audit-privacy bench-guard commit-msg-check doc-link-check fr-coverage release-cut sbom-gen fuzz-setup; do
   ln -sf "$TOOLING_ROOT/target/release/$bin" "$TARGET_DIR/$bin"
 done
-echo "✓ Adopted phenotype-tooling binaries → $TARGET_DIR"
+echo "✓ Adopted phenotype-tooling binaries (9 tools) → $TARGET_DIR"
