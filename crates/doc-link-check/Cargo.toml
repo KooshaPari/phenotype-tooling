@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 walkdir = "2"
-pulldown-cmark = "0.9"
+pulldown-cmark = "0.13"
 anyhow = "1"
 thiserror = "1"
 
