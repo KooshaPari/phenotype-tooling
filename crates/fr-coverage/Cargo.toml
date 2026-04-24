@@ -1,0 +1,13 @@
+[package]
+name = "fr-coverage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+regex = "1"
+walkdir = "2"
+anyhow = "1"
+
+[[bin]]
+name = "fr-coverage"
+path = "src/main.rs"
