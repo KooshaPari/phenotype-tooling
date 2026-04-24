@@ -10,7 +10,7 @@ name = "sbom-gen"
 path = "src/main.rs"
 
 [dependencies]
-cargo_metadata = "0.18"
+cargo_metadata = "0.23"
 serde_json = "1.0"
 anyhow = "1.0"
 chrono = "0.4"
