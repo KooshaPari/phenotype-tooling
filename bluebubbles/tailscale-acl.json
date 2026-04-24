@@ -1,0 +1,10 @@
+{
+  "comment": "Paste into Tailscale admin console ACL (https://login.tailscale.com/admin/acls). Restricts BlueBubbles Server (port 1234) and the webhook receiver (port 8787) to the tailnet owner's own devices. Replace <mac-ts-ip> with this Mac's tailnet IP (current: 100.112.14.98).",
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["autogroup:self"],
+      "dst": ["100.112.14.98:1234", "100.112.14.98:8787"]
+    }
+  ]
+}
