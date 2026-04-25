@@ -1,55 +1,53 @@
-# KlipDot
+# KlipDot — Terminal Image Interception Framework (Archived)
 
 **ARCHIVED PROJECT - DO NOT DELETE OR UNARCHIVE**  
-*Historical Reference: Terminal Image Interception Research*
+*Historical Reference: Universal Terminal Image Capture & Interception Research*
 
-Legacy universal terminal image interceptor for CLI/TUI applications. Preserved for historical reference and research purposes only.
+KlipDot was a Rust-based research project exploring AI-driven desktop integration through universal image capture and real-time clipboard interception for CLI/TUI applications. Preserved for historical reference and architectural research purposes only.
 
-## Project Status
+## Status
 
-**Status**: ARCHIVED (2024)  
-**Reason**: Superseded by bare-cua and modern browser automation approaches  
-**Maintenance**: None — historical reference only
+**Status**: ARCHIVED (2024-Q1)  
+**Reason**: Superseded by browser automation (bare-cua) and modern sandbox approaches  
+**Maintenance**: Historical reference only — no active development
 
-## Original Purpose
+## Original Purpose & Design
 
-KlipDot was a Rust-based research project exploring AI-driven desktop integration through universal image capture and interception. It provided CLI/TUI image handling and clipboard monitoring.
+KlipDot investigated daemon-based terminal image interception as a foundation for AI agent integration with legacy CLI/TUI tools. It provided:
+- Universal image capture for any terminal application
+- Real-time clipboard monitoring and event streaming
+- Terminal image preview rendering (chafa/timg)
+- HTTP API for AI service integration
+- Cross-platform shell integration (ZSH, Bash, Fish)
 
-## Historical Features
-
-- Universal image capture for terminal applications
-- Real-time clipboard monitoring and interception
-- Terminal image preview (chafa/timg rendering)
-- HTTP API for AI agent integration
-- Shell integration (ZSH, Bash, Fish)
-- Cross-platform support (macOS, Linux, Windows)
-- Rust-based high-performance design
+**Architecture**: Lightweight daemon running in background, listening on socket for capture requests, streaming to HTTP listeners.
 
 ## Technology Stack (Historical)
 
-- **Language**: Rust
-- **Architecture**: Daemon-based interceptor pattern
-- **Integration**: Shell hooks, HTTP API
-- **Platforms**: macOS, Linux, Windows
+- **Language**: Rust (edition 2018)
+- **Design Pattern**: Daemon-based interceptor
+- **Integration**: Shell hooks, HTTP event streaming
+- **Cross-platform**: macOS, Linux, Windows support
 
-## Successor Projects
+## Successor Projects & Migration Path
 
-Modern alternatives and active projects:
-- **[bare-cua](../bare-cua)** — Headless browser automation (recommended)
-- **[KVirtualStage](../KVirtualStage)** — Virtual display/sandbox
-- **[KDesktopVirt](../KDesktopVirt)** — Desktop virtualization
+If you need terminal automation or device integration, use these active alternatives:
+- **[bare-cua](../bare-cua)** — Headless browser automation with screenshot/interaction (recommended)
+- **[KDesktopVirt](../KDesktopVirt)** — Desktop virtualization for end-to-end automation
+- **[KVirtualStage](../KVirtualStage)** — Virtual display sandboxing
 
-## Documentation
+## Documentation & Reference
 
-- **CLAUDE.md** — Historical governance (reference only)
-- **No active development** — Code preserved as-is
+- **CLAUDE.md** — Historical development contract (archived)
+- **Source Code**: Preserved as-is for research reference
+- **No active PRs or issues** — read-only reference
 
-## License
+## Governance & License
 
-MIT (Historical)
+- **License**: MIT (Historical)
+- **Related**: See `phenotype-shared` and `bare-cua` for modern automation primitives
+- **Reuse Policy**: Code patterns may be referenced for research; do not fork or reactivate without explicit approval
 
 ---
 
-**Archived**: 2024-Q1  
-**Preserved for**: Historical research and reference  
-**Current Status**: Do not use for new projects — see successor projects above
+**Archived**: 2024-Q1 | **Last Reviewed**: 2026-04-24 | **For Research Only**
