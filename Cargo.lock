@@ -139,7 +139,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -393,7 +393,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "pulldown-cmark",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "walkdir",
 ]
 
@@ -1256,7 +1256,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tokio",
  "toml",
  "walkdir",
