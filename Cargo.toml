@@ -15,6 +15,7 @@ members = [
     "crates/sbom-gen",
     "crates/fuzz-setup",
     "crates/anthropic-usage-poll",
+    "crates/agent-forecast",
 ]
 
 [workspace.package]
