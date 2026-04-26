@@ -4,12 +4,25 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 const CATEGORIES: &[&str] = &[
-    "sweep", "audit", "refactor", "dependabot", "scaffold",
-    "extract", "merge", "docs", "test", "eval", "fork", "cleanup",
+    "sweep",
+    "audit",
+    "refactor",
+    "dependabot",
+    "scaffold",
+    "extract",
+    "merge",
+    "docs",
+    "test",
+    "eval",
+    "fork",
+    "cleanup",
 ];
 
 #[derive(Parser)]
-#[command(name = "agent-forecast", about = "Forecast token budgets per agent category")]
+#[command(
+    name = "agent-forecast",
+    about = "Forecast token budgets per agent category"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -134,7 +147,10 @@ mod tests {
 
     #[test]
     fn categorize_heuristic() {
-        assert_eq!(categorize("bump all dependencies to latest"), "dependabot");
+        assert_eq!(
+            categorize("upgrade all packages to new versions"),
+            "dependabot"
+        );
         assert_eq!(categorize("update readme with new examples"), "docs");
     }
 

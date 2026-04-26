@@ -8,16 +8,14 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use semver::Version;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::path::PathBuf;
 
 mod executor;
 mod planner;
 mod version_bump;
 
 use executor::Executor;
-use planner::{Plan, Planner};
+use planner::Planner;
 
 #[derive(Parser)]
 #[command(name = "release-cut")]
@@ -108,7 +106,5 @@ fn find_repo_root() -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Tests are in executor.rs and planner.rs modules
 }

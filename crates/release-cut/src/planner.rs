@@ -3,7 +3,6 @@
 use anyhow::{anyhow, Result};
 use semver::Version;
 use std::path::Path;
-use std::process::Command;
 
 #[derive(Clone, Debug)]
 pub struct Plan {
@@ -11,6 +10,7 @@ pub struct Plan {
     pub git_tag: String,
     pub version_bumps: Vec<VersionBump>,
     pub changelog_path: String,
+    #[allow(dead_code)]
     pub discord_post: String,
     pub fastlane_lane: String,
 }
@@ -24,10 +24,16 @@ pub struct VersionBump {
 
 impl Plan {
     pub fn print(&self) {
-        println!("┌─ Release Plan: {} ─────────────────────────────────┐", self.version);
+        println!(
+            "┌─ Release Plan: {} ─────────────────────────────────┐",
+            self.version
+        );
         println!("│");
         println!("│ 1. Git Tag:");
-        println!("│    $ git tag -a {} -m 'FocalPoint {}'", self.git_tag, self.version);
+        println!(
+            "│    $ git tag -a {} -m 'FocalPoint {}'",
+            self.git_tag, self.version
+        );
         println!("│    $ git push origin {}", self.git_tag);
         println!("│");
         println!("│ 2. Version Bumps:");
@@ -114,16 +120,19 @@ impl Planner {
         }
 
         // iOS plist version
-        let ios_plist = self.repo_root.join(
-            "apps/ios/FocalPoint/Sources/FocalPointApp/Info.plist"
-        );
+        let ios_plist = self
+            .repo_root
+            .join("apps/ios/FocalPoint/Sources/FocalPointApp/Info.plist");
         if ios_plist.exists() {
             let plist_content = std::fs::read_to_string(&ios_plist)?;
             if let Some(old_plist_version) = extract_plist_version(&plist_content) {
                 bumps.push(VersionBump {
                     path: ios_plist.display().to_string(),
                     old_version: old_plist_version,
-                    new_version: format!("{}.{}.{}", new_version.major, new_version.minor, new_version.patch),
+                    new_version: format!(
+                        "{}.{}.{}",
+                        new_version.major, new_version.minor, new_version.patch
+                    ),
                 });
             }
         }

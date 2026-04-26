@@ -3,7 +3,7 @@ use glob::glob;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lane {
@@ -38,18 +38,16 @@ pub struct TrackerState {
 }
 
 impl OrchestrationConfig {
-    pub fn from_file(path: &PathBuf) -> Result<Self> {
+    pub fn from_file(path: &Path) -> Result<Self> {
         let content = fs::read_to_string(path)
             .map_err(|e| anyhow!("Failed to read orchestration.toml: {}", e))?;
-        toml::from_str(&content)
-            .map_err(|e| anyhow!("Failed to parse orchestration.toml: {}", e))
+        toml::from_str(&content).map_err(|e| anyhow!("Failed to parse orchestration.toml: {}", e))
     }
 
-    pub fn to_file(&self, path: &PathBuf) -> Result<()> {
+    pub fn to_file(&self, path: &Path) -> Result<()> {
         let content = toml::to_string_pretty(self)
             .map_err(|e| anyhow!("Failed to serialize config: {}", e))?;
-        fs::write(path, content)
-            .map_err(|e| anyhow!("Failed to write orchestration.toml: {}", e))
+        fs::write(path, content).map_err(|e| anyhow!("Failed to write orchestration.toml: {}", e))
     }
 
     pub fn validate_non_overlapping(&self) -> Result<()> {
@@ -62,9 +60,7 @@ impl OrchestrationConfig {
 
                 for entry in expanded {
                     let path = entry.map_err(|e| anyhow!("Glob expansion error: {}", e))?;
-                    let path_str = path
-                        .to_string_lossy()
-                        .to_string();
+                    let path_str = path.to_string_lossy().to_string();
 
                     if let Some(existing_lane) = seen_files.get(&path_str) {
                         return Err(anyhow!(
@@ -102,6 +98,12 @@ impl OrchestrationConfig {
     }
 }
 
+impl Default for TrackerState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TrackerState {
     pub fn new() -> Self {
         TrackerState {
@@ -110,21 +112,19 @@ impl TrackerState {
         }
     }
 
-    pub fn from_file(path: &PathBuf) -> Result<Self> {
+    pub fn from_file(path: &Path) -> Result<Self> {
         if !path.exists() {
             return Ok(Self::new());
         }
-        let content = fs::read_to_string(path)
-            .map_err(|e| anyhow!("Failed to read tracker state: {}", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| anyhow!("Failed to parse tracker state: {}", e))
+        let content =
+            fs::read_to_string(path).map_err(|e| anyhow!("Failed to read tracker state: {}", e))?;
+        serde_json::from_str(&content).map_err(|e| anyhow!("Failed to parse tracker state: {}", e))
     }
 
-    pub fn to_file(&self, path: &PathBuf) -> Result<()> {
+    pub fn to_file(&self, path: &Path) -> Result<()> {
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| anyhow!("Failed to serialize tracker state: {}", e))?;
-        fs::write(path, content)
-            .map_err(|e| anyhow!("Failed to write tracker state: {}", e))
+        fs::write(path, content).map_err(|e| anyhow!("Failed to write tracker state: {}", e))
     }
 
     pub fn update_lane(&mut self, lane_id: String, in_flight: bool) {
@@ -234,8 +234,7 @@ mod tests {
         state.update_lane("lane1".to_string(), true);
 
         let json = serde_json::to_string(&state).expect("Should serialize");
-        let deserialized: TrackerState =
-            serde_json::from_str(&json).expect("Should deserialize");
+        let deserialized: TrackerState = serde_json::from_str(&json).expect("Should deserialize");
 
         assert_eq!(deserialized.lanes.len(), 1);
         assert!(deserialized.lanes["lane1"].in_flight);

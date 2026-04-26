@@ -29,7 +29,11 @@ fn main() -> Result<()> {
     for entry in WalkDir::new(&docs_root)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| !e.path().components().any(|c| c.as_os_str() == "node_modules"))
+        .filter(|e| {
+            !e.path()
+                .components()
+                .any(|c| c.as_os_str() == "node_modules")
+        })
         .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("md"))
     {
         let file_path = entry.path().to_path_buf();
@@ -50,7 +54,7 @@ fn main() -> Result<()> {
                 line_num += text.matches('\n').count();
             }
 
-            if let Event::Start(pulldown_cmark::Tag::Link(_, url, _)) = &event {
+            if let Event::Start(pulldown_cmark::Tag::Link { dest_url: url, .. }) = &event {
                 let url_str = url.to_string();
                 total_links += 1;
 
@@ -63,7 +67,10 @@ fn main() -> Result<()> {
                 }
 
                 // Check relative links
-                let mut target_path = file_path.parent().unwrap_or_else(|| Path::new(".")).to_path_buf();
+                let mut target_path = file_path
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .to_path_buf();
                 let link_without_anchor = url_str.split('#').next().unwrap_or(&url_str);
 
                 if !link_without_anchor.is_empty() && link_without_anchor != "/" {
@@ -100,7 +107,7 @@ fn main() -> Result<()> {
                         let rel_path = file_path.strip_prefix(&docs_root).unwrap_or(&file_path);
                         broken_links
                             .entry(url_str.clone())
-                            .or_insert_with(Vec::new)
+                            .or_default()
                             .push(LinkRef {
                                 path: rel_path.display().to_string(),
                                 line: line_num,

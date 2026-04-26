@@ -3,8 +3,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use tracing::info;
 
-mod lib;
-use lib::{OrchestrationConfig, TrackerState};
+use agent_orchestrator::{OrchestrationConfig, TrackerState};
 
 #[derive(Parser)]
 #[command(name = "agent-orchestrator")]
@@ -129,7 +128,7 @@ fn cmd_lanes_dispatch(config: &OrchestrationConfig, lane_id: &str) -> Result<()>
     Ok(())
 }
 
-fn cmd_lanes_status(config: &OrchestrationConfig, state_file: &std::path::PathBuf) -> Result<()> {
+fn cmd_lanes_status(config: &OrchestrationConfig, state_file: &std::path::Path) -> Result<()> {
     let state = TrackerState::from_file(state_file)?;
 
     println!("Lane Status Report\n");
