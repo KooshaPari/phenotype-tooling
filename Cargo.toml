@@ -16,6 +16,7 @@ members = [
     "crates/fuzz-setup",
     "crates/anthropic-usage-poll",
     "crates/agent-forecast",
+    "crates/temporal-grounding",
 ]
 
 [workspace.package]
