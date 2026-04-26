@@ -32,7 +32,10 @@ mod tests {
     #[test]
     fn active_agents_path_filename() {
         let p = active_agents_path();
-        assert_eq!(p.file_name().unwrap().to_str().unwrap(), "active-agents.json");
+        assert_eq!(
+            p.file_name().unwrap().to_str().unwrap(),
+            "active-agents.json"
+        );
     }
 
     #[test]

@@ -66,7 +66,12 @@ async fn main() -> Result<()> {
     // TODO: capture stderr tails, aggregate pass/fail.
     // Source reference: repos/AgilePlus/scripts/quality-gate.sh.
     let steps = vec![
-        StepResult { name: "fmt", skipped: cli.skip_fmt, passed: true, stderr_tail: String::new() },
+        StepResult {
+            name: "fmt",
+            skipped: cli.skip_fmt,
+            passed: true,
+            stderr_tail: String::new(),
+        },
         StepResult {
             name: "clippy",
             skipped: cli.skip_clippy,
@@ -81,7 +86,11 @@ async fn main() -> Result<()> {
         },
     ];
     let all_passed = steps.iter().all(|s| s.skipped || s.passed);
-    let report = Report { root: cli.path.clone(), all_passed, steps };
+    let report = Report {
+        root: cli.path.clone(),
+        all_passed,
+        steps,
+    };
 
     if cli.json {
         println!("{}", serde_json::to_string_pretty(&report)?);

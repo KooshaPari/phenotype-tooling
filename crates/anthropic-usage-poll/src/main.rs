@@ -7,7 +7,10 @@ use std::time::Duration;
 use tokio::time;
 
 #[derive(Parser)]
-#[command(name = "anthropic-usage-poll", about = "Poll Anthropic Admin API for token usage")]
+#[command(
+    name = "anthropic-usage-poll",
+    about = "Poll Anthropic Admin API for token usage"
+)]
 struct Cli {
     /// Run once and exit
     #[arg(long)]
