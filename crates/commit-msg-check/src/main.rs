@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     validate_conventional_commit(first_line)?;
 
     // Check for DCO sign-off
-    validate_dco_signoff(&message)?;
+    validate_dco_signoff(message)?;
 
     Ok(())
 }
@@ -57,9 +57,9 @@ fn validate_conventional_commit(first_line: &str) -> Result<()> {
 
 fn validate_dco_signoff(message: &str) -> Result<()> {
     // Look for "Signed-off-by:" line with email
-    let has_dco = message
-        .lines()
-        .any(|line| line.trim().starts_with("Signed-off-by:") && line.contains('<') && line.contains('>'));
+    let has_dco = message.lines().any(|line| {
+        line.trim().starts_with("Signed-off-by:") && line.contains('<') && line.contains('>')
+    });
 
     if !has_dco {
         return Err(anyhow!(

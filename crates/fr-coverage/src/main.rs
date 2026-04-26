@@ -1,9 +1,9 @@
+use anyhow::{anyhow, Result};
+use regex::Regex;
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
-use regex::Regex;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use anyhow::{anyhow, Result};
 
 fn main() -> Result<()> {
     let repo_root = find_repo_root()?;
@@ -20,7 +20,8 @@ fn main() -> Result<()> {
 
     // Build matrix
     let covered = traces.len();
-    let missing: Vec<_> = frs.iter()
+    let missing: Vec<_> = frs
+        .iter()
         .filter(|(fr_id, _)| !traces.contains_key(*fr_id))
         .map(|(id, desc)| (id.clone(), desc.clone()))
         .collect();
@@ -78,7 +79,7 @@ fn find_repo_root() -> Result<PathBuf> {
     }
 }
 
-fn parse_functional_requirements(repo_root: &PathBuf) -> Result<BTreeMap<String, String>> {
+fn parse_functional_requirements(repo_root: &Path) -> Result<BTreeMap<String, String>> {
     let fr_path = repo_root.join("FUNCTIONAL_REQUIREMENTS.md");
     let content = fs::read_to_string(&fr_path)?;
 
@@ -97,7 +98,7 @@ fn parse_functional_requirements(repo_root: &PathBuf) -> Result<BTreeMap<String,
 }
 
 fn scan_crate_traces(
-    repo_root: &PathBuf,
+    repo_root: &Path,
     frs: &BTreeMap<String, String>,
     traces: &mut BTreeMap<String, Vec<String>>,
     orphan_tests: &mut Vec<(String, Vec<String>)>,
@@ -108,7 +109,7 @@ fn scan_crate_traces(
     for entry in WalkDir::new(&crates_path)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
     {
         let content = match fs::read_to_string(entry.path()) {
             Ok(c) => c,
@@ -125,8 +126,7 @@ fn scan_crate_traces(
                 if !frs.contains_key(&fr_id) {
                     orphan_tests.push((file_display.clone(), vec![fr_id.clone()]));
                 } else {
-                    traces.entry(fr_id).or_insert_with(Vec::new)
-                        .push(file_display.clone());
+                    traces.entry(fr_id).or_default().push(file_display.clone());
                 }
             }
         }
@@ -136,7 +136,7 @@ fn scan_crate_traces(
 }
 
 fn scan_swift_traces(
-    repo_root: &PathBuf,
+    repo_root: &Path,
     frs: &BTreeMap<String, String>,
     traces: &mut BTreeMap<String, Vec<String>>,
     orphan_tests: &mut Vec<(String, Vec<String>)>,
@@ -151,7 +151,7 @@ fn scan_swift_traces(
     for entry in WalkDir::new(&apps_path)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "swift"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "swift"))
     {
         let content = match fs::read_to_string(entry.path()) {
             Ok(c) => c,
@@ -168,8 +168,7 @@ fn scan_swift_traces(
                 if !frs.contains_key(&fr_id) {
                     orphan_tests.push((file_display.clone(), vec![fr_id.clone()]));
                 } else {
-                    traces.entry(fr_id).or_insert_with(|| Vec::new())
-                        .push(file_display.clone());
+                    traces.entry(fr_id).or_default().push(file_display.clone());
                 }
             }
         }
@@ -190,7 +189,7 @@ fn generate_matrix(
     let total = frs.len();
     let covered = traces.len();
     let missing = total - covered;
-    output.push_str(&format!("## Summary\n\n"));
+    output.push_str("## Summary\n\n");
     output.push_str(&format!("- **Total FRs:** {}\n", total));
     output.push_str(&format!("- **Covered (≥1 test):** {}\n", covered));
     output.push_str(&format!("- **Missing (0 tests):** {}\n", missing));
@@ -203,13 +202,14 @@ fn generate_matrix(
 
     for (fr_id, desc) in frs {
         let status_and_files = if let Some(files) = traces.get(fr_id) {
-            let file_links = files.iter()
-                .map(|f| format!("`{}`", f.split('/').last().unwrap_or(f)))
+            let file_links = files
+                .iter()
+                .map(|f| format!("`{}`", f.split('/').next_back().unwrap_or(f)))
                 .collect::<Vec<_>>()
                 .join(", ");
-            (format!("✅ GREEN"), file_links)
+            (String::from("✅ GREEN"), file_links)
         } else {
-            (format!("❌ MISSING"), String::new())
+            (String::from("❌ MISSING"), String::new())
         };
 
         output.push_str(&format!(

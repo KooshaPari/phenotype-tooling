@@ -59,7 +59,11 @@ fn main() -> Result<()> {
         // Source reference: repos/docs/governance/scripting_policy.md rubric.
     }
 
-    let report = Report { root: cli.path.clone(), scanned_files: scanned, findings: vec![] };
+    let report = Report {
+        root: cli.path.clone(),
+        scanned_files: scanned,
+        findings: vec![],
+    };
     if cli.json {
         println!("{}", serde_json::to_string_pretty(&report)?);
     }

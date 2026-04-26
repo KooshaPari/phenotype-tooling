@@ -5,7 +5,8 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 fn main() -> Result<()> {
-    let root = Path::new("/Users/kooshapari/CodeProjects/Phenotype/repos/FocalPoint/apps/ios/FocalPoint");
+    let root =
+        Path::new("/Users/kooshapari/CodeProjects/Phenotype/repos/FocalPoint/apps/ios/FocalPoint");
 
     let privacy_manifest = root.join("Resources/PrivacyInfo.xcprivacy");
     let info_plist = root.join("Sources/FocalPointApp/Info.plist");
@@ -40,7 +41,7 @@ fn main() -> Result<()> {
         if let Some(frameworks) = api_mappings.get(api.as_str()) {
             let mut found = false;
             for fw in frameworks {
-                if actual_imports.contains(&fw.to_string()) {
+                if actual_imports.contains(*fw) {
                     found = true;
                     break;
                 }
@@ -101,7 +102,9 @@ fn parse_privacy_manifest(path: &Path) -> Result<HashSet<String>> {
         if let Some(plist::Value::Array(api_array)) = dict.get(api_array_key) {
             for api_entry in api_array {
                 if let plist::Value::Dictionary(api_dict) = api_entry {
-                    if let Some(plist::Value::String(api_type)) = api_dict.get("NSPrivacyAccessedAPIType") {
+                    if let Some(plist::Value::String(api_type)) =
+                        api_dict.get("NSPrivacyAccessedAPIType")
+                    {
                         apis.insert(api_type.clone());
                     }
                 }
@@ -134,7 +137,7 @@ fn scan_framework_imports(sources_dir: &Path) -> Result<HashSet<String>> {
     for entry in WalkDir::new(sources_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "swift"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "swift"))
     {
         let content = fs::read_to_string(entry.path())?;
         for line in content.lines() {
@@ -142,7 +145,7 @@ fn scan_framework_imports(sources_dir: &Path) -> Result<HashSet<String>> {
             if trimmed.starts_with("import ") && !trimmed.starts_with("import Sentry") {
                 let import_name = trimmed.strip_prefix("import ").unwrap_or("").trim();
                 // Filter framework names (capitalized, not module-level)
-                if import_name.chars().next().map_or(false, |c| c.is_uppercase()) {
+                if import_name.chars().next().is_some_and(|c| c.is_uppercase()) {
                     imports.insert(import_name.to_string());
                 }
             }
@@ -158,8 +161,14 @@ fn get_api_mappings() -> std::collections::HashMap<&'static str, Vec<&'static st
     // UserDefaults is a Foundation type, typically not explicitly imported
     map.insert("NSPrivacyAccessedAPITypeUserDefaults", vec!["Foundation"]);
     // FileManager is a Foundation type, typically not explicitly imported
-    map.insert("NSPrivacyAccessedAPITypeFileTimestampApis", vec!["Foundation"]);
-    map.insert("NSPrivacyAccessedAPITypeUserNotificationCenter", vec!["UserNotifications"]);
+    map.insert(
+        "NSPrivacyAccessedAPITypeFileTimestampApis",
+        vec!["Foundation"],
+    );
+    map.insert(
+        "NSPrivacyAccessedAPITypeUserNotificationCenter",
+        vec!["UserNotifications"],
+    );
     map.insert("NSPrivacyAccessedAPITypeHealthKitApis", vec!["HealthKit"]);
     map
 }

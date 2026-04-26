@@ -34,7 +34,9 @@ fn main() -> Result<()> {
 
     // Build CycloneDX components
     for (crate_name_ver, source) in unique_crates {
-        let (name, version) = crate_name_ver.rsplit_once('-').unwrap_or((&crate_name_ver, ""));
+        let (name, version) = crate_name_ver
+            .rsplit_once('-')
+            .unwrap_or((&crate_name_ver, ""));
         let purl = format!("pkg:cargo/{}/{}", name, version);
 
         components.push(json!({
@@ -72,21 +74,15 @@ fn main() -> Result<()> {
     });
 
     // Ensure output directory
-    fs::create_dir_all("docs/security")
-        .context("Failed to create docs/security directory")?;
+    fs::create_dir_all("docs/security").context("Failed to create docs/security directory")?;
 
     // Write SBOM
     let sbom_path = "docs/security/sbom.json";
-    let sbom_content = serde_json::to_string_pretty(&sbom)
-        .context("Failed to serialize SBOM")?;
+    let sbom_content = serde_json::to_string_pretty(&sbom).context("Failed to serialize SBOM")?;
 
-    fs::write(sbom_path, sbom_content)
-        .context("Failed to write SBOM file")?;
+    fs::write(sbom_path, sbom_content).context("Failed to write SBOM file")?;
 
-    let component_count = sbom["components"]
-        .as_array()
-        .map(|c| c.len())
-        .unwrap_or(0);
+    let component_count = sbom["components"].as_array().map(|c| c.len()).unwrap_or(0);
 
     println!("✓ SBOM generated: {}", sbom_path);
     println!("  Components: {}", component_count);

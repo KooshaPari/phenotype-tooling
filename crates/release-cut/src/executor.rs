@@ -51,7 +51,7 @@ impl Executor {
         // 1. Delete local tag
         println!("  Deleting local tag: {}", tag);
         let output = Command::new("git")
-            .args(&["tag", "-d", &tag])
+            .args(["tag", "-d", &tag])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -62,7 +62,7 @@ impl Executor {
         // 2. Delete remote tag
         println!("  Deleting remote tag: {}", tag);
         let output = Command::new("git")
-            .args(&["push", "origin", &format!(":{}", tag)])
+            .args(["push", "origin", &format!(":{}", tag)])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -73,7 +73,7 @@ impl Executor {
         // 3. Reset Cargo.toml to previous version
         println!("  Resetting Cargo.toml to previous version");
         let output = Command::new("git")
-            .args(&["checkout", "HEAD~1", "Cargo.toml"])
+            .args(["checkout", "HEAD~1", "Cargo.toml"])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -84,7 +84,7 @@ impl Executor {
         // 4. Reset iOS plist
         println!("  Resetting iOS Info.plist to previous version");
         let _ = Command::new("git")
-            .args(&[
+            .args([
                 "checkout",
                 "HEAD~1",
                 "apps/ios/FocalPoint/Sources/FocalPointApp/Info.plist",
@@ -95,18 +95,18 @@ impl Executor {
         // 5. Commit rollback
         let msg = format!("chore(release): rollback {}", version);
         Command::new("git")
-            .args(&["add", "-A"])
+            .args(["add", "-A"])
             .current_dir(&self.repo_root)
             .output()?;
 
         Command::new("git")
-            .args(&["commit", "-m", &msg])
+            .args(["commit", "-m", &msg])
             .current_dir(&self.repo_root)
             .output()?;
 
         // 6. Push rollback commit
         Command::new("git")
-            .args(&["push", "origin", "main"])
+            .args(["push", "origin", "main"])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -121,7 +121,7 @@ impl Executor {
         let content = std::fs::read_to_string(&cargo_path)?;
 
         let new_content = content.replace(
-            &format!(r#"version = "0.0.6""#),
+            r#"version = "0.0.6""#,
             &format!(r#"version = "{}""#, version),
         );
 
@@ -146,10 +146,7 @@ impl Executor {
         let content = std::fs::read_to_string(&plist_path)?;
 
         // Simple string replacement for version in plist
-        let new_version_str = format!(
-            "{}.{}.{}",
-            version.major, version.minor, version.patch
-        );
+        let new_version_str = format!("{}.{}.{}", version.major, version.minor, version.patch);
         let new_content = regex::Regex::new(r"<string>\d+\.\d+\.\d+</string>")?
             .replace_all(&content, format!("<string>{}</string>", new_version_str))
             .to_string();
@@ -162,16 +159,14 @@ impl Executor {
         println!("  Generating CHANGELOG section via 'focus release-notes'");
 
         let output = Command::new("cargo")
-            .args(&["run", "-p", "focus-cli", "--", "release-notes", "generate"])
-            .arg(format!("--since=v0.0.6"))
+            .args(["run", "-p", "focus-cli", "--", "release-notes", "generate"])
+            .arg("--since=v0.0.6")
             .arg("--format=md")
             .current_dir(&self.repo_root)
             .output()?;
 
         if !output.status.success() {
-            eprintln!(
-                "  Warning: release-notes generation failed; proceeding with manual entry"
-            );
+            eprintln!("  Warning: release-notes generation failed; proceeding with manual entry");
             return Ok(());
         }
 
@@ -197,12 +192,15 @@ impl Executor {
         println!("  Committing version and CHANGELOG updates");
 
         Command::new("git")
-            .args(&["add", "Cargo.toml", "CHANGELOG.md"])
+            .args(["add", "Cargo.toml", "CHANGELOG.md"])
             .current_dir(&self.repo_root)
             .output()?;
 
         Command::new("git")
-            .args(&["add", "apps/ios/FocalPoint/Sources/FocalPointApp/Info.plist"])
+            .args([
+                "add",
+                "apps/ios/FocalPoint/Sources/FocalPointApp/Info.plist",
+            ])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -212,7 +210,7 @@ impl Executor {
         );
 
         let output = Command::new("git")
-            .args(&["commit", "-m", &msg])
+            .args(["commit", "-m", &msg])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -228,7 +226,7 @@ impl Executor {
 
         let msg = format!("FocalPoint {}", tag);
         Command::new("git")
-            .args(&["tag", "-a", tag, "-m", &msg])
+            .args(["tag", "-a", tag, "-m", &msg])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -239,7 +237,7 @@ impl Executor {
         println!("  Pushing tag to origin: {}", tag);
 
         let output = Command::new("git")
-            .args(&["push", "origin", tag])
+            .args(["push", "origin", tag])
             .current_dir(&self.repo_root)
             .output()?;
 
@@ -252,7 +250,7 @@ impl Executor {
         Ok(())
     }
 
-    fn post_discord(&self, version: &Version) -> Result<()> {
+    fn post_discord(&self, _version: &Version) -> Result<()> {
         println!("  Posting release announcement to Discord #releases");
 
         // Use focus-release-bot to build payload
@@ -264,7 +262,10 @@ impl Executor {
             return Ok(());
         }
 
-        println!("  → Webhook URL: {}...", &webhook_url[..50.min(webhook_url.len())]);
+        println!(
+            "  → Webhook URL: {}...",
+            &webhook_url[..50.min(webhook_url.len())]
+        );
 
         Ok(())
     }
@@ -274,7 +275,7 @@ impl Executor {
         println!("  $ cd apps/ios && fastlane ios beta version:{}", version);
 
         let output = Command::new("fastlane")
-            .args(&["ios", "beta"])
+            .args(["ios", "beta"])
             .arg(format!("version:{}", version))
             .current_dir(self.repo_root.join("apps/ios"))
             .output()?;
@@ -312,7 +313,7 @@ mod tests {
     // Traces to: FR-RELEASE-004 (Discord post includes all commits since last tag)
     #[test]
     fn test_discord_post_generation() {
-        let version = Version::parse("0.0.7").unwrap();
+        let _version = Version::parse("0.0.7").unwrap();
         // Simulated: Discord payload generated from git log v0.0.6..HEAD
         let mock_payload = r#"{"embeds":[{"title":"FocalPoint 0.0.7","fields":[]}]}"#;
         assert!(mock_payload.contains("0.0.7"));
