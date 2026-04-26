@@ -17,6 +17,7 @@ members = [
     "crates/anthropic-usage-poll",
     "crates/agent-forecast",
     "crates/temporal-grounding",
+    "bin/hook-entry",
 ]
 
 [workspace.package]
