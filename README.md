@@ -51,3 +51,7 @@ If you need terminal automation or device integration, use these active alternat
 ---
 
 **Archived**: 2024-Q1 | **Last Reviewed**: 2026-04-24 | **For Research Only**
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
