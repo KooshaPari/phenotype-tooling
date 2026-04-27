@@ -6,11 +6,18 @@
 [![Phenotype](https://img.shields.io/badge/Phenotype-org-blueviolet)](https://github.com/KooshaPari)
 
 
-Consolidated Rust workspace for Phenotype-org developer tooling. Replaces
-dozens of duplicated shell and Python scripts scattered across repos with
-a small set of clap-based CLIs aligned to the
+Consolidated Rust workspace for Phenotype-org developer tooling. It replaces
+duplicated shell and Python scripts scattered across repos with a focused set
+of clap-based CLIs aligned to the
 [scripting language hierarchy](https://github.com/KooshaPari/phenotype-infrakit/blob/main/docs/governance/scripting_policy.md)
 (Rust default; no new Bash).
+
+## Overview
+
+`phenotype-tooling` centralizes build verification, code-quality checks,
+documentation validation, release support, and software-bill-of-materials
+generation into a single Rust workspace. Each crate is independently usable and
+can be adopted by other Phenotype repos without copying implementation logic.
 
 ## Crates
 
@@ -91,6 +98,13 @@ cargo clippy --workspace -- -D warnings
 cargo fmt --check
 cargo build --release --workspace
 ```
+
+## Governance & Worklogs
+
+- `CLAUDE.md` documents repo-specific conventions and workspace rules.
+- `AGENTS.md` gives AI agents the local routing and quality-gate pointers.
+- `worklogs/` captures repo-local research, architecture, and governance notes.
+- `CHANGELOG.md` tracks release-visible changes.
 
 ## License
 
