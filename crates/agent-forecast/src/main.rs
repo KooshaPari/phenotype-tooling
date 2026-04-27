@@ -132,7 +132,8 @@ fn compute_forecast(category: &str, tokens: &[u64]) -> Forecast {
 }
 
 fn percentile(sorted: &[u64], pct: usize) -> u64 {
-    sorted[(sorted.len() * pct / 100).min(sorted.len() - 1)]
+    let rank = (sorted.len() * pct).div_ceil(100);
+    sorted[rank.saturating_sub(1).min(sorted.len() - 1)]
 }
 
 #[cfg(test)]
@@ -166,5 +167,12 @@ mod tests {
         let data = vec![100u64, 200, 300, 400, 500];
         assert_eq!(percentile(&data, 50), 300);
         assert_eq!(percentile(&data, 90), 500);
+    }
+
+    #[test]
+    fn percentile_uses_nearest_rank_without_one_based_offset() {
+        let data = vec![10u64, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        assert_eq!(percentile(&data, 50), 50);
+        assert_eq!(percentile(&data, 90), 90);
     }
 }

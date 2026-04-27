@@ -6,6 +6,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  workflow-present:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Alert sync workflow dispatched"
+
   alert-sync:
     uses: KooshaPari/phenoShared/.github/workflows/reusable/ci.yml@393519642656b8f6a2f459c22e0983a4725b7acb
     with:
