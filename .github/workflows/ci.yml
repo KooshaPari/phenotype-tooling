@@ -17,6 +17,6 @@ jobs:
       - run: echo "CI workflow dispatched"
 
   rust-ci:
-    uses: KooshaPari/phenoShared/.github/workflows/ci.yml@main
+    uses: KooshaPari/phenoShared/.github/workflows/ci.yml@051ecbc901964f3c7ad137b03bc62c7d3bef5d01
     with:
       language: rust
