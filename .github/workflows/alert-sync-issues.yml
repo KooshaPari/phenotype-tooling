@@ -12,6 +12,6 @@ jobs:
       - run: echo "Alert sync workflow dispatched"
 
   alert-sync:
-    uses: KooshaPari/phenoShared/.github/workflows/reusable/alert-sync-issues.yml@main
+    uses: KooshaPari/phenoShared/.github/workflows/reusable/alert-sync-issues.yml@34ea48a4b2ad7be876ceb6a1e0d058ceb979d15d
     with:
       auto-label: auto-alert-sync
