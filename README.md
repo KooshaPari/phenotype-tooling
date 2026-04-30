@@ -1,23 +1,57 @@
-# KlipDot
+# KlipDot — Terminal Image Interception Framework (Archived)
 
-**STRICTLY DO NOT DELETE NOR UNARCHIVE**
-*Legacy Archived AI-DD Project*
+**ARCHIVED PROJECT - DO NOT DELETE OR UNARCHIVE**  
+*Historical Reference: Universal Terminal Image Capture & Interception Research*
+
+KlipDot was a Rust-based research project exploring AI-driven desktop integration through universal image capture and real-time clipboard interception for CLI/TUI applications. Preserved for historical reference and architectural research purposes only.
+
+## Status
+
+**Status**: ARCHIVED (2024-Q1)  
+**Reason**: Superseded by browser automation (bare-cua) and modern sandbox approaches  
+**Maintenance**: Historical reference only — no active development
+
+## Original Purpose & Design
+
+KlipDot investigated daemon-based terminal image interception as a foundation for AI agent integration with legacy CLI/TUI tools. It provided:
+- Universal image capture for any terminal application
+- Real-time clipboard monitoring and event streaming
+- Terminal image preview rendering (chafa/timg)
+- HTTP API for AI service integration
+- Cross-platform shell integration (ZSH, Bash, Fish)
+
+**Architecture**: Lightweight daemon running in background, listening on socket for capture requests, streaming to HTTP listeners.
+
+## Technology Stack (Historical)
+
+- **Language**: Rust (edition 2018)
+- **Design Pattern**: Daemon-based interceptor
+- **Integration**: Shell hooks, HTTP event streaming
+- **Cross-platform**: macOS, Linux, Windows support
+
+## Successor Projects & Migration Path
+
+If you need terminal automation or device integration, use these active alternatives:
+- **[bare-cua](../bare-cua)** — Headless browser automation with screenshot/interaction (recommended)
+- **[KDesktopVirt](../KDesktopVirt)** — Desktop virtualization for end-to-end automation
+- **[KVirtualStage](../KVirtualStage)** — Virtual display sandboxing
+
+## Documentation & Reference
+
+- **CLAUDE.md** — Historical development contract (archived)
+- **Source Code**: Preserved as-is for research reference
+- **No active PRs or issues** — read-only reference
+
+## Governance & License
+
+- **License**: MIT (Historical)
+- **Related**: See `phenotype-shared` and `bare-cua` for modern automation primitives
+- **Reuse Policy**: Code patterns may be referenced for research; do not fork or reactivate without explicit approval
 
 ---
 
-Universal terminal image interceptor that maps images to file paths for any CLI/TUI application.
+**Archived**: 2024-Q1 | **Last Reviewed**: 2026-04-24 | **For Research Only**
 
-This was a personal project exploring AI-driven desktop integration. Built with Rust for maximum performance and reliability with dedicated AI agent integration.
+## License
 
-**Status**: Archived - Preserved for historical reference only.
-
-## Original Features (Archived)
-
-- Universal image capture for CLI/TUI applications
-- Real-time clipboard monitoring
-- Terminal image preview with chafa/timg
-- HTTP API for AI agent integration
-- Shell integration (ZSH, Bash, Fish)
-- Cross-platform support (macOS, Linux, Windows)
-
-This project is no longer maintained. See Phenotype ecosystem for current tooling.
+MIT — see [LICENSE](./LICENSE).
