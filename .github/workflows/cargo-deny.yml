@@ -1,0 +1,16 @@
+name: cargo-deny
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 3 * * 1'
+
+jobs:
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-en/cargo-deny-action@v1
+        with:
+          command: check
