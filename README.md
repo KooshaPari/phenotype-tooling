@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/KooshaPari/phenotype-tooling?include_prereleases&sort=semver)](https://github.com/KooshaPari/phenotype-tooling/releases)
 [![License](https://img.shields.io/github/license/KooshaPari/phenotype-tooling)](LICENSE)
 [![Phenotype](https://img.shields.io/badge/Phenotype-org-blueviolet)](https://github.com/KooshaPari)
+[![AI Slop Inside](https://sladge.net/badge.svg)](https://sladge.net)
 
 
 Consolidated Rust workspace for Phenotype-org developer tooling. It replaces
