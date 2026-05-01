@@ -16,11 +16,11 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
     
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
+      uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -107,10 +107,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
     
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@v1
+      uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
       with:
         profile: minimal
         toolchain: stable
@@ -168,7 +168,7 @@ jobs:
     
     - name: Upload release asset (Linux/macOS)
       if: matrix.os != 'windows-latest'
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -179,7 +179,7 @@ jobs:
     
     - name: Upload release asset checksum (Linux/macOS)
       if: matrix.os != 'windows-latest'
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -190,7 +190,7 @@ jobs:
     
     - name: Upload release asset (Windows)
       if: matrix.os == 'windows-latest'
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -201,7 +201,7 @@ jobs:
     
     - name: Upload release asset checksum (Windows)
       if: matrix.os == 'windows-latest'
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -216,10 +216,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
     
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@v1
+      uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
       with:
         profile: minimal
         toolchain: stable
@@ -246,7 +246,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Update Homebrew Formula
-      uses: mislav/bump-homebrew-formula-action@v2
+      uses: mislav/bump-homebrew-formula-action@c7b9693c4ff4ba1334c8c0bb8dc3ba869b205ba7
       with:
         formula-name: klipdot
         homebrew-tap: KooshaPari/homebrew-klipdot
@@ -264,7 +264,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout AUR repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       with:
         repository: KooshaPari/aur-klipdot
         token: ${{ secrets.AUR_TOKEN }}

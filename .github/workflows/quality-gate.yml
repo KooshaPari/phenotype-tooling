@@ -6,8 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: dtolnay/rust-toolchain@88dc2356392166efad76775c878094f4e83ff746
       - run: |
           # Fallback: build if not cached
           if [ ! -f tooling/quality-gate ]; then
