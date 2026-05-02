@@ -82,28 +82,28 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     pub fn is_recoverable(&self) -> bool {
-        match self {
-            Error::Io(_) => true,
-            Error::Clipboard(_) => true,
-            Error::Network(_) => true,
-            Error::Timeout(_) => true,
-            Error::Process(_) => true,
-            Error::Wayland(_) => true,
-            Error::DisplayServer(_) => true,
-            Error::Cancelled => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Error::Io(_)
+                | Error::Clipboard(_)
+                | Error::Network(_)
+                | Error::Timeout(_)
+                | Error::Process(_)
+                | Error::Wayland(_)
+                | Error::DisplayServer(_)
+                | Error::Cancelled
+        )
     }
     
     pub fn is_fatal(&self) -> bool {
-        match self {
-            Error::Config(_) => true,
-            Error::Permission(_) => true,
-            Error::Unsupported(_) => true,
-            Error::Internal(_) => true,
-            Error::Compositor(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Error::Config(_)
+                | Error::Permission(_)
+                | Error::Unsupported(_)
+                | Error::Internal(_)
+                | Error::Compositor(_)
+        )
     }
     
     pub fn error_code(&self) -> &'static str {

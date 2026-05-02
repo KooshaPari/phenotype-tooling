@@ -20,6 +20,12 @@ pub struct ServiceStatus {
     pub cpu_usage: Option<f64>,
 }
 
+impl Default for ServiceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServiceManager {
     pub fn new() -> Self {
         let home_dir = crate::get_home_dir().unwrap_or_else(|_| {

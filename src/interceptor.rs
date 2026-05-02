@@ -154,10 +154,8 @@ impl TerminalInterceptor {
             Some(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")))
         ];
         
-        for dir_opt in screenshot_dirs {
-            if let Some(dir) = dir_opt {
-                self.scan_directory_for_new_images(&dir, "wayland-screenshot").await?;
-            }
+        for dir in screenshot_dirs.into_iter().flatten() {
+            self.scan_directory_for_new_images(&dir, "wayland-screenshot").await?;
         }
         
         Ok(())
@@ -177,10 +175,8 @@ impl TerminalInterceptor {
             Some(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")))
         ];
         
-        for dir_opt in screenshot_dirs {
-            if let Some(dir) = dir_opt {
-                self.scan_directory_for_new_images(&dir, "x11-screenshot").await?;
-            }
+        for dir in screenshot_dirs.into_iter().flatten() {
+            self.scan_directory_for_new_images(&dir, "x11-screenshot").await?;
         }
         
         Ok(())
@@ -203,10 +199,8 @@ impl TerminalInterceptor {
             Some(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")))
         ];
         
-        for dir_opt in screenshot_dirs {
-            if let Some(dir) = dir_opt {
-                self.scan_directory_for_new_images(&dir, "macos-screenshot").await?;
-            }
+        for dir in screenshot_dirs.into_iter().flatten() {
+            self.scan_directory_for_new_images(&dir, "macos-screenshot").await?;
         }
         
         Ok(())
@@ -287,12 +281,12 @@ impl TerminalInterceptor {
         }
         
         let mut entries = tokio::fs::read_dir(dir).await
-            .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e)))?;
         
         let recent_threshold = std::time::SystemTime::now() - Duration::from_secs(30);
         
         while let Some(entry) = entries.next_entry().await
-            .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))? {
+            .map_err(|e| Error::Io(std::io::Error::other(e)))? {
             
             let path = entry.path();
             
@@ -369,7 +363,7 @@ impl TerminalInterceptor {
     
     #[cfg(unix)]
     fn parse_ps_line(&self, line: &str) -> Option<Process> {
-        let parts: Vec<&str> = line.trim().split_whitespace().collect();
+        let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
             if let Ok(pid) = parts[0].parse::<u32>() {
                 let name = parts[1].to_string();
@@ -553,11 +547,9 @@ impl TerminalInterceptor {
             _ => {}
         }
         
-        for dir_option in &scan_dirs {
-            if let Some(dir) = dir_option {
-                if dir.exists() {
-                    self.scan_directory_for_images(dir).await?;
-                }
+        for dir in scan_dirs.iter().flatten() {
+            if dir.exists() {
+                self.scan_directory_for_images(dir).await?;
             }
         }
         

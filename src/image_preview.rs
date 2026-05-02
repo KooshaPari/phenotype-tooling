@@ -6,7 +6,8 @@ use tracing::{debug, info, warn};
 /// Terminal image preview system supporting multiple protocols
 #[derive(Clone)]
 pub struct ImagePreviewManager {
-    config: Config,
+    #[allow(dead_code)]
+    config: Config,  // reserved for future use
     preview_method: PreviewMethod,
 }
 

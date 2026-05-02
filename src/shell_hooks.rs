@@ -177,7 +177,7 @@ fi
     pub fn generate_command_wrappers(&self) -> String {
         let mut wrappers = String::new();
         
-        for (original, _replacement) in &self.command_aliases {
+        for original in self.command_aliases.keys() {
             let wrapper = format!(r#"
 {original}() {{
     local result
@@ -212,7 +212,7 @@ fi
             setup.push_str(&format!("export {}=\"{}\"\n", key, value));
         }
         
-        setup.push_str("\n");
+        setup.push('\n');
         setup
     }
     

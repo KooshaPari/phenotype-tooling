@@ -1,7 +1,7 @@
 use crate::{error::Result, Error};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,7 +269,7 @@ impl Config {
         Ok(config_dir.join(crate::CONFIG_FILE))
     }
     
-    pub fn get_config_path(&self) -> &PathBuf {
+    pub fn get_config_path(&self) -> &Path {
         &self.config_file
     }
     

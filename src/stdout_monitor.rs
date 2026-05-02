@@ -464,7 +464,7 @@ impl StdoutMonitor {
         // Also check for URLs that might be images
         for cap in self.url_regex.captures_iter(line) {
             if let Some(url_match) = cap.get(0) {
-                let url = url_match.as_str().trim_end_matches(&['"', '\'', ' ', '\n', '\r']);
+                let url = url_match.as_str().trim_end_matches(['"', '\'', ' ', '\n', '\r']);
                 debug!("Detected image URL in browser: {}", url);
                 // Could download and preview URL images here
             }
@@ -528,7 +528,7 @@ impl StdoutMonitor {
         // Detect URLs
         for cap in self.url_regex.captures_iter(line) {
             if let Some(url_match) = cap.get(0) {
-                let url = url_match.as_str().trim_end_matches(&['"', '\'', ' ', '\n', '\r']);
+                let url = url_match.as_str().trim_end_matches(['"', '\'', ' ', '\n', '\r']);
                 // For URLs, we could download and create a temp file
                 // For now, just log the detection
                 debug!("Detected image URL: {}", url);
@@ -595,7 +595,8 @@ impl Clone for StdoutMonitor {
 
 /// LSP-style live preview system for real-time image detection
 pub struct LivePreviewSystem {
-    config: Config,
+    #[allow(dead_code)]
+    config: Config,  // reserved for future use
     preview_manager: ImagePreviewManager,
     current_preview: Option<PathBuf>,
 }

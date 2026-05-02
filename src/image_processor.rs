@@ -33,7 +33,7 @@ impl ImageProcessor {
         
         // Load image
         let img = image::load_from_memory(data)
-            .map_err(|e| Error::Image(e))?;
+            .map_err(Error::Image)?;
         
         // Generate filename
         let filename = crate::generate_screenshot_filename(source);

@@ -249,7 +249,7 @@ async fn install_hooks(shell: Option<String>) -> Result<()> {
         std::env::var("SHELL")
             .unwrap_or_else(|_| "/bin/bash".to_string())
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("bash")
             .to_string()
     });
@@ -295,7 +295,7 @@ async fn handle_config_command(action: Option<ConfigAction>, config: &Config) ->
             let config_path = config.get_config_path();
             
             std::process::Command::new(editor)
-                .arg(&config_path)
+                .arg(config_path)
                 .status()?;
                 
             println!("Configuration edited: {:?}", config_path);

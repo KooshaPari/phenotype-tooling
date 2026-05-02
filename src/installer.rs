@@ -1,5 +1,5 @@
 use crate::error::Result;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
 pub struct ShellInstaller {
@@ -27,7 +27,7 @@ impl ShellInstaller {
         let shell = std::env::var("SHELL")
             .unwrap_or_else(|_| "/bin/bash".to_string())
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("bash")
             .to_string();
         
@@ -367,7 +367,7 @@ klipdot_scp() {{
         Ok(())
     }
     
-    fn get_shell_rc_path(home_dir: &PathBuf, shell_type: &str) -> PathBuf {
+    fn get_shell_rc_path(home_dir: &Path, shell_type: &str) -> PathBuf {
         match shell_type {
             "zsh" => home_dir.join(".zshrc"),
             "bash" => home_dir.join(".bashrc"),

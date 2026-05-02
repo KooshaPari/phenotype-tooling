@@ -240,9 +240,10 @@ pub fn detect_display_server() -> DisplayServer {
     // Check for macOS first
     #[cfg(target_os = "macos")]
     {
+        #[allow(unreachable_code)]
         return DisplayServer::MacOS;
     }
-    
+
     // Check for Wayland first
     #[cfg(not(target_os = "macos"))]
     {
@@ -264,7 +265,8 @@ pub fn detect_display_server() -> DisplayServer {
             return DisplayServer::X11;
         }
     }
-    
+
+    #[allow(unreachable_code)]
     DisplayServer::Unknown
 }
 
