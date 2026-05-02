@@ -16,7 +16,7 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
     
     - name: Create Release
       id: create_release
@@ -107,7 +107,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
     
     - name: Install Rust toolchain
       uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
@@ -216,7 +216,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
     
     - name: Install Rust toolchain
       uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
@@ -264,7 +264,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout AUR repository
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         repository: KooshaPari/aur-klipdot
         token: ${{ secrets.AUR_TOKEN }}
