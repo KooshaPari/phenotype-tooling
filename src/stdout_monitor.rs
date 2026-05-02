@@ -393,7 +393,7 @@ impl StdoutMonitor {
     fn detect_images_in_tui_context(
         &self,
         line: &str,
-        buffer: &str,
+        _buffer: &str,
         line_number: usize,
         tui_config: &Option<TuiConfig>,
     ) -> Vec<DetectedImage> {
@@ -459,7 +459,7 @@ impl StdoutMonitor {
     
     /// Specialized detection for browsers
     fn detect_browser_images(&self, line: &str, line_number: usize) -> Vec<DetectedImage> {
-        let mut detected = self.detect_images_in_line(line, line_number);
+        let detected = self.detect_images_in_line(line, line_number);
         
         // Also check for URLs that might be images
         for cap in self.url_regex.captures_iter(line) {
