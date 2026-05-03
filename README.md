@@ -1,5 +1,7 @@
 # KlipDot — Terminal Image Interception Framework (Archived)
 
+[![License](https://img.shields.io/github/license/KooshaPari/KlipDot)](LICENSE)
+
 **ARCHIVED PROJECT - DO NOT DELETE OR UNARCHIVE**  
 *Historical Reference: Universal Terminal Image Capture & Interception Research*
 
