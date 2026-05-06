@@ -1,5 +1,9 @@
 name: Quality Gate
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+on:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   gate:
     runs-on: ubuntu-latest

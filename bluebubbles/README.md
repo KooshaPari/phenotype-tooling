@@ -33,7 +33,7 @@ v1.9.9 (MIT). No fork — vanilla install, configured via its built-in UI.
    - System Settings -> Privacy & Security -> **Automation** -> allow `BlueBubbles` to control `Messages`
 
 3. **Configure server** (first launch):
-   - Set a server password (write it down; used as API auth)
+   - Set a server password via `BLUEBUBBLES_PASSWORD` (write it down; used as API auth)
    - Bind: `0.0.0.0` (Tailscale ACL gates access)
    - Port: `1234` (default)
    - Disable ngrok/Cloudflare tunneling — Tailnet is the transport
@@ -58,7 +58,7 @@ Send a message:
 ```bash
 curl -X POST http://100.112.14.98:1234/api/v1/message/text \
   -H 'Content-Type: application/json' \
-  -d '{"password":"<pw>","chatGuid":"iMessage;-;+14243305106","message":"bluebubbles test"}'
+  -d '{"password":"$BLUEBUBBLES_PASSWORD","chatGuid":"iMessage;-;+14243305106","message":"bluebubbles test"}'
 ```
 
 Send a tapback (heart):
@@ -66,13 +66,13 @@ Send a tapback (heart):
 ```bash
 curl -X POST http://100.112.14.98:1234/api/v1/message/react \
   -H 'Content-Type: application/json' \
-  -d '{"password":"<pw>","chatGuid":"iMessage;-;+14243305106","selectedMessageGuid":"<guid>","reaction":"love"}'
+  -d '{"password":"$BLUEBUBBLES_PASSWORD","chatGuid":"iMessage;-;+14243305106","selectedMessageGuid":"<guid>","reaction":"love"}'
 ```
 
 Server health:
 
 ```bash
-curl http://100.112.14.98:1234/api/v1/server/info?password=<pw>
+curl "http://100.112.14.98:1234/api/v1/server/info?password=$BLUEBUBBLES_PASSWORD"
 ```
 
 ## Inbound Event Sink
