@@ -71,3 +71,88 @@ fn validate_dco_signoff(message: &str) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── validate_conventional_commit ──────────────────────────────────────
+
+    #[test]
+    fn happy_feat_no_scope() {
+        assert!(validate_conventional_commit("feat: add voxel LOD system").is_ok());
+    }
+
+    #[test]
+    fn happy_fix_with_scope() {
+        assert!(validate_conventional_commit("fix(render): correct frustum cull z-lift").is_ok());
+    }
+
+    #[test]
+    fn happy_all_types() {
+        for ty in &["feat", "fix", "docs", "chore", "test", "refactor", "perf", "ci"] {
+            let line = format!("{}: some description", ty);
+            assert!(validate_conventional_commit(&line).is_ok(), "type {} should pass", ty);
+        }
+    }
+
+    #[test]
+    fn merge_commit_bypasses_check() {
+        assert!(validate_conventional_commit("Merge pull request #42 from org/branch").is_ok());
+    }
+
+    #[test]
+    fn missing_colon_space_fails() {
+        let err = validate_conventional_commit("feat add something").unwrap_err();
+        assert!(err.to_string().contains("Invalid conventional commit"));
+    }
+
+    #[test]
+    fn unknown_type_fails() {
+        let err = validate_conventional_commit("update: something").unwrap_err();
+        assert!(err.to_string().contains("Invalid conventional commit"));
+    }
+
+    #[test]
+    fn empty_description_fails() {
+        // "feat: " with no description after the space
+        let err = validate_conventional_commit("feat: ").unwrap_err();
+        assert!(err.to_string().contains("Invalid conventional commit"));
+    }
+
+    // ── validate_dco_signoff ──────────────────────────────────────────────
+
+    #[test]
+    fn happy_dco_present() {
+        let msg = "feat: add thing\n\nSigned-off-by: Alice <alice@example.com>";
+        assert!(validate_dco_signoff(msg).is_ok());
+    }
+
+    #[test]
+    fn dco_missing_entirely_fails() {
+        let msg = "feat: add thing\n\nSome body text.";
+        let err = validate_dco_signoff(msg).unwrap_err();
+        assert!(err.to_string().contains("Missing DCO sign-off"));
+    }
+
+    #[test]
+    fn dco_without_angle_brackets_fails() {
+        // "Signed-off-by: Alice alice@example.com" — no < >
+        let msg = "feat: thing\n\nSigned-off-by: Alice alice@example.com";
+        let err = validate_dco_signoff(msg).unwrap_err();
+        assert!(err.to_string().contains("Missing DCO sign-off"));
+    }
+
+    #[test]
+    fn dco_indented_is_accepted() {
+        // Some tools emit with leading whitespace
+        let msg = "feat: thing\n\n  Signed-off-by: Bob <bob@example.com>";
+        assert!(validate_dco_signoff(msg).is_ok());
+    }
+
+    #[test]
+    fn multiple_signoffs_accepted() {
+        let msg = "feat: thing\n\nSigned-off-by: Alice <a@e.com>\nSigned-off-by: Bob <b@e.com>";
+        assert!(validate_dco_signoff(msg).is_ok());
+    }
+}
