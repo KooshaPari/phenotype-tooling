@@ -1,4 +1,7 @@
 name: FR Coverage
+permissions:
+  contents: read
+  pull-requests: read
 on:
   workflow_dispatch:
 concurrency:
