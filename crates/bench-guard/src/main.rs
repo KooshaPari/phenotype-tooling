@@ -344,3 +344,128 @@ fn main() -> Result<()> {
     println!("\n✅ All benchmarks within tolerance");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_baseline(tolerance: u32, benches: &[(&str, u64)]) -> BenchBaseline {
+        BenchBaseline {
+            tolerance_percent: tolerance,
+            benches: benches
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k.to_string(),
+                        BenchEntry {
+                            mean_nanos: *v,
+                            histogram_buckets_nanos: None,
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn make_result(name: &str, mean_nanos: u64) -> BenchResult {
+        BenchResult {
+            name: name.to_string(),
+            mean_nanos,
+            median_nanos: mean_nanos,
+            histogram: vec![],
+        }
+    }
+
+    // ── parse_bench_output ───────────────────────────────────────────────────
+
+    #[test]
+    fn parse_bench_output_empty_array_returns_empty() {
+        let json = "[]";
+        let results = parse_bench_output(json).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn parse_bench_output_single_benchmark_complete() {
+        let json = r#"[
+            {"reason":"benchmark-complete","name":"eval_tick","result":{"estimates":[5000000]}}
+        ]"#;
+        let results = parse_bench_output(json).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "eval_tick");
+        assert_eq!(results[0].mean_nanos, 5_000_000);
+    }
+
+    #[test]
+    fn parse_bench_output_skips_non_benchmark_complete() {
+        let json = r#"[
+            {"reason":"compiler-artifact","name":"foo"},
+            {"reason":"benchmark-complete","name":"bar","result":{"estimates":[1000]}}
+        ]"#;
+        let results = parse_bench_output(json).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "bar");
+    }
+
+    #[test]
+    fn parse_bench_output_invalid_json_errors() {
+        let result = parse_bench_output("not json");
+        assert!(result.is_err());
+    }
+
+    // ── check_regressions ───────────────────────────────────────────────────
+
+    #[test]
+    fn check_regressions_happy_path_within_tolerance() {
+        let baseline = make_baseline(30, &[("fast_op", 1_000_000)]);
+        // 1.2 ms — 20% over baseline, within 30% tolerance
+        let results = [make_result("fast_op", 1_200_000)];
+        let (passed, failures) = check_regressions(&baseline, &results).unwrap();
+        assert!(passed);
+        assert!(failures.is_empty());
+    }
+
+    #[test]
+    fn check_regressions_regression_detected_over_tolerance() {
+        let baseline = make_baseline(10, &[("slow_op", 1_000_000)]);
+        // 1.5 ms — 50% over baseline, exceeds 10% tolerance
+        let results = [make_result("slow_op", 1_500_000)];
+        let (passed, failures) = check_regressions(&baseline, &results).unwrap();
+        assert!(!passed);
+        assert_eq!(failures.len(), 1);
+        assert!(failures[0].contains("REGRESSION"));
+        assert!(failures[0].contains("slow_op"));
+    }
+
+    #[test]
+    fn check_regressions_unknown_bench_is_skipped() {
+        let baseline = make_baseline(10, &[("known", 1_000_000)]);
+        // Result names something not in baseline — no failure, no panic
+        let results = [make_result("unknown_bench", 9_999_999)];
+        let (passed, failures) = check_regressions(&baseline, &results).unwrap();
+        assert!(passed);
+        assert!(failures.is_empty());
+    }
+
+    // ── load_baseline (default path when file absent) ───────────────────────
+
+    #[test]
+    fn load_baseline_missing_file_returns_defaults() {
+        let bl = load_baseline("/nonexistent/path/perf_baseline.json").unwrap();
+        assert!(bl.tolerance_percent > 0);
+        assert!(!bl.benches.is_empty());
+        // Spot-check a well-known default key
+        assert!(bl.benches.contains_key("eval_tick"));
+    }
+
+    // ── format_text ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn format_text_contains_bench_name_and_ms() {
+        let baseline = make_baseline(30, &[("ir_hash/small", 1_000_000)]);
+        let results = [make_result("ir_hash/small", 2_000_000)];
+        let out = format_text(&results, &baseline);
+        assert!(out.contains("ir_hash/small"));
+        assert!(out.contains("ms"));
+    }
+}
