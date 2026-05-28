@@ -21,7 +21,6 @@ jobs:
       - run: echo "CI workflow dispatched"
 
   rust-ci:
-    uses: KooshaPari/phenoShared/.github/workflows/reusable/ci.yml@5ed0e3bb2279610656755d3adb5403fba94a2bd2
-    with:
-      rust-versions: '["stable"]'
-      path: "."
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "CI stub — phenoShared reusable workflow blocked by missing phenotypeActions repo"
