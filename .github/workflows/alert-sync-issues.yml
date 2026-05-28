@@ -7,7 +7,7 @@ on:
 
 jobs:
   workflow-present:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: echo "Alert sync workflow dispatched"
 

@@ -16,7 +16,7 @@ on:
 # (e.g. @v1) per the phenoShared release policy.
 jobs:
   workflow-present:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: echo "CI workflow dispatched"
 
