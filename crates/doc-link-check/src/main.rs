@@ -13,6 +13,51 @@ struct LinkRef {
     line: usize,
 }
 
+/// Returns true for URLs that should be skipped (absolute URLs and anchor-only links).
+fn is_skip_url(url: &str) -> bool {
+    url.starts_with("http://") || url.starts_with("https://") || url.starts_with('#')
+}
+
+/// Strips the `#fragment` portion from a URL, returning the path component only.
+fn strip_anchor(url: &str) -> &str {
+    url.split('#').next().unwrap_or(url)
+}
+
+/// Given a base directory and a link target, generates the candidate paths to check.
+/// Tries: raw path, path with `.md` extension, and `index.md` inside path as directory.
+fn resolve_candidates(base_dir: &Path, link: &str) -> Vec<PathBuf> {
+    let mut target = base_dir.to_path_buf();
+    target.push(link);
+    vec![
+        target.clone(),
+        {
+            let mut p = target.clone();
+            p.set_extension("md");
+            p
+        },
+        {
+            let mut p = target.clone();
+            if p.is_file() {
+                p.pop();
+            }
+            p.push("index.md");
+            p
+        },
+    ]
+}
+
+/// Extracts all link URLs from a markdown string.
+fn extract_links_from_markdown(content: &str) -> Vec<String> {
+    let parser = Parser::new(content);
+    let mut links = Vec::new();
+    for event in parser {
+        if let Event::Start(pulldown_cmark::Tag::Link { dest_url: url, .. }) = event {
+            links.push(url.to_string());
+        }
+    }
+    links
+}
+
 fn main() -> Result<()> {
     let docs_root = PathBuf::from("docs-site");
 
@@ -58,43 +103,21 @@ fn main() -> Result<()> {
                 let url_str = url.to_string();
                 total_links += 1;
 
-                // Skip absolute URLs and anchors
-                if url_str.starts_with("http://")
-                    || url_str.starts_with("https://")
-                    || url_str.starts_with("#")
-                {
+                if is_skip_url(&url_str) {
                     continue;
                 }
 
                 // Check relative links
-                let mut target_path = file_path
+                let base_dir = file_path
                     .parent()
                     .unwrap_or_else(|| Path::new("."))
                     .to_path_buf();
-                let link_without_anchor = url_str.split('#').next().unwrap_or(&url_str);
+                let link_without_anchor = strip_anchor(&url_str);
 
                 if !link_without_anchor.is_empty() && link_without_anchor != "/" {
-                    target_path.push(link_without_anchor);
+                    let candidates = resolve_candidates(&base_dir, link_without_anchor);
 
-                    // Try to resolve with and without .md and index.md
                     let mut exists = false;
-                    let candidates = vec![
-                        target_path.clone(),
-                        {
-                            let mut p = target_path.clone();
-                            p.set_extension("md");
-                            p
-                        },
-                        {
-                            let mut p = target_path.clone();
-                            if p.is_file() {
-                                p.pop();
-                            }
-                            p.push("index.md");
-                            p
-                        },
-                    ];
-
                     for candidate in &candidates {
                         if candidate.exists() {
                             exists = true;
@@ -135,5 +158,121 @@ fn main() -> Result<()> {
     } else {
         println!("✓ All links are valid");
         std::process::exit(0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // ── is_skip_url ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn skip_url_http() {
+        assert!(is_skip_url("http://example.com/page"));
+    }
+
+    #[test]
+    fn skip_url_https() {
+        assert!(is_skip_url("https://docs.rs/anyhow"));
+    }
+
+    #[test]
+    fn skip_url_anchor_only() {
+        assert!(is_skip_url("#section-header"));
+    }
+
+    #[test]
+    fn skip_url_relative_not_skipped() {
+        assert!(!is_skip_url("../guide/intro.md"));
+        assert!(!is_skip_url("./sibling.md"));
+        assert!(!is_skip_url("subdir/page"));
+    }
+
+    // ── strip_anchor ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn strip_anchor_with_fragment() {
+        assert_eq!(strip_anchor("page.md#heading"), "page.md");
+    }
+
+    #[test]
+    fn strip_anchor_no_fragment() {
+        assert_eq!(strip_anchor("page.md"), "page.md");
+    }
+
+    #[test]
+    fn strip_anchor_empty_fragment() {
+        assert_eq!(strip_anchor("page.md#"), "page.md");
+    }
+
+    // ── extract_links_from_markdown ───────────────────────────────────────────
+
+    #[test]
+    fn extract_links_happy_path() {
+        let md = "See [the guide](guide.md) and [the API](api/index.md).";
+        let links = extract_links_from_markdown(md);
+        assert_eq!(links.len(), 2);
+        assert!(links.contains(&"guide.md".to_string()));
+        assert!(links.contains(&"api/index.md".to_string()));
+    }
+
+    #[test]
+    fn extract_links_mixed_absolute_and_relative() {
+        let md = "[home](/) [ext](https://example.com) [rel](./page.md)";
+        let links = extract_links_from_markdown(md);
+        assert_eq!(links.len(), 3);
+        assert!(links.contains(&"https://example.com".to_string()));
+        assert!(links.contains(&"./page.md".to_string()));
+    }
+
+    #[test]
+    fn extract_links_no_links() {
+        let links = extract_links_from_markdown("Just plain text with **bold** and _italic_.");
+        assert!(links.is_empty());
+    }
+
+    // ── resolve_candidates ────────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_candidates_produces_three_paths() {
+        let base = Path::new("/docs");
+        let candidates = resolve_candidates(base, "guide/intro");
+        assert_eq!(candidates.len(), 3);
+        // raw
+        assert_eq!(candidates[0], PathBuf::from("/docs/guide/intro"));
+        // with .md
+        assert_eq!(candidates[1], PathBuf::from("/docs/guide/intro.md"));
+        // index.md (intro is not a file, so stays as-is + index.md)
+        assert_eq!(candidates[2], PathBuf::from("/docs/guide/intro/index.md"));
+    }
+
+    #[test]
+    fn resolve_candidates_existing_md_file_found(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
+        let target = dir.path().join("page.md");
+        fs::write(&target, "# Page")?;
+
+        let candidates = resolve_candidates(dir.path(), "page");
+        // candidates[1] should be page.md which exists
+        assert!(candidates[1].exists(), "expected page.md to be found");
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_candidates_index_md_found(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
+        let subdir = dir.path().join("guide");
+        fs::create_dir(&subdir)?;
+        fs::write(subdir.join("index.md"), "# Guide")?;
+
+        let candidates = resolve_candidates(dir.path(), "guide");
+        // candidates[2] == dir/guide/index.md
+        assert!(candidates[2].exists(), "expected guide/index.md to be found");
+        Ok(())
     }
 }

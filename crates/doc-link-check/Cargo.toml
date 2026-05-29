@@ -11,6 +11,9 @@ pulldown-cmark = "0.13"
 anyhow = "1"
 thiserror = "2"
 
+[dev-dependencies]
+tempfile = "3"
+
 [[bin]]
 name = "doc-link-check"
 path = "src/main.rs"
