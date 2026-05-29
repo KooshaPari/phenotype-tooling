@@ -1,0 +1,16 @@
+[package]
+name = "phenotype-resilience"
+description = "Shared resilience primitives (rate limiter, circuit breaker, bulkhead) for Phenotype-org services"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time"] }
