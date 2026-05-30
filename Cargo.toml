@@ -19,6 +19,7 @@ members = [
     "crates/temporal-grounding",
     "crates/phenotype-resilience",
     "crates/phenotype-service-registry",
+    "crates/phenotype-diff",
     "bin/hook-entry",
 ]
 
