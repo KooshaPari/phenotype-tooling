@@ -20,6 +20,7 @@ members = [
     "crates/phenotype-resilience",
     "crates/phenotype-service-registry",
     "crates/phenotype-diff",
+    "crates/worktree-manager",
     "bin/hook-entry",
 ]
 
