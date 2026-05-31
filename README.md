@@ -43,6 +43,26 @@ can be adopted by other Phenotype repos without copying implementation logic.
 | [`sbom-gen`](crates/sbom-gen/) | SBOM (CycloneDX/SPDX) generation from Cargo.lock | FocalPoint `tooling/sbom-gen/` |
 | [`fuzz-setup`](crates/fuzz-setup/) | Fuzzing corpus reference and setup templates | FocalPoint `fuzz/` |
 
+### Absorbed standalone tooling
+
+Full upstream repos absorbed under `crates/` (history-preserving subtree merges).
+These are NOT Rust workspace members — each keeps its own build system. Do not
+force a single toolchain; build each from its own subdir.
+
+| Subdir | Upstream | Stack | Build / install (cheap sanity) |
+|--------|----------|-------|--------------------------------|
+| [`crates/worktree-manager`](crates/worktree-manager/) | `KooshaPari/worktree-manager` | Rust (workspace member) | `cargo build -p worktree-manager` |
+| [`crates/byteport`](crates/byteport/) | `KooshaPari/BytePort` | TS frontend + Rust/Go backend | per-subdir: `npm ci` (frontend), backend per its README |
+| [`crates/heliosapp`](crates/heliosapp/) | `KooshaPari/heliosApp` | TS (Electrobun) | `npm ci` |
+| [`crates/heliosbench`](crates/heliosbench/) | `KooshaPari/heliosBench` | TS | `npm ci` |
+| [`crates/nanovms`](crates/nanovms/) | `KooshaPari/nanovms` | Rust crate (standalone) | `cargo build` inside subdir |
+| [`crates/policystack`](crates/policystack/) | `KooshaPari/PolicyStack` | TS (`package.json`) + Python (`pyproject.toml`, `policy-federation`) | `npm ci`; `uv pip install -e .` (or `pip install -e .`) |
+
+> **PolicyStack note:** absorbed via `git filter-repo` after dropping 8 empty
+> glob-artifact files (`scripts/federation/f2{01..16}_*`) whose `*` in the
+> filename is illegal on NTFS and blocked the earlier subtree merge (PR #78).
+> Upstream repo-hygiene fix recommended: `git rm` those 8 empty stubs at source.
+
 ## Migration plan
 
 1. **Scaffold (this repo):** clap skeletons emitting stub JSON reports.
