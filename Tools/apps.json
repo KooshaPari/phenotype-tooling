@@ -1,0 +1,25 @@
+{
+  "$schema": "./apps.schema.json",
+  "_comment": "Data-driven manifest for Register-StartMenuApps.ps1. One entry per Phenotype web app. Each shortcut launches the app in DEV/HMR mode (live reload), pointing the Electrobun shell at the running dev server, NOT a frozen production bundle. Extend this list to cover all ~38 apps.",
+  "startMenuFolder": "Phenotype Apps",
+  "apps": [
+    {
+      "name": "AgilePlus",
+      "appId": "com.phenotype.agileplus",
+      "repoPath": "C:/Users/koosh/Dev/AgilePlus",
+      "devServer": {
+        "cwd": "crates/agileplus-dashboard/web",
+        "command": "bun run dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "backend": {
+        "cwd": ".",
+        "command": "cargo run -p agileplus-api",
+        "port": 4000
+      },
+      "electrobunBuildDir": "build/dev-win-x64/AgilePlus",
+      "ico": "assets/brand/app.ico"
+    }
+  ]
+}
