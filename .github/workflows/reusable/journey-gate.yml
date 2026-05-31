@@ -1,0 +1,113 @@
+# Reusable journey gate — skips cleanly when no manifest.verified.json files exist.
+#   jobs:
+#     journey-gate:
+#       uses: KooshaPari/phenotype-tooling/.github/workflows/reusable/journey-gate.yml@main
+name: Reusable Journey Gate
+
+on:
+  workflow_call:
+    inputs:
+      manifest_glob:
+        description: 'Find pattern for manifests (default manifest.verified.json)'
+        required: false
+        type: string
+        default: 'manifest.verified.json'
+      strict_mode:
+        description: 'Fail the job when assertions are violated'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  journey-gate:
+    name: Journey Verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+
+      - name: Discover manifests
+        id: discover
+        run: |
+          MANIFEST_NAME="${{ inputs.manifest_glob }}"
+          MANIFESTS=$(find . \
+            -name "$MANIFEST_NAME" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/target/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/vendor/*" \
+            2>/dev/null | sort)
+
+          if [ -z "$MANIFESTS" ]; then
+            echo "MANIFEST_COUNT=0" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Journey gate skipped::No ${MANIFEST_NAME} files found — gate is a no-op for this repository."
+            exit 0
+          fi
+
+          COUNT=$(echo "$MANIFESTS" | grep -c . || true)
+          echo "MANIFEST_COUNT=$COUNT" >> "$GITHUB_OUTPUT"
+          {
+            echo "MANIFEST_LIST<<EOF"
+            echo "$MANIFESTS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Found $COUNT manifest(s):"
+          echo "$MANIFESTS"
+
+      - name: Install tesseract OCR
+        if: steps.discover.outputs.MANIFEST_COUNT != '0'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr \
+            || echo "::warning::tesseract install failed — OCR assertions may be skipped"
+
+      - name: Install phenotype-journey
+        if: steps.discover.outputs.MANIFEST_COUNT != '0'
+        run: |
+          if command -v phenotype-journey &>/dev/null; then
+            phenotype-journey --version 2>/dev/null || phenotype-journey --help 2>&1 | head -1
+            exit 0
+          fi
+          if [ -f Cargo.toml ] && grep -q 'name = "phenotype-journey"' Cargo.toml 2>/dev/null; then
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+            # shellcheck disable=SC1091
+            . "$HOME/.cargo/env"
+            cargo build --release --locked
+            install -m 0755 target/release/phenotype-journey /usr/local/bin/phenotype-journey 2>/dev/null \
+              || install -m 0755 target/release/phenotype-journey-cli /usr/local/bin/phenotype-journey 2>/dev/null \
+              || { echo "::error::Built workspace but no phenotype-journey binary found"; exit 1; }
+            exit 0
+          fi
+          echo "::error::phenotype-journey CLI not on PATH and this repo is not the phenotype-journey workspace."
+          exit 1
+
+      - name: Validate manifests
+        if: steps.discover.outputs.MANIFEST_COUNT != '0'
+        run: |
+          for manifest in ${{ steps.discover.outputs.MANIFEST_LIST }}; do
+            echo "━━━ Validating $manifest ━━━"
+            phenotype-journey validate "$manifest"
+          done
+
+      - name: Run assertions
+        if: steps.discover.outputs.MANIFEST_COUNT != '0'
+        env:
+          PHENOTYPE_JOURNEY_STRICT: ${{ inputs.strict_mode && 'true' || 'false' }}
+        run: |
+          for manifest in ${{ steps.discover.outputs.MANIFEST_LIST }}; do
+            echo "━━━ Asserting $manifest ━━━"
+            if [ "${PHENOTYPE_JOURNEY_STRICT}" = "true" ]; then
+              phenotype-journey assert "$manifest" --strict
+            else
+              phenotype-journey assert "$manifest" || true
+            fi
+          done
+
+      - name: Journey Gate Summary
+        if: steps.discover.outputs.MANIFEST_COUNT != '0'
+        run: |
+          echo "::notice::Journey gate PASSED (${{ steps.discover.outputs.MANIFEST_COUNT }} manifest(s))"
