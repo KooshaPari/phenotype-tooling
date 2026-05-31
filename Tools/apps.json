@@ -1,6 +1,6 @@
 {
   "$schema": "./apps.schema.json",
-  "_comment": "Data-driven manifest for Register-StartMenuApps.ps1. One entry per Phenotype web app. Each shortcut launches the app in DEV/HMR mode (live reload), pointing the Electrobun shell at the running dev server, NOT a frozen production bundle. Extend this list to cover all ~38 apps.",
+  "_comment": "Data-driven manifest for Register-StartMenuApps.ps1. One entry per Phenotype web app. Each shortcut launches the app in DEV/HMR mode (live reload), pointing the Electrobun shell at the running dev server, NOT a frozen production bundle. Extend this list to cover all 13 known runnable apps: AgilePlus + 12 discovered (10 WEB-APP, 2 DESKTOP-APP). See docs/app-inventory.md.",
   "startMenuFolder": "Phenotype Apps",
   "apps": [
     {
@@ -20,6 +20,186 @@
       },
       "electrobunBuildDir": "build/dev-win-x64/AgilePlus",
       "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "phenodocs",
+      "appId": "com.phenotype.phenodocs",
+      "repoPath": "https://github.com/KooshaPari/phenodocs",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "Planify",
+      "appId": "com.phenotype.planify",
+      "repoPath": "https://github.com/KooshaPari/Planify",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "OmniRoute",
+      "appId": "com.phenotype.omniroute",
+      "repoPath": "https://github.com/KooshaPari/OmniRoute",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "phenoRouterMonitor",
+      "appId": "com.phenotype.phenoroutermonitor",
+      "repoPath": "https://github.com/KooshaPari/phenoRouterMonitor",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "AtomsBot",
+      "appId": "com.phenotype.atomsbot",
+      "repoPath": "https://github.com/KooshaPari/AtomsBot",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "HeliosLab",
+      "appId": "com.phenotype.helioslab",
+      "repoPath": "https://github.com/KooshaPari/HeliosLab",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "DESKTOP-APP",
+      "hasDesktopShell": true,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "AppGen",
+      "appId": "com.phenotype.appgen",
+      "repoPath": "https://github.com/KooshaPari/AppGen",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm start",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "phenotype-auth-ts",
+      "appId": "com.phenotype.phenotypeauthts",
+      "repoPath": "https://github.com/KooshaPari/phenotype-auth-ts",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "helios-router",
+      "appId": "com.phenotype.heliosrouter",
+      "repoPath": "https://github.com/KooshaPari/helios-router",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "chatta",
+      "appId": "com.phenotype.chatta",
+      "repoPath": "https://github.com/KooshaPari/chatta",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "phenotype-org-governance",
+      "appId": "com.phenotype.phenotypeorggovernance",
+      "repoPath": "https://github.com/KooshaPari/phenotype-org-governance",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "WEB-APP",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true
+    },
+    {
+      "name": "slickport",
+      "appId": "com.phenotype.slickport",
+      "repoPath": "https://github.com/KooshaPari/slickport",
+      "devServer": {
+        "cwd": ".",
+        "command": "npm run dev",
+        "url": null,
+        "port": null
+      },
+      "class": "DESKTOP-APP",
+      "hasDesktopShell": true,
+      "ico": null,
+      "_needsIco": true
     }
   ]
 }
