@@ -7,7 +7,7 @@ repository.workspace = true
 description = "Line-level unified diff and patch-apply library (migrated from KooshaPari/Diffuse); wraps `similar`"
 
 [dependencies]
-similar = "2.6"
+similar = "3.1"
 thiserror = { workspace = true }
 serde = { workspace = true }
 
