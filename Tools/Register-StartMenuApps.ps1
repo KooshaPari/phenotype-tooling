@@ -16,10 +16,8 @@
          The launcher (HMR-first, NOT a frozen prod bundle):
            a. Boots backend services if configured (process-compose / cargo run).
            b. Starts the app's Vite/react-router dev server if its port is free.
-           c. Launches the LATEST Electrobun build's NATIVE launcher.exe with
+           c. Launches the LATEST Electrobun build's launcher.exe with
               RENDERER_URL pointed at the live dev-server URL -> hot reload.
-         NATIVE-ONLY: there is NO browser fallback. If launcher.exe is absent
-         the app is SKIPPED with a warning (run `electrobun build` first).
       2. Creates/REFRESHES a single stable-named .lnk in the Start-Menu folder
          (overwrite — never duplicates on rebuild). TargetPath = launcher .cmd,
          IconLocation = app.ico (falls back to a default if absent),
@@ -141,14 +139,13 @@ function New-LauncherCmd {
     $lines += "set ""RENDERER_URL=$devUrl"""
     $lines += "set ""APP_NAME=$name"""
     $lines += "set ""LAUNCHER=%REPO%\$buildDir\launcher.exe"""
-    # NATIVE-ONLY: no browser fallback. If the native shell is missing the
-    # launcher hard-fails with a build instruction — it never opens a browser.
-    $lines += 'if not exist "%LAUNCHER%" ('
-    $lines += "  echo [$name] ERROR: native Electrobun shell not found at ""%LAUNCHER%"""
-    $lines += "  echo Run: electrobun build  ^&^&  just register-startmenu $name"
-    $lines += '  exit /b 1'
+    $lines += 'if exist "%LAUNCHER%" ('
+    $lines += '  start "" "%LAUNCHER%"'
+    $lines += ') else ('
+    $lines += "  echo [$name] Electrobun build not found at ""%LAUNCHER%"". Run: electrobun build"
+    $lines += "  echo Opening dev server in browser as fallback..."
+    $lines += "  start """" ""$devUrl"""
     $lines += ')'
-    $lines += 'start "" "%LAUNCHER%"'
 
     Set-Content -LiteralPath $cmdPath -Value ($lines -join "`r`n") -Encoding ASCII
     return $cmdPath
@@ -162,16 +159,6 @@ function Set-AppShortcut {
     $repo = $AppCfg.repoPath
     if (-not (Test-Path $repo)) {
         Write-Warn "Repo path missing for '$name': $repo — skipping."
-        return
-    }
-
-    # NATIVE-ONLY GATE: a Start-Menu entry MUST resolve to a genuine native
-    # Electrobun launcher.exe. If the native shell hasn't been built, SKIP the
-    # app with a warning — never register a browser/URL fallback shortcut.
-    $repoWin     = ($repo -replace '/', '\')
-    $launcherExe = Join-Path $repoWin (Join-Path ($AppCfg.electrobunBuildDir -replace '/', '\') 'launcher.exe')
-    if (-not (Test-Path -LiteralPath $launcherExe)) {
-        Write-Warn "Skipping '$name': no native shell built — run ``electrobun build`` first (expected: $launcherExe)."
         return
     }
 
