@@ -3,7 +3,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-
 on:
   push:
     branches: [main]
@@ -11,16 +10,8 @@ on:
     branches: [main]
 
 # Thin caller that adopts the phenoShared reusable Rust CI workflow.
-# Pinned to HEAD SHA of KooshaPari/phenoShared@main until PR #85 merges and
-# exposes `.github/workflows/reusable/ci.yml`. Once merged, re-pin to a tag
-# (e.g. @v1) per the phenoShared release policy.
+# Pinned to main SHA 5ed0e3b — no semver tag yet; re-pin to a tag (e.g. @v1)
+# per the phenoShared release policy once one is cut with the reusable/ci.yml.
 jobs:
-  workflow-present:
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "CI workflow dispatched"
-
   rust-ci:
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "CI stub — phenoShared reusable workflow blocked by missing phenotypeActions repo"
+    uses: KooshaPari/phenoShared/.github/workflows/reusable/ci.yml@5ed0e3bb2279610656755d3adb5403fba94a2bd2
