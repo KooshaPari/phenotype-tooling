@@ -1,7 +1,7 @@
 # Reusable journey gate — skips cleanly when no manifest.verified.json files exist.
 #   jobs:
 #     journey-gate:
-#       uses: KooshaPari/phenotype-tooling/.github/workflows/reusable/journey-gate.yml@main
+#       uses: KooshaPari/phenotype-tooling/.github/workflows/reusable-journey-gate.yml@main
 name: Reusable Journey Gate
 
 on:
