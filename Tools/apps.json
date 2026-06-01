@@ -1,0 +1,159 @@
+{
+  "$schema": "./apps.schema.json",
+  "_comment": "Data-driven manifest for Register-StartMenuApps.ps1. One entry per Phenotype DESKTOP app. NATIVE-ONLY: every shortcut targets a genuine native Electrobun launcher.exe (build/dev-win-x64/<App>-dev/bin/launcher.exe, PE32+), launched in DEV/HMR mode (live reload pointed at the running dev server). There is NO browser fallback — if an app's launcher.exe is not built, the registrar SKIPS it with a warning ('no native shell built — run electrobun build first'). electrobunBuildDir is relative to repoPath and points at the dir CONTAINING launcher.exe. EXCLUDED by decision: phenodocs (docs site, browser-only) and phenotype-auth-ts (library, not an app). CAVEATS (still included): AtomsBot is primarily a Discord bot with a minimal web UI; phenotype-org-governance has no dev server yet and needs a docs:dev script added before its shell HMRs.",
+  "startMenuFolder": "Phenotype Apps",
+  "apps": [
+    {
+      "name": "AgilePlus",
+      "appId": "com.phenotype.agileplus",
+      "repoPath": "C:/Users/koosh/Dev/AgilePlus",
+      "devServer": {
+        "cwd": "crates/agileplus-dashboard/web",
+        "command": "bun run dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "backend": {
+        "cwd": ".",
+        "command": "cargo run -p agileplus-api",
+        "port": 4000
+      },
+      "electrobunBuildDir": "crates/agileplus-dashboard/desktop-electrobun/build/dev-win-x64/AgilePlus-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "OmniRoute",
+      "appId": "com.phenotype.omniroute",
+      "repoPath": "C:/Users/koosh/Dev/OmniRoute",
+      "devServer": {
+        "cwd": ".",
+        "command": "node scripts/run-next.mjs dev",
+        "url": "http://localhost:3000",
+        "port": 3000
+      },
+      "electrobunBuildDir": "desktop-electrobun/build/dev-win-x64/OmniRoute-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "Planify",
+      "appId": "com.phenotype.planify",
+      "repoPath": "C:/Users/koosh/Dev/Planify",
+      "devServer": {
+        "cwd": "apps/web",
+        "command": "bun run dev",
+        "url": "http://localhost:4400",
+        "port": 4400
+      },
+      "electrobunBuildDir": "apps/web/desktop-electrobun/build/dev-win-x64/Planify-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "chatta",
+      "appId": "com.phenotype.chatta",
+      "repoPath": "C:/Users/koosh/Dev/chatta",
+      "devServer": {
+        "cwd": "frontend",
+        "command": "bun run dev",
+        "url": "http://localhost:8080",
+        "port": 8080
+      },
+      "electrobunBuildDir": "desktop-electrobun/build/dev-win-x64/chatta-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "phenoRouterMonitor",
+      "appId": "com.phenotype.phenoroutermonitor",
+      "repoPath": "C:/Users/koosh/Dev/phenoRouterMonitor",
+      "devServer": {
+        "cwd": "docs",
+        "command": "bun run dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "electrobunBuildDir": "desktop-electrobun/build/dev-win-x64/phenoRouterMonitor-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "AtomsBot",
+      "appId": "com.phenotype.atomsbot",
+      "_caveat": "Primarily a Discord bot with a minimal web UI; the desktop shell wraps that minimal UI.",
+      "repoPath": "C:/Users/koosh/Dev/AtomsBot",
+      "devServer": {
+        "cwd": ".",
+        "command": "bun run dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "electrobunBuildDir": "desktop-electrobun/build/dev-win-x64/AtomsBot-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "AppGen",
+      "appId": "com.phenotype.appgen",
+      "repoPath": "C:/Users/koosh/Dev/AppGen",
+      "devServer": {
+        "cwd": ".",
+        "command": "bun run dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "electrobunBuildDir": "desktop-electrobun/build/dev-win-x64/AppGen-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "phenotype-org-governance",
+      "appId": "com.phenotype.org-governance",
+      "_caveat": "No dev server yet — needs a `docs:dev` script added before the shell can HMR. Command below assumes that script once present.",
+      "repoPath": "C:/Users/koosh/Dev/phenotype-org-governance",
+      "devServer": {
+        "cwd": "docs",
+        "command": "bun run docs:dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "electrobunBuildDir": "desktop-electrobun/build/dev-win-x64/phenotype-org-governance-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "slickport",
+      "appId": "com.phenotype.slickport",
+      "repoPath": "C:/Users/koosh/Dev/slickport",
+      "devServer": {
+        "cwd": ".",
+        "command": "bun run dev",
+        "url": "http://localhost:5180",
+        "port": 5180
+      },
+      "electrobunBuildDir": "desktop-electrobun/build/dev-win-x64/slickport-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "HeliosLab",
+      "appId": "sh.blackboard.colab",
+      "_caveat": "Electrobun app.name is 'co(lab)', so the built dir is 'co(lab)-dev', not 'HeliosLab-dev'.",
+      "repoPath": "C:/Users/koosh/Dev/HeliosLab",
+      "devServer": {
+        "cwd": "docs",
+        "command": "bun run dev",
+        "url": "http://127.0.0.1:5173",
+        "port": 5173
+      },
+      "electrobunBuildDir": "build/dev-win-x64/co(lab)-dev/bin",
+      "ico": "assets/brand/app.ico"
+    },
+    {
+      "name": "helios-router",
+      "appId": "sh.phenotype.helios-router",
+      "_caveat": "Electrobun app.name is 'Helios Router', so the built dir is 'Helios Router-dev'.",
+      "repoPath": "C:/Users/koosh/Dev/helios-router",
+      "devServer": {
+        "cwd": "dashboard",
+        "command": "bun run dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "electrobunBuildDir": "build/dev-win-x64/Helios Router-dev/bin",
+      "ico": "assets/brand/app.ico"
+    }
+  ]
+}

@@ -1,0 +1,224 @@
+#requires -Version 5.1
+<#
+.SYNOPSIS
+    Registers Phenotype web apps' Electrobun desktop builds as searchable Windows
+    Start-Menu shortcuts that launch each app in DEV/HMR (live hot-reload) mode.
+
+.DESCRIPTION
+    Creates/ensures a searchable Start-Menu folder:
+        %APPDATA%\Microsoft\Windows\Start Menu\Programs\Phenotype Apps\
+
+    Reads a data-driven manifest (apps.json) listing per-app config (name, repo,
+    dev-server command + port, electrobun build dir, .ico). For each app it:
+
+      1. Generates a stable launcher .cmd at:
+             %LOCALAPPDATA%\PhenotypeApps\launchers\<App>-dev.cmd
+         The launcher (HMR-first, NOT a frozen prod bundle):
+           a. Boots backend services if configured (process-compose / cargo run).
+           b. Starts the app's Vite/react-router dev server if its port is free.
+           c. Launches the LATEST Electrobun build's NATIVE launcher.exe with
+              RENDERER_URL pointed at the live dev-server URL -> hot reload.
+         NATIVE-ONLY: there is NO browser fallback. If launcher.exe is absent
+         the app is SKIPPED with a warning (run `electrobun build` first).
+      2. Creates/REFRESHES a single stable-named .lnk in the Start-Menu folder
+         (overwrite — never duplicates on rebuild). TargetPath = launcher .cmd,
+         IconLocation = app.ico (falls back to a default if absent),
+         WorkingDirectory = repo.
+
+    Idempotent and re-runnable. Designed to be invoked at the end of each app's
+    `electrobun build` step so a completed build always re-points its shortcut at
+    the latest output.
+
+.PARAMETER Manifest
+    Path to apps.json. Defaults to apps.json next to this script.
+
+.PARAMETER App
+    Register only the named app from the manifest. Omit to register all apps.
+
+.EXAMPLE
+    pwsh Tools/Register-StartMenuApps.ps1
+    pwsh Tools/Register-StartMenuApps.ps1 -App AgilePlus
+
+.NOTES
+    HMR guarantee: the shortcut never targets a static index.html or a frozen
+    bundle. It always (re)resolves launcher.exe under <repo>/<electrobunBuildDir>
+    at launch time and sets RENDERER_URL to the live dev-server URL, so the window
+    renders the latest source with hot reload.
+#>
+[CmdletBinding()]
+param(
+    [string]$Manifest = (Join-Path $PSScriptRoot 'apps.json'),
+    [string]$App
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Write-Info($msg) { Write-Host "[Register-StartMenuApps] $msg" }
+function Write-Warn($msg) { Write-Warning "[Register-StartMenuApps] $msg" }
+
+# ── Resolve well-known locations ───────────────────────────────────────────────
+$StartMenuRoot = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
+$LauncherRoot  = Join-Path $env:LOCALAPPDATA 'PhenotypeApps\launchers'
+$AssetRoot     = Join-Path $env:LOCALAPPDATA 'PhenotypeApps\assets'
+
+if (-not (Test-Path $Manifest)) {
+    throw "Manifest not found: $Manifest"
+}
+$cfg = Get-Content -Raw -LiteralPath $Manifest | ConvertFrom-Json
+
+$folderName = if ($cfg.PSObject.Properties.Name -contains 'startMenuFolder' -and $cfg.startMenuFolder) {
+    $cfg.startMenuFolder
+} else { 'Phenotype Apps' }
+
+$StartMenuFolder = Join-Path $StartMenuRoot $folderName
+
+# Ensure folders exist (searchable/browsable in Start Menu).
+foreach ($dir in @($StartMenuFolder, $LauncherRoot, $AssetRoot)) {
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
+}
+Write-Info "Start-Menu folder: $StartMenuFolder"
+
+# ── Default fallback icon ──────────────────────────────────────────────────────
+function Get-DefaultIcon {
+    # Use a stable system icon as the fallback so shortcuts always render.
+    $candidates = @(
+        (Join-Path $env:SystemRoot 'System32\SHELL32.dll'),  # generic app glyph (index 2)
+        (Join-Path $env:SystemRoot 'System32\imageres.dll')
+    )
+    foreach ($c in $candidates) { if (Test-Path $c) { return "$c,2" } }
+    return $null
+}
+
+# ── Launcher .cmd generation ───────────────────────────────────────────────────
+function New-LauncherCmd {
+    param([pscustomobject]$AppCfg)
+
+    $repo = ($AppCfg.repoPath -replace '/', '\')
+    $name = $AppCfg.name
+    $dev  = $AppCfg.devServer
+    $devCwd  = if ($dev.PSObject.Properties.Name -contains 'cwd' -and $dev.cwd) { $dev.cwd } else { '.' }
+    $devCmd  = $dev.command
+    $devUrl  = $dev.url
+    $devPort = $dev.port
+    $buildDir = $AppCfg.electrobunBuildDir
+
+    $hasBackend = ($AppCfg.PSObject.Properties.Name -contains 'backend') -and $AppCfg.backend
+    $beCwd = ''; $beCmd = ''
+    if ($hasBackend) {
+        $beCwd = if ($AppCfg.backend.PSObject.Properties.Name -contains 'cwd' -and $AppCfg.backend.cwd) { $AppCfg.backend.cwd } else { '.' }
+        $beCmd = $AppCfg.backend.command
+    }
+
+    $cmdPath = Join-Path $LauncherRoot ("{0}-dev.cmd" -f $name)
+
+    $lines = @()
+    $lines += '@echo off'
+    $lines += 'rem ===================================================================='
+    $lines += "rem  $name — DEV / HMR launcher (generated by Register-StartMenuApps.ps1)"
+    $lines += 'rem  Boots services -> dev server (if down) -> Electrobun @ live URL.'
+    $lines += 'rem  Never targets a frozen bundle: RENDERER_URL = live dev server.'
+    $lines += 'rem ===================================================================='
+    $lines += "set ""REPO=$repo"""
+    if ($hasBackend) {
+        $lines += 'rem --- backend services ---'
+        $lines += "start ""$name backend"" /D ""%REPO%\$beCwd"" cmd /c $beCmd"
+    }
+    $lines += 'rem --- dev server: only start if port is free (avoid duplicate) ---'
+    $lines += "set DEVPORT=$devPort"
+    $lines += 'set DEVUP='
+    $lines += 'for /f "tokens=*" %%A in (''netstat -ano -p tcp ^| findstr ":%DEVPORT% " ^| findstr LISTENING'') do set DEVUP=1'
+    $lines += 'if not defined DEVUP ('
+    $lines += "  start ""$name dev server"" /D ""%REPO%\$devCwd"" cmd /c $devCmd"
+    $lines += "  rem give the dev server a moment to bind the port"
+    $lines += '  ping -n 4 127.0.0.1 >nul'
+    $lines += ') else ('
+    $lines += "  echo [$name] dev server already listening on %DEVPORT%"
+    $lines += ')'
+    $lines += 'rem --- Electrobun window pointed at live dev server (HMR) ---'
+    $lines += "set ""RENDERER_URL=$devUrl"""
+    $lines += "set ""APP_NAME=$name"""
+    $lines += "set ""LAUNCHER=%REPO%\$buildDir\launcher.exe"""
+    # NATIVE-ONLY: no browser fallback. If the native shell is missing the
+    # launcher hard-fails with a build instruction — it never opens a browser.
+    $lines += 'if not exist "%LAUNCHER%" ('
+    $lines += "  echo [$name] ERROR: native Electrobun shell not found at ""%LAUNCHER%"""
+    $lines += "  echo Run: electrobun build  ^&^&  just register-startmenu $name"
+    $lines += '  exit /b 1'
+    $lines += ')'
+    $lines += 'start "" "%LAUNCHER%"'
+
+    Set-Content -LiteralPath $cmdPath -Value ($lines -join "`r`n") -Encoding ASCII
+    return $cmdPath
+}
+
+# ── Shortcut (.lnk) creation/refresh ───────────────────────────────────────────
+function Set-AppShortcut {
+    param([pscustomobject]$AppCfg)
+
+    $name = $AppCfg.name
+    $repo = $AppCfg.repoPath
+    if (-not (Test-Path $repo)) {
+        Write-Warn "Repo path missing for '$name': $repo — skipping."
+        return
+    }
+
+    # NATIVE-ONLY GATE: a Start-Menu entry MUST resolve to a genuine native
+    # Electrobun launcher.exe. If the native shell hasn't been built, SKIP the
+    # app with a warning — never register a browser/URL fallback shortcut.
+    $repoWin     = ($repo -replace '/', '\')
+    $launcherExe = Join-Path $repoWin (Join-Path ($AppCfg.electrobunBuildDir -replace '/', '\') 'launcher.exe')
+    if (-not (Test-Path -LiteralPath $launcherExe)) {
+        Write-Warn "Skipping '$name': no native shell built — run ``electrobun build`` first (expected: $launcherExe)."
+        return
+    }
+
+    $launcher = New-LauncherCmd -AppCfg $AppCfg
+
+    # Resolve icon: app-provided .ico, else fallback (and note it).
+    $iconLocation = $null
+    if ($AppCfg.PSObject.Properties.Name -contains 'ico' -and $AppCfg.ico) {
+        $icoPath = if ([System.IO.Path]::IsPathRooted($AppCfg.ico)) { $AppCfg.ico } else { Join-Path $repo $AppCfg.ico }
+        if (Test-Path $icoPath) {
+            $iconLocation = "$icoPath,0"
+        } else {
+            Write-Warn "Icon for '$name' not found at '$icoPath' — using default fallback icon."
+        }
+    }
+    if (-not $iconLocation) { $iconLocation = Get-DefaultIcon }
+
+    $lnkPath = Join-Path $StartMenuFolder ("{0}.lnk" -f $name)
+
+    $shell = New-Object -ComObject WScript.Shell
+    try {
+        $sc = $shell.CreateShortcut($lnkPath)  # CreateShortcut overwrites if it exists
+        $sc.TargetPath       = "$env:SystemRoot\System32\cmd.exe"
+        $sc.Arguments        = "/c `"$launcher`""
+        $sc.WorkingDirectory = $repo
+        $sc.WindowStyle      = 7   # minimized console
+        $sc.Description      = "$name — Phenotype desktop (DEV/HMR, live reload)"
+        if ($iconLocation) { $sc.IconLocation = $iconLocation }
+        $sc.Save()
+    } finally {
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null
+    }
+
+    Write-Info "Registered shortcut: $lnkPath  ->  $launcher"
+}
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+$apps = $cfg.apps
+if ($App) {
+    $apps = @($apps | Where-Object { $_.name -eq $App })
+    if (-not $apps -or $apps.Count -eq 0) {
+        throw "App '$App' not found in manifest $Manifest"
+    }
+}
+
+foreach ($a in $apps) {
+    Set-AppShortcut -AppCfg $a
+}
+
+Write-Info ("Done. {0} app(s) registered in '{1}'." -f @($apps).Count, $StartMenuFolder)
