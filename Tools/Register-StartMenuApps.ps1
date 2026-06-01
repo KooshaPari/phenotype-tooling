@@ -9,7 +9,9 @@
         %APPDATA%\Microsoft\Windows\Start Menu\Programs\Phenotype Apps\
 
     Reads a data-driven manifest (apps.json) listing per-app config (name, repo,
-    dev-server command + port, electrobun build dir, .ico). For each app it:
+    dev-server command + port, electrobun build dir, .ico). Apps with
+    launchType "native" skip Electrobun/HMR and point the shortcut at a built
+    native .exe instead. For each Electrobun app it:
 
       1. Generates a stable launcher .cmd at:
              %LOCALAPPDATA%\PhenotypeApps\launchers\<App>-dev.cmd
@@ -154,53 +156,132 @@ function New-LauncherCmd {
     return $cmdPath
 }
 
+# ── Hidden-console .vbs wrapper generation ──────────────────────────────────────
+# Creates a .vbs file that silently launches the launcher .cmd with no visible window.
+function New-HiddenLauncherVbs {
+    param(
+        [string]$CmdPath,
+        [string]$AppName
+    )
+
+    $vbsPath = [System.IO.Path]::ChangeExtension($CmdPath, '.vbs')
+    $cmdPathEscaped = $CmdPath -replace '"', '""'
+
+    $vbsContent = @"
+' Auto-generated hidden launcher wrapper for $AppName
+' Launches the dev-server + Electrobun window with no visible console.
+Set shell = CreateObject("WScript.Shell")
+' 0 = hidden window, False = async (don't wait)
+shell.Run "$cmdPathEscaped", 0, False
+"@
+
+    Set-Content -LiteralPath $vbsPath -Value $vbsContent -Encoding ASCII
+    return $vbsPath
+}
+
 # ── Shortcut (.lnk) creation/refresh ───────────────────────────────────────────
+function Get-AppIconLocation {
+    param(
+        [pscustomobject]$AppCfg,
+        [string]$Repo
+    )
+    $iconLocation = $null
+    if ($AppCfg.PSObject.Properties.Name -contains 'ico' -and $AppCfg.ico) {
+        $icoPath = if ([System.IO.Path]::IsPathRooted($AppCfg.ico)) { $AppCfg.ico } else { Join-Path $Repo $AppCfg.ico }
+        if (Test-Path $icoPath) {
+            $iconLocation = "$icoPath,0"
+        } else {
+            Write-Warn "Icon for '$($AppCfg.name)' not found at '$icoPath' — using default fallback icon."
+        }
+    }
+    if (-not $iconLocation) { $iconLocation = Get-DefaultIcon }
+    return $iconLocation
+}
+
 function Set-AppShortcut {
     param([pscustomobject]$AppCfg)
 
     $name = $AppCfg.name
-    $repo = $AppCfg.repoPath
+    $repo = ($AppCfg.repoPath -replace '/', '\')
     if (-not (Test-Path $repo)) {
         Write-Warn "Repo path missing for '$name': $repo — skipping."
         return
     }
 
-    # NOTE: Do NOT gate on launcher.exe existence. Register ALL apps; the generated
-    # launcher .cmd will hard-fail with a build instruction if launcher.exe is missing
-    # at run time. This allows all apps to appear in Start Menu with icons, even if
-    # they haven't been built yet.
-
-    $launcher = New-LauncherCmd -AppCfg $AppCfg
-
-    # Resolve icon: app-provided .ico, else fallback (and note it).
-    $iconLocation = $null
-    if ($AppCfg.PSObject.Properties.Name -contains 'ico' -and $AppCfg.ico) {
-        $icoPath = if ([System.IO.Path]::IsPathRooted($AppCfg.ico)) { $AppCfg.ico } else { Join-Path $repo $AppCfg.ico }
-        if (Test-Path $icoPath) {
-            $iconLocation = "$icoPath,0"
-        } else {
-            Write-Warn "Icon for '$name' not found at '$icoPath' — using default fallback icon."
-        }
+    $launchType = 'electrobun'
+    if ($AppCfg.PSObject.Properties.Name -contains 'launchType' -and $AppCfg.launchType) {
+        $launchType = $AppCfg.launchType
     }
-    if (-not $iconLocation) { $iconLocation = Get-DefaultIcon }
 
+    $iconLocation = Get-AppIconLocation -AppCfg $AppCfg -Repo $repo
     $lnkPath = Join-Path $StartMenuFolder ("{0}.lnk" -f $name)
 
     $shell = New-Object -ComObject WScript.Shell
     try {
         $sc = $shell.CreateShortcut($lnkPath)  # CreateShortcut overwrites if it exists
-        $sc.TargetPath       = "$env:SystemRoot\System32\cmd.exe"
-        $sc.Arguments        = "/c `"$launcher`""
+
+        if ($launchType -eq 'native') {
+            if (-not ($AppCfg.PSObject.Properties.Name -contains 'nativeExe') -or -not $AppCfg.nativeExe) {
+                throw "App '$name' has launchType native but no nativeExe in manifest."
+            }
+            $exePath = if ([System.IO.Path]::IsPathRooted($AppCfg.nativeExe)) {
+                $AppCfg.nativeExe
+            } else {
+                Join-Path $repo ($AppCfg.nativeExe -replace '/', '\')
+            }
+            if (-not (Test-Path $exePath)) {
+                Write-Warn "Native exe for '$name' not found at '$exePath' — shortcut will still be created."
+            }
+            $workDir = $repo
+            if ($AppCfg.PSObject.Properties.Name -contains 'workingDirectory' -and $AppCfg.workingDirectory) {
+                $workDir = if ([System.IO.Path]::IsPathRooted($AppCfg.workingDirectory)) {
+                    $AppCfg.workingDirectory
+                } else {
+                    Join-Path $repo ($AppCfg.workingDirectory -replace '/', '\')
+                }
+            } else {
+                $workDir = Split-Path $exePath -Parent
+            }
+            $desc = if ($AppCfg.PSObject.Properties.Name -contains 'description' -and $AppCfg.description) {
+                $AppCfg.description
+            } else {
+                "$name - Phenotype native desktop"
+            }
+            $sc.TargetPath       = $exePath
+            $sc.Arguments        = ''
+            $sc.WorkingDirectory = $workDir
+            $sc.WindowStyle      = 1
+            $sc.Description      = $desc
+            if ($iconLocation) { $sc.IconLocation = $iconLocation }
+            $sc.Save()
+            Write-Info "Registered native shortcut: $lnkPath  ->  $exePath"
+            return
+        }
+
+        if ($launchType -ne 'electrobun') {
+            throw "App '$name' has unknown launchType '$launchType' (expected electrobun or native)."
+        }
+
+        # NOTE: Do NOT gate on launcher.exe existence. Register ALL apps; the generated
+        # launcher .cmd will hard-fail with a build instruction if launcher.exe is missing
+        # at run time. This allows all apps to appear in Start Menu with icons, even if
+        # they haven't been built yet.
+
+        $launcher = New-LauncherCmd -AppCfg $AppCfg
+        $launcherVbs = New-HiddenLauncherVbs -CmdPath $launcher -AppName $name
+
+        # Point .lnk directly at the hidden-launch .vbs wrapper (no visible console)
+        $sc.TargetPath       = "$env:SystemRoot\System32\wscript.exe"
+        $sc.Arguments        = "`"$launcherVbs`""
         $sc.WorkingDirectory = $repo
-        $sc.WindowStyle      = 7   # minimized console
+        $sc.WindowStyle      = 1   # normal window (wscript itself is invisible; the app window opens)
         $sc.Description      = "$name - Phenotype desktop (DEV/HMR, live reload)"
         if ($iconLocation) { $sc.IconLocation = $iconLocation }
         $sc.Save()
+        Write-Info "Registered shortcut: $lnkPath  ->  wscript $launcherVbs"
     } finally {
         [System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null
     }
-
-    Write-Info "Registered shortcut: $lnkPath  ->  $launcher"
 }
 
 # ── Main ───────────────────────────────────────────────────────────────────────
