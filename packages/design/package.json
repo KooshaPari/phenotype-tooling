@@ -1,0 +1,48 @@
+{
+  "name": "@phenotype/design",
+  "version": "1.0.0",
+  "description": "Phenotype Design System — Keycap Palette tokens, components, VitePress theme, and glass recipes",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./css/keycap-palette.css": "./css/keycap-palette.css",
+    "./css/components.css": "./css/components.css",
+    "./css/vitepress-theme.css": "./css/vitepress-theme.css",
+    "./css/glass.css": "./css/glass.css",
+    "./tokens/keycap.json": "./tokens/keycap.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "css/",
+    "tokens/",
+    "src/",
+    "dist/",
+    "docs/"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "phenotype",
+    "design-system",
+    "keycap-palette",
+    "css",
+    "tokens",
+    "vitepress"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KooshaPari/phenotype-tooling.git",
+    "directory": "packages/design"
+  }
+}
