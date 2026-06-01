@@ -1,4 +1,4 @@
-﻿name: cargo-deny
+name: cargo-deny
 on:
   workflow_dispatch:
   pull_request:
@@ -10,4 +10,4 @@ permissions:
   contents: read
 jobs:
   cargo-deny:
-    uses: KooshaPari/phenotype-tooling/.github/workflows/reusable/cargo-deny.yml@main
+    uses: KooshaPari/phenotype-tooling/.github/workflows/reusable-cargo-deny.yml@main
