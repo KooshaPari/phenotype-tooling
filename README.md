@@ -1,3 +1,6 @@
+> **Work state:** ACTIVE · **Progress:** `███████░░░ 75%`
+> Reusable-workflow federation hub (cargo-deny/trufflehog/journey-gate); cargo-deny converged to one mechanism. · updated 2026-06-02
+
 # phenotype-tooling
 
 [![Build](https://img.shields.io/github/actions/workflow/status/KooshaPari/phenotype-tooling/ci.yml?branch=main&label=build)](https://github.com/KooshaPari/phenotype-tooling/actions)
