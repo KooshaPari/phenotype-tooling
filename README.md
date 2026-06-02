@@ -1,3 +1,8 @@
+> **Work state:** ACTIVE · **Progress:** `███████████████░░░░░ 75%`
+> Shared Phenotype org tooling monorepo — `justfile`/`Taskfile.yml` task runners, Rust `crates/` (incl. quality-gate), `Tools/` scripts, hooks, devcontainer. The reference baseline the other repos consume. Stabilizing toward a published, self-documenting org-tooling baseline. · updated 2026-06-02
+
+---
+
 # phenotype-tooling
 
 [![Build](https://img.shields.io/github/actions/workflow/status/KooshaPari/phenotype-tooling/ci.yml?branch=main&label=build)](https://github.com/KooshaPari/phenotype-tooling/actions)
