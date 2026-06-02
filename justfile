@@ -5,36 +5,44 @@ default:
 
 # Build workspace
 build:
-    cargo build --workspace
+    cargo build --workspace --all-targets --all-features
+
+# Check workspace without building artifacts
+check:
+    cargo check --workspace --all-targets --all-features
 
 # Run tests
 test:
-    cargo test --workspace
+    cargo test --workspace --all-features --all-targets
 
 # Lint (clippy + fmt --check)
 lint:
-    cargo clippy --workspace -- -D warnings
-    cargo fmt --check
+    cargo fmt --all --check
+    cargo clippy --workspace --all-features --all-targets -- -D warnings
 
 # Format code
 fmt:
-    cargo fmt
+    cargo fmt --all
 
 # Security audits (cargo-deny + cargo-audit)
 audit:
-    cargo deny check
-    cargo audit
+    cargo deny check advisories
+    cargo audit --deny warnings
 
 # Find unused dependencies
 unused:
     cargo machete
 
 # Full local CI sweep
-ci: lint test audit unused
+ci: check lint test audit unused
+
+# Remove build artifacts
+clean:
+    cargo clean
 
 # Generate docs
 docs:
-    cargo doc --no-deps --workspace
+    cargo doc --no-deps --workspace --all-features --all-targets
 
 # Register/refresh Windows Start-Menu shortcuts for Electrobun desktop apps.
 # Each shortcut launches the app in DEV/HMR mode pointed at the live dev server.

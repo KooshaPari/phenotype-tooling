@@ -5,15 +5,20 @@ tasks:
     cmds:
       - task --list
 
+  check:
+    desc: cargo check
+    cmds:
+      - cargo check --workspace --all-targets --all-features
+
   build:
     desc: Build all crates
     cmds:
-      - cargo build --workspace --all-features
+      - cargo build --workspace --all-targets --all-features
 
   test:
     desc: Run tests
     cmds:
-      - cargo test --workspace --all-features
+      - cargo test --workspace --all-features --all-targets
 
   fmt:
     desc: Format code
@@ -23,13 +28,25 @@ tasks:
   lint:
     desc: Lint with clippy
     cmds:
+      - cargo fmt --all --check
       - cargo clippy --workspace --all-features --all-targets -- -D warnings
 
   audit:
     desc: Security advisory check
     cmds:
-      - cargo deny check advisories || true
+      - cargo deny check advisories
+      - cargo audit --deny warnings
 
   quality:
     desc: Full quality gate
-    deps: [fmt, lint, test, audit]
+    deps: [check, lint, test, audit]
+
+  docs:
+    desc: Build docs
+    cmds:
+      - cargo doc --no-deps --workspace --all-features --all-targets
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - cargo clean

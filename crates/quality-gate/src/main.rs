@@ -37,7 +37,7 @@ struct Cli {
     skip_fmt: bool,
 
     /// Emit JSON report to stdout.
-    #[arg(long, default_value_t = true)]
+    #[arg(long = "no-json", default_value_t = true, action = clap::ArgAction::SetFalse)]
     json: bool,
 }
 
@@ -60,9 +60,13 @@ struct Report {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // TODO: spawn `cargo fmt --check` via tokio::process::Command.
-    // TODO: spawn `cargo clippy --workspace -- -D warnings`.
-    // TODO: spawn `cargo test --workspace`.
+    if !cli.path.exists() {
+        anyhow::bail!("workspace path does not exist: {}", cli.path.display());
+    }
+
+    // TODO: spawn `cargo fmt --all --check` via tokio::process::Command.
+    // TODO: spawn `cargo clippy --workspace --all-targets --all-features -- -D warnings`.
+    // TODO: spawn `cargo test --workspace --all-targets --all-features`.
     // TODO: capture stderr tails, aggregate pass/fail.
     // Source reference: repos/AgilePlus/scripts/quality-gate.sh.
     let steps = vec![
@@ -94,12 +98,34 @@ async fn main() -> Result<()> {
 
     if cli.json {
         println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        println!(
+            "quality-gate: {} steps evaluated, all_passed={}",
+            report.steps.len(),
+            report.all_passed
+        );
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use super::Cli;
+    use clap::Parser;
+    use std::path::PathBuf;
+
     #[test]
-    fn smoke() {}
+    fn parses_json_flag_and_path() {
+        let cli = Cli::parse_from(["quality-gate", "--path", ".", "--json"]);
+        assert_eq!(cli.path, PathBuf::from("."));
+        assert!(cli.json);
+    }
+
+    #[test]
+    fn parses_skip_flags() {
+        let cli = Cli::parse_from(["quality-gate", "--skip-clippy", "--skip-test", "--skip-fmt"]);
+        assert!(cli.skip_clippy);
+        assert!(cli.skip_test);
+        assert!(cli.skip_fmt);
+    }
 }
