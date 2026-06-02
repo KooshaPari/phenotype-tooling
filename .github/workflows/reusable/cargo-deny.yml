@@ -2,10 +2,32 @@
 #   jobs:
 #     cargo-deny:
 #       uses: KooshaPari/phenotype-tooling/.github/workflows/reusable/cargo-deny.yml@main
+#       # with:
+#       #   use-org-policy: true   # default — fetch the canonical deny.toml from
+#       #                          # phenotype-org-governance (the ENFORCEMENT repo)
+#       #                          # unless the caller repo ships its own deny.toml.
+#
+# Mechanism lives here (phenotype-tooling); POLICY (deny.toml baseline) is owned
+# by phenotype-org-governance per the org's 4-role split. This workflow consumes
+# the governance deny.toml rather than carrying a competing copy. A caller that
+# ships its own deny.toml keeps using it (local override wins).
 name: Reusable cargo-deny
 
 on:
   workflow_call:
+    inputs:
+      use-org-policy:
+        description: >-
+          When true (default), use the canonical deny.toml from
+          phenotype-org-governance unless the caller repo already has its own.
+        type: boolean
+        required: false
+        default: true
+      governance-ref:
+        description: 'Ref of phenotype-org-governance to pull the deny.toml from.'
+        type: string
+        required: false
+        default: main
 
 permissions:
   contents: read
@@ -14,15 +36,38 @@ jobs:
   cargo-deny:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
+      - name: Checkout caller
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+
+      # Source the canonical policy from governance when the caller has none of
+      # its own. Local deny.toml always wins (local override > org baseline).
+      - name: Resolve deny.toml policy
+        id: policy
+        shell: bash
+        run: |
+          if [ -f deny.toml ]; then
+            echo "Using caller-local deny.toml (local override)."
+            echo "command-arguments=" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.use-org-policy }}" = "true" ]; then
+            echo "No local deny.toml; fetching canonical policy from phenotype-org-governance@${{ inputs.governance-ref }}."
+            curl -fsSL \
+              "https://raw.githubusercontent.com/KooshaPari/phenotype-org-governance/${{ inputs.governance-ref }}/deny.toml" \
+              -o .deny.org.toml
+            echo "command-arguments=--config .deny.org.toml" >> "$GITHUB_OUTPUT"
+          else
+            echo "No local deny.toml and use-org-policy=false; cargo-deny will use its defaults."
+            echo "command-arguments=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: stable
 
+      # `--config` is a flag on the `check` subcommand, so it goes in
+      # `command-arguments`; `arguments` keeps its default (--all-features).
       - name: Run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v6
         with:
           rust-version: stable
+          command-arguments: ${{ steps.policy.outputs.command-arguments }}
