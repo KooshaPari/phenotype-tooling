@@ -1,7 +1,5 @@
-> **Work state:** ACTIVE · **Progress:** `███████████████░░░░░ 75%`
-> Shared Phenotype org tooling monorepo — `justfile`/`Taskfile.yml` task runners, Rust `crates/` (incl. quality-gate), `Tools/` scripts, hooks, devcontainer. The reference baseline the other repos consume. Stabilizing toward a published, self-documenting org-tooling baseline. · updated 2026-06-02
-
----
+> **Work state:** ACTIVE · **Progress:** `███████░░░ 75%`
+> Reusable-workflow federation hub (cargo-deny/trufflehog/journey-gate); cargo-deny converged to one mechanism. · updated 2026-06-02
 
 # phenotype-tooling
 
