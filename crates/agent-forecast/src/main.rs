@@ -21,7 +21,8 @@ const CATEGORIES: &[&str] = &[
 #[derive(Parser)]
 #[command(
     name = "agent-forecast",
-    about = "Forecast token budgets per agent category"
+    about = "Forecast token budgets per agent category",
+    arg_required_else_help = true
 )]
 struct Cli {
     #[command(subcommand)]
@@ -56,9 +57,10 @@ struct Forecast {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let history_path = cli.history.unwrap_or_else(|| {
-        std::env::var("HOME")
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("."))
+            .unwrap_or_else(|| PathBuf::from("."))
             .join(".claude")
             .join("agent-history.jsonl")
     });
