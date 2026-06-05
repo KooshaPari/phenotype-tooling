@@ -42,7 +42,7 @@ clean:
 
 # Generate docs
 docs:
-    cargo doc --no-deps --workspace --all-features --all-targets
+    cargo doc --no-deps --workspace --all-features
 
 # Register/refresh Windows Start-Menu shortcuts for Electrobun desktop apps.
 # Each shortcut launches the app in DEV/HMR mode pointed at the live dev server.

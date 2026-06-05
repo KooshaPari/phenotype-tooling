@@ -116,9 +116,12 @@ mod tests {
 
     #[test]
     fn parses_json_flag_and_path() {
-        let cli = Cli::parse_from(["quality-gate", "--path", ".", "--json"]);
+        let cli = Cli::parse_from(["quality-gate", "--path", "."]);
         assert_eq!(cli.path, PathBuf::from("."));
         assert!(cli.json);
+
+        let cli = Cli::parse_from(["quality-gate", "--path", ".", "--no-json"]);
+        assert!(!cli.json);
     }
 
     #[test]

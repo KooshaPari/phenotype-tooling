@@ -44,7 +44,7 @@ tasks:
   docs:
     desc: Build docs
     cmds:
-      - cargo doc --no-deps --workspace --all-features --all-targets
+      - cargo doc --no-deps --workspace --all-features
 
   clean:
     desc: Remove build artifacts

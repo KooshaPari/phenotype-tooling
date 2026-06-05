@@ -122,14 +122,14 @@ function New-LauncherCmd {
     $lines += "set ""REPO=$repo"""
     if ($hasBackend) {
         $lines += 'rem --- backend services ---'
-        $lines += "start ""$name backend"" /D ""%REPO%\$beCwd"" cmd /c $beCmd"
+        $lines += "start ""$name backend"" /D ""%REPO%\$beCwd"" cmd /c ""$beCmd"""
     }
     $lines += 'rem --- dev server: only start if port is free (avoid duplicate) ---'
     $lines += "set DEVPORT=$devPort"
     $lines += 'set DEVUP='
     $lines += 'for /f "tokens=*" %%A in (''netstat -ano -p tcp ^| findstr ":%DEVPORT% " ^| findstr LISTENING'') do set DEVUP=1'
     $lines += 'if not defined DEVUP ('
-    $lines += "  start ""$name dev server"" /D ""%REPO%\$devCwd"" cmd /c $devCmd"
+    $lines += "  start ""$name dev server"" /D ""%REPO%\$devCwd"" cmd /c ""$devCmd"""
     $lines += "  rem give the dev server a moment to bind the port"
     $lines += '  ping -n 4 127.0.0.1 >nul'
     $lines += ') else ('
