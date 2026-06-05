@@ -14,4 +14,4 @@ on:
 # per the phenoShared release policy once one is cut with the reusable/ci.yml.
 jobs:
   rust-ci:
-    uses: KooshaPari/phenoShared/.github/workflows/reusable/ci.yml@5ed0e3bb2279610656755d3adb5403fba94a2bd2
+    uses: KooshaPari/phenoShared/.github/workflows/reusable/ci.yml@438e2e71e448c9f1f47f184d3ca4acbb28928677
