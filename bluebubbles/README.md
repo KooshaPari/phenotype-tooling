@@ -20,7 +20,7 @@ v1.9.9 (MIT). No fork — vanilla install, configured via its built-in UI.
 
    ```bash
    curl -L -o ~/Downloads/BlueBubblesServer.dmg \
-     https://github.com/BlueBubblesApp/bluebubbles-server/releases/latest/download/BlueBubbles-<ver>-arm64.dmg
+     https://github.com/BlueBubblesApp/bluebubbles-server/releases/latest/download/BlueBubblesServer-<ver>-arm64.dmg
    hdiutil attach ~/Downloads/BlueBubblesServer.dmg
    cp -R "/Volumes/BlueBubbles/BlueBubbles.app" /Applications/
    hdiutil detach "/Volumes/BlueBubbles"
