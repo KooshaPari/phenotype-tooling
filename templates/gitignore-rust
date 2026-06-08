@@ -1,0 +1,42 @@
+# Rust-only .gitignore — Phenotype org canonical
+# Cargo + toolchain + secrets + editor allowlist
+
+# Cargo
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Rust toolchains
+/.rustup/
+/.toolchains/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VSCode allowlist
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+# Secrets (allow example files)
+.env
+.env.*
+!.env.example
+!.env.sample
+**/secrets.*
+!**/secrets.example
+
+# kitty-specs working tree (local-only)
+/kitty-specs/.worktrees/
+
+# Windows
+[Bb]in/
+*.exe
+*.dll
+*.pdb

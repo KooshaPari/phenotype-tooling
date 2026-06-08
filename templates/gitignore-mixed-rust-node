@@ -1,0 +1,63 @@
+# Mixed Rust + Node .gitignore — Phenotype org canonical
+# Cargo + npm/pnpm/bun + tsc + secrets + editor allowlist
+
+# Cargo
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Rust toolchains
+/.rustup/
+/.toolchains/
+
+# Node dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Node build / TS
+/dist/
+/build/
+*.tsbuildinfo
+.turbo/
+
+# Node logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+
+# Test / coverage
+/coverage/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VSCode allowlist
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+# Secrets (allow example files)
+.env
+.env.*
+!.env.example
+!.env.sample
+**/secrets.*
+!**/secrets.example
+
+# kitty-specs working tree (local-only)
+/kitty-specs/.worktrees/
+
+# Windows
+[Bb]in/
+*.exe
+*.dll
+*.pdb

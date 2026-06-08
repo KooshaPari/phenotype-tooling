@@ -1,0 +1,63 @@
+# Xcode/iOS-only .gitignore — Phenotype org canonical
+# DerivedData + SwiftPM + CocoaPods + secrets + editor allowlist
+
+# Xcode user state
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+DerivedData/
+*.moved-aside
+*.hmap
+
+# Build products
+build/
+Build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+
+# CocoaPods / Carthage
+Pods/
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VSCode allowlist
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+# Secrets (allow example files)
+.env
+.env.*
+!.env.example
+!.env.sample
+**/secrets.*
+!**/secrets.example
+
+# kitty-specs working tree (local-only)
+/kitty-specs/.worktrees/
+
+# Windows
+[Bb]in/
+*.exe
+*.dll
+*.pdb

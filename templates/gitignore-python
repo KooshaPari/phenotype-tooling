@@ -1,0 +1,60 @@
+# Python-only .gitignore — Phenotype org canonical
+# venvs + caches + build + secrets + editor allowlist
+
+# Bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Build / dist
+/build/
+/dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VSCode allowlist
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+# Secrets (allow example files)
+.env
+.env.*
+!.env.example
+!.env.sample
+**/secrets.*
+!**/secrets.example
+
+# kitty-specs working tree (local-only)
+/kitty-specs/.worktrees/
+
+# Windows
+[Bb]in/
+*.exe
+*.dll
+*.pdb

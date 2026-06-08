@@ -1,0 +1,60 @@
+# Node/TS-only .gitignore — Phenotype org canonical
+# npm/pnpm/bun/yarn + tsc + secrets + editor allowlist
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+/dist/
+/build/
+/.next/
+/.nuxt/
+/out/
+/.cache/
+.turbo/
+*.tsbuildinfo
+
+# Test / coverage
+/coverage/
+.nyc_output/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun.lockb
+.npm/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VSCode allowlist
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+# Secrets (allow example files)
+.env
+.env.*
+!.env.example
+!.env.sample
+**/secrets.*
+!**/secrets.example
+
+# kitty-specs working tree (local-only)
+/kitty-specs/.worktrees/
+
+# Windows
+[Bb]in/
+*.exe
+*.dll
+*.pdb
