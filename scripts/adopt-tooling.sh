@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 # Symlink phenotype-tooling binaries into target repo's tooling/ dir.
 # Bash-only because it's a ≤5-line shell glue wrapper per scripting policy.
 
