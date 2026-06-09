@@ -102,12 +102,7 @@ fn main() -> Result<()> {
     } else {
         println!("DAG scorecard:");
         for node in &scorecard.nodes {
-            println!(
-                "{} -> {:?} ({}ms)",
-                node.id,
-                node.status,
-                node.duration_ms
-            );
+            println!("{} -> {:?} ({}ms)", node.id, node.status, node.duration_ms);
             if let Some(reason) = &node.skipped_due_to {
                 println!("  skipped: {}", reason);
             }
@@ -129,7 +124,10 @@ fn main() -> Result<()> {
             scorecard.soft_failures,
             scorecard.skipped
         );
-        println!("Topological order: {}", scorecard.execution_order.join(", "));
+        println!(
+            "Topological order: {}",
+            scorecard.execution_order.join(", ")
+        );
     }
 
     let has_hard_failures = scorecard
@@ -269,9 +267,9 @@ fn execute_node(
     let workspace = config
         .workspace
         .unwrap_or_else(|| cli_workspace_root.to_path_buf());
-    let baseline = config.baseline_path.unwrap_or_else(|| {
-        workspace.join("acceptance-baselines.json")
-    });
+    let baseline = config
+        .baseline_path
+        .unwrap_or_else(|| workspace.join("acceptance-baselines.json"));
 
     let card = run_acceptance(
         &config.path,
@@ -285,7 +283,9 @@ fn execute_node(
 
     let status = match card.hard_passed {
         true if card.max_soft_score == 0.0 => NodeStatus::Success,
-        true if card.max_soft_score > 0.0 && card.soft_percentage < 100.0 => NodeStatus::SoftFailure,
+        true if card.max_soft_score > 0.0 && card.soft_percentage < 100.0 => {
+            NodeStatus::SoftFailure
+        }
         true => NodeStatus::Success,
         false => NodeStatus::HardFailure,
     };
@@ -329,7 +329,10 @@ fn topological_sort(nodes: &[DagNode]) -> Result<Vec<String>> {
                 ));
             }
             *indegree.entry(node.id.clone()).or_insert(0) += 1;
-            adjacency.entry(dep.clone()).or_default().push(node.id.clone());
+            adjacency
+                .entry(dep.clone())
+                .or_default()
+                .push(node.id.clone());
         }
     }
 

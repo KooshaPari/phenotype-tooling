@@ -112,9 +112,16 @@ pub fn validate_and_sort(dag: &DagFile) -> Result<Vec<String>> {
     for node in &dag.nodes {
         for dep in &node.depends_on {
             if !node_lookup.contains_key(dep) {
-                return Err(anyhow!("node '{}' depends on unknown node '{}'", node.id, dep));
+                return Err(anyhow!(
+                    "node '{}' depends on unknown node '{}'",
+                    node.id,
+                    dep
+                ));
             }
-            adjacency.entry(dep.clone()).or_default().push(node.id.clone());
+            adjacency
+                .entry(dep.clone())
+                .or_default()
+                .push(node.id.clone());
             *indegree.entry(node.id.clone()).or_default() += 1;
         }
     }

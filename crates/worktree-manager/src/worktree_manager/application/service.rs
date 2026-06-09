@@ -25,10 +25,7 @@ where
     B: BranchOperations,
 {
     pub fn new(repository: R, branches: B) -> Self {
-        Self {
-            repository,
-            branches,
-        }
+        Self { repository, branches }
     }
 
     /// List all worktrees in a repository

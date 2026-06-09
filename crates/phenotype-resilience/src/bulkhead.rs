@@ -41,7 +41,10 @@ impl Bulkhead {
     /// Panics if `num_partitions == 0` or `capacity_per_partition == 0`.
     pub fn new(num_partitions: usize, capacity_per_partition: usize) -> Self {
         assert!(num_partitions > 0, "num_partitions must be > 0");
-        assert!(capacity_per_partition > 0, "capacity_per_partition must be > 0");
+        assert!(
+            capacity_per_partition > 0,
+            "capacity_per_partition must be > 0"
+        );
 
         let mut partitions = HashMap::with_capacity(num_partitions);
         for i in 0..num_partitions {
@@ -68,12 +71,13 @@ impl Bulkhead {
     /// * [`ResilienceError::BulkheadTotalExhausted`] — total capacity is full.
     pub async fn try_acquire(&self, partition: usize) -> Result<BulkheadGuard, ResilienceError> {
         let mut parts = self.inner.partitions.write().await;
-        let current = parts.get(&partition).copied().ok_or(
-            ResilienceError::BulkheadExhausted {
+        let current = parts
+            .get(&partition)
+            .copied()
+            .ok_or(ResilienceError::BulkheadExhausted {
                 partition,
                 capacity: 0,
-            },
-        )?;
+            })?;
 
         if current >= self.inner.partition_capacity {
             return Err(ResilienceError::BulkheadExhausted {
@@ -90,7 +94,10 @@ impl Bulkhead {
         *parts.get_mut(&partition).unwrap() = current + 1;
         *total += 1;
 
-        Ok(BulkheadGuard { bulkhead: self.clone(), partition })
+        Ok(BulkheadGuard {
+            bulkhead: self.clone(),
+            partition,
+        })
     }
 
     /// Release a slot in `partition` (called by [`BulkheadGuard`] on drop).
@@ -108,7 +115,13 @@ impl Bulkhead {
 
     /// Current usage of a partition.
     pub async fn usage(&self, partition: usize) -> usize {
-        self.inner.partitions.read().await.get(&partition).copied().unwrap_or(0)
+        self.inner
+            .partitions
+            .read()
+            .await
+            .get(&partition)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// Current total usage across all partitions.

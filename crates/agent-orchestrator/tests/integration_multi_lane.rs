@@ -244,7 +244,11 @@ fn test_backpressure_tasks_queued_and_drained_in_order() {
     }
 
     // After submitting 7 with capacity 3: 3 in-flight, 4 pending.
-    assert_eq!(queue.in_flight.len(), 3, "exactly 3 tasks must be in-flight");
+    assert_eq!(
+        queue.in_flight.len(),
+        3,
+        "exactly 3 tasks must be in-flight"
+    );
     assert_eq!(queue.pending.len(), 4, "remaining 4 tasks must be pending");
 
     // First three in-flight must be the first three submitted (FIFO within capacity).
@@ -316,11 +320,7 @@ fn test_deterministic_completion_accounting_all_tasks_counted() {
 
     // Every lane must have exactly `dispatches_per_lane` coverage completions.
     for id in &lane_ids {
-        let count = state
-            .lanes
-            .get(*id)
-            .map(|t| t.coverage_count)
-            .unwrap_or(0);
+        let count = state.lanes.get(*id).map(|t| t.coverage_count).unwrap_or(0);
         assert_eq!(
             count, dispatches_per_lane as u64,
             "lane '{}' must have exactly {} completions",
