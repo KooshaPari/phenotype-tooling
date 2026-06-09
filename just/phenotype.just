@@ -7,6 +7,10 @@
 default:
   @just --list
 
+# Watch for changes (cargo-watch)
+dev:
+  cargo watch -x check -x test
+
 # Build the entire cargo workspace
 build:
   cargo build --workspace --all-targets
