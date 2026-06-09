@@ -1,3 +1,14 @@
+## Work State
+
+| Field | Value |
+|---|---|
+| Last commit | 2026-06-08 18:46:47 -0700 |
+| Open issues | 0 |
+| Open PRs | 4 |
+| Focus | docs hygiene |
+
+Progress: ████████░░ 80%
+
 > **Work state:** ACTIVE · **Progress:** `███████░░░ 75%`
 > Reusable-workflow federation hub (cargo-deny/trufflehog/journey-gate); cargo-deny converged to one mechanism. · updated 2026-06-02
 
