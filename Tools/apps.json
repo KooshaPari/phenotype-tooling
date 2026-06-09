@@ -200,6 +200,57 @@
       "hasDesktopShell": true,
       "ico": null,
       "_needsIco": true
+    },
+    {
+      "name": "BytePort",
+      "appId": "com.phenotype.byteport",
+      "repoPath": "C:/Users/koosh/Dev/BytePort",
+      "devServer": {
+        "cwd": "frontend/web",
+        "command": "npm run dev",
+        "url": "http://localhost:5173",
+        "port": 5173
+      },
+      "class": "DESKTOP-APP",
+      "hasDesktopShell": true,
+      "shell": "tauri",
+      "shellBuildDir": "frontend/web/src-tauri/target/release",
+      "ico": "frontend/web/src-tauri/icons/icon.ico",
+      "_note": "SvelteKit + Tauri shell (Tauri, NOT Electrobun). devServer still used as browser fallback path."
+    },
+    {
+      "name": "FocalPoint",
+      "appId": "com.phenotype.focalpoint",
+      "repoPath": "C:/Users/koosh/Dev/FocalPoint",
+      "devServer": null,
+      "class": "DESKTOP-APP",
+      "hasDesktopShell": true,
+      "shell": "swiftui-ios",
+      "ico": null,
+      "_needsIco": true,
+      "_note": "Native iOS (Swift/SwiftUI) + Rust core + Go backend. No web dev server. Workspace compilation broken 2026-04-23."
+    },
+    {
+      "name": "phenotype-journeys",
+      "appId": "com.phenotype.phenotypejourneys",
+      "repoPath": "C:/Users/koosh/Dev/phenotype-journeys",
+      "devServer": null,
+      "class": "LIB",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true,
+      "_note": "Rust core + npm/@phenotype/journey-viewer (Vue 3 VitePress plugin). No standalone web viewer or desktop shell."
+    },
+    {
+      "name": "phenotype-voxel",
+      "appId": "com.phenotype.phenotypevoxel",
+      "repoPath": "C:/Users/koosh/Dev/phenotype-voxel",
+      "devServer": null,
+      "class": "LIB",
+      "hasDesktopShell": false,
+      "ico": null,
+      "_needsIco": true,
+      "_note": "Pure Rust library crate (SVO + dense leaf chunks, Bevy mesher trait). No web frontend; examples/ has a CLI voxelizer."
     }
   ]
 }
