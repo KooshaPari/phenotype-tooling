@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 echo "🔧 KlipDot Clipboard Diagnostic Tool"
 echo "===================================="

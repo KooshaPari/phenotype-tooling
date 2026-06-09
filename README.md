@@ -1,5 +1,9 @@
 # KlipDot — Terminal Image Interception Framework (Archived)
 
+> **Work state:** ARCHIVED · **Maintenance:** reference only · no active development
+> Updated 2026-06-08 — hygiene bundle (editorconfig, set -euo pipefail, standard files, justfile).
+
+
 [![License](https://img.shields.io/github/license/KooshaPari/KlipDot)](LICENSE)
 
 **ARCHIVED PROJECT - DO NOT DELETE OR UNARCHIVE**  

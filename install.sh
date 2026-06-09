@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # KlipDot Installation Script
 # Supports macOS, Linux, and Windows with ZSH/Bash

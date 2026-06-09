@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # KlipDot Production Setup Script
 # This script prepares KlipDot for production deployment
