@@ -1,0 +1,25 @@
+# Phenotype-org standard .editorconfig
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/.editorconfig
+#
+# To adopt: copy this file verbatim to .editorconfig in your repo.
+# Override per-extension rules BELOW this block. Rules in .editorconfig
+# are "last match wins" for matching sections.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{rs,go}]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
