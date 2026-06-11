@@ -1,0 +1,27 @@
+# Phenotype-org standard .gitignore — Rust + Node
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/gitignore-mixed-rust-node
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Node
+node_modules/
+/dist/
+/build/
+/coverage/
+.npm/
+.parcel-cache/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

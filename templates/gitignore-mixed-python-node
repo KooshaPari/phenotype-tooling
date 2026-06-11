@@ -1,0 +1,32 @@
+# Phenotype-org standard .gitignore — Python + Node
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/gitignore-mixed-python-node
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+/build/
+/dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+/dist/
+/build/
+/coverage/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

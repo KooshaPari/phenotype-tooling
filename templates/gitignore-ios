@@ -1,0 +1,42 @@
+# Phenotype-org standard .gitignore — iOS / macOS
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/gitignore-ios
+
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+**/.xcuserstate
+*.xcuserstate
+*.xcscmblueprints
+*.xccheckout
+
+# CocoaPods
+/Pods/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj
+
+# Carthage
+/Carthage/Build/
+
+# fastlane
+/fastlane/report.xml
+/fastlane/Preview.html
+/fastlane/screenshots/**/*.png
+/fastlane/test_output
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
