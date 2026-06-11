@@ -1,0 +1,176 @@
+name: Reusable README Work-State Header Generator
+
+on:
+  workflow_call:
+    inputs:
+      readme_path:
+        description: Relative path to the README file to update.
+        required: false
+        type: string
+        default: README.md
+      state:
+        description: Human-readable work-state label (e.g. ACTIVE, IDLE, BLOCKED).
+        required: false
+        type: string
+        default: ACTIVE
+      progress_percent:
+        description: Progress value used in the 10-block bar.
+        required: false
+        type: number
+        default: 75
+      do_push:
+        description: If true, commit and push when the README changes.
+        required: false
+        type: boolean
+        default: true
+      commit_message:
+        description: Commit message used when changes are pushed.
+        required: false
+        type: string
+        default: chore(readme): refresh work-state header
+      actor:
+        description: Commit actor name.
+        required: false
+        type: string
+        default: github-actions[bot]
+      allow_fork_push:
+        description: Allow writes for forked PR heads (use false for safety).
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      github-token:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    name: Regenerate README work-state header
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Render work-state header
+        id: render
+        env:
+          GH_TOKEN: ${{ secrets.github-token }}
+          STATE: ${{ inputs.state }}
+          PROGRESS_PERCENT: ${{ inputs.progress_percent }}
+          README_PATH: ${{ inputs.readme_path }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "$README_PATH" ]; then
+            echo "::error file=$README_PATH::README file not found"
+            exit 1
+          fi
+
+          PROGRESS="$PROGRESS_PERCENT"
+          if ! [[ "$PROGRESS" =~ ^[0-9]+$ ]]; then
+            PROGRESS=0
+          fi
+
+          if [ "$PROGRESS" -lt 0 ]; then
+            PROGRESS=0
+          elif [ "$PROGRESS" -gt 100 ]; then
+            PROGRESS=100
+          fi
+
+          # Use gh api for live open counts.
+          OPEN_PRS="$(gh api "search/issues?q=repo:$REPO+is:open+is:pr&per_page=1" --jq '.total_count')"
+          OPEN_ISSUES="$(gh api "search/issues?q=repo:$REPO+is:open+is:issue&per_page=1" --jq '.total_count')"
+
+          FILLED=$((PROGRESS / 10))
+          if [ "$FILLED" -lt 0 ]; then
+            FILLED=0
+          elif [ "$FILLED" -gt 10 ]; then
+            FILLED=10
+          fi
+          EMPTY=$((10 - FILLED))
+
+          FILLED_BAR=""
+          EMPTY_BAR=""
+          if [ "$FILLED" -gt 0 ]; then
+            FILLED_BAR="$(printf '█%.0s' $(seq 1 "$FILLED"))"
+          fi
+          if [ "$EMPTY" -gt 0 ]; then
+            EMPTY_BAR="$(printf '░%.0s' $(seq 1 "$EMPTY"))"
+          fi
+          BAR="${FILLED_BAR}${EMPTY_BAR}"
+
+          echo "OPEN_PRS=$OPEN_PRS" >> "$GITHUB_OUTPUT"
+          echo "OPEN_ISSUES=$OPEN_ISSUES" >> "$GITHUB_OUTPUT"
+          echo "PROGRESS=$PROGRESS" >> "$GITHUB_OUTPUT"
+          echo "BAR=$BAR" >> "$GITHUB_OUTPUT"
+
+          NEW_HEADER="> **Work state:** $STATE · **Progress:** \`${BAR} ${PROGRESS}%\` · **Open PRs:** ${OPEN_PRS} · **Open issues:** ${OPEN_ISSUES}"
+          export NEW_HEADER
+
+          python - "$README_PATH" <<'PY'
+          from pathlib import Path
+          import os
+          import re
+          import sys
+
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding="utf-8")
+          header = os.environ["NEW_HEADER"]
+          pattern = re.compile(r"^> \\*\\*Work state:\\*\\* .*")
+
+          lines = text.splitlines()
+          for idx, line in enumerate(lines):
+            if pattern.match(line):
+              lines[idx] = header
+              break
+          else:
+            lines.insert(0, header)
+
+          out = "\n".join(lines) + "\n"
+          path.write_text(out, encoding="utf-8")
+          PY
+
+      - name: Commit updated header
+        env:
+          DO_PUSH: ${{ inputs.do_push }}
+          ALLOW_FORK_PUSH: ${{ inputs.allow_fork_push }}
+          README_PATH: ${{ inputs.readme_path }}
+          COMMIT_MESSAGE: ${{ inputs.commit_message }}
+          ACTOR: ${{ inputs.actor }}
+          CURRENT_REPO: ${{ github.repository }}
+          HEAD_REPO: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          HEAD_REF: ${{ github.head_ref || github.event.pull_ref || github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- "$README_PATH"; then
+            echo "No README changes. Nothing to commit."
+            exit 0
+          fi
+
+          if [ "$DO_PUSH" != "true" ]; then
+            echo "do_push=false. Skipping commit."
+            exit 0
+          fi
+
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "$HEAD_REPO" != "$CURRENT_REPO" ] && [ "$ALLOW_FORK_PUSH" != "true" ]; then
+            echo "Pull request from fork detected; skipping push."
+            exit 0
+          fi
+
+          git config user.name "$ACTOR"
+          git config user.email "${ACTOR}@users.noreply.github.com"
+          git add "$README_PATH"
+          git commit -m "$COMMIT_MESSAGE"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git push origin "HEAD:${HEAD_REF}"
+          else
+            git push
+          fi
