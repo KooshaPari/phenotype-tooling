@@ -5,13 +5,20 @@
 # a template-reference comment.
 #
 # Exit code 0 = OK (adopted or non-canonical)
-# Exit code 1 = WARN (canonical pattern, not adopted)
+# Exit code 1 = WARN (canonical pattern, not adopted, OR v1 detected)
 # Exit code 2 = ERROR (no cliff.toml at all)
 set -euo pipefail
 
 if [ ! -f cliff.toml ]; then
   echo "::error::No cliff.toml file"
   exit 2
+fi
+
+# V1 detection: emit a different warning to encourage upgrade to v2.
+# v1 lacks the breaking-changes suffix and the explicit version marker.
+if grep -qE '^# Phenotype-org standard cliff\.toml v1' cliff.toml; then
+  echo "::warning::Cliff v1 detected; v2 adds ⚠️ **BREAKING** suffix. See https://github.com/KooshaPari/phenotype-tooling/blob/main/docs/cliff-adoption.md#v2-breaking-changes"
+  exit 1
 fi
 
 # If Source comment is present, treat as adopted
