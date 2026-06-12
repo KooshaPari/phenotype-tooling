@@ -206,7 +206,10 @@ mod tests {
         let svc = reg("svc-h").with_tags(["v2", "us-east"]);
         r.register(svc.clone()).await.unwrap();
         let all = r.list_all().await.unwrap();
-        let found = all.iter().find(|s| s.instance_id == svc.instance_id).unwrap();
+        let found = all
+            .iter()
+            .find(|s| s.instance_id == svc.instance_id)
+            .unwrap();
         assert!(found.tags.contains(&"v2".to_string()));
     }
 }

@@ -176,8 +176,8 @@ fn command_output(command: &str, args: &[String], cwd: Option<&Path>) -> Result<
 }
 
 fn count_loc(path: &Path) -> Result<u64> {
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
     Ok(content.lines().count() as u64)
 }
 
@@ -195,7 +195,8 @@ fn file_size(path: &Path) -> Result<u64> {
 }
 
 pub fn load_contract(path: &Path) -> Result<AcceptanceContract> {
-    let bytes = fs::read_to_string(path).with_context(|| format!("failed to read contract {}", path.display()))?;
+    let bytes = fs::read_to_string(path)
+        .with_context(|| format!("failed to read contract {}", path.display()))?;
     serde_yaml::from_str(&bytes)
         .or_else(|_| serde_json::from_str(&bytes).map_err(anyhow::Error::from))
         .with_context(|| format!("failed to parse contract {} as yaml/json", path.display()))
@@ -209,7 +210,8 @@ pub fn load_baseline(path: &Path) -> Result<BaselineFile> {
         });
     }
 
-    let bytes = fs::read_to_string(path).with_context(|| format!("failed to read baseline {}", path.display()))?;
+    let bytes = fs::read_to_string(path)
+        .with_context(|| format!("failed to read baseline {}", path.display()))?;
     if bytes.trim().is_empty() {
         return Ok(BaselineFile {
             schema_version: "1.0".to_string(),
@@ -217,13 +219,14 @@ pub fn load_baseline(path: &Path) -> Result<BaselineFile> {
         });
     }
 
-    Ok(serde_json::from_str(&bytes)
-        .with_context(|| format!("failed to parse baseline {}", path.display()))?)
+    serde_json::from_str(&bytes)
+        .with_context(|| format!("failed to parse baseline {}", path.display()))
 }
 
 pub fn save_baseline(path: &Path, baseline: &BaselineFile) -> Result<()> {
     let json = serde_json::to_string_pretty(baseline)?;
-    fs::write(path, json).with_context(|| format!("failed to write baseline {}", path.display()))?;
+    fs::write(path, json)
+        .with_context(|| format!("failed to write baseline {}", path.display()))?;
     Ok(())
 }
 
@@ -275,7 +278,11 @@ pub fn run_acceptance(
             requirements: HashMap::new(),
         };
 
-        for result in card.hard_requirements.iter().chain(card.soft_requirements.iter()) {
+        for result in card
+            .hard_requirements
+            .iter()
+            .chain(card.soft_requirements.iter())
+        {
             next.requirements.insert(
                 result.id.clone(),
                 BaselineEntry {
@@ -291,7 +298,11 @@ pub fn run_acceptance(
     Ok(card)
 }
 
-fn evaluate_requirement(req: &Requirement, baseline: &mut BaselineFile, is_hard: bool) -> Result<RequirementResult> {
+fn evaluate_requirement(
+    req: &Requirement,
+    baseline: &mut BaselineFile,
+    is_hard: bool,
+) -> Result<RequirementResult> {
     if req.skip.unwrap_or(false) {
         return Ok(RequirementResult {
             id: req.id.clone(),
@@ -321,7 +332,11 @@ fn evaluate_requirement(req: &Requirement, baseline: &mut BaselineFile, is_hard:
                 .status();
             let exit_code = output.ok().and_then(|status| status.code()).unwrap_or(-1);
             let passed = exit_code == *expected_exit_code;
-            let score = if passed { req.weight.unwrap_or(1.0) } else { 0.0 };
+            let score = if passed {
+                req.weight.unwrap_or(1.0)
+            } else {
+                0.0
+            };
 
             ProbeRunResult {
                 passed,
@@ -491,7 +506,7 @@ fn compare_with_baseline(
     baseline: &mut BaselineFile,
 ) -> Option<BaselineDelta> {
     let previous = baseline.requirements.get(&req.id).cloned();
-    let changed = previous.as_ref().map_or(true, |entry| entry.value != *value);
+    let changed = previous.as_ref().is_none_or(|entry| entry.value != *value);
     let ratio = match (previous.as_ref().map(|entry| &entry.value), value) {
         (Some(Value::Number(base)), Value::Number(cur)) => {
             let base = base.as_f64().unwrap_or(0.0);
@@ -505,9 +520,13 @@ fn compare_with_baseline(
         _ => None,
     };
 
-    baseline
-        .requirements
-        .insert(req.id.clone(), BaselineEntry { value: value.clone(), score: Some(*score) });
+    baseline.requirements.insert(
+        req.id.clone(),
+        BaselineEntry {
+            value: value.clone(),
+            score: Some(*score),
+        },
+    );
 
     previous.map(|entry| BaselineDelta {
         baseline: entry.value,
@@ -548,7 +567,9 @@ fn extract_jsonpath(raw: &str, expr: &str) -> Result<Value> {
         }
 
         if expr.as_bytes()[offset] == b'[' {
-            let end = expr[offset..].find(']').ok_or_else(|| anyhow!("invalid jsonpath: missing ] in {}", expr))?;
+            let end = expr[offset..]
+                .find(']')
+                .ok_or_else(|| anyhow!("invalid jsonpath: missing ] in {}", expr))?;
             let inner = expr[(offset + 1)..(offset + end)].trim();
             let idx: usize = inner.parse().context("array index must be numeric")?;
             current = current
@@ -604,7 +625,18 @@ fn delegate_context(workspace_root: &Path, skip: bool) -> Result<Vec<String>> {
 
 fn run_quality_gate_delegation(workspace_root: &Path) -> Result<String> {
     let output = Command::new("cargo")
-        .args(["run", "-p", "quality-gate", "--", "--path", workspace_root.to_string_lossy().as_ref(), "--json", "--skip-clippy", "--skip-test", "--skip-fmt"])
+        .args([
+            "run",
+            "-p",
+            "quality-gate",
+            "--",
+            "--path",
+            workspace_root.to_string_lossy().as_ref(),
+            "--json",
+            "--skip-clippy",
+            "--skip-test",
+            "--skip-fmt",
+        ])
         .output()?;
 
     if !output.status.success() {
@@ -616,7 +648,15 @@ fn run_quality_gate_delegation(workspace_root: &Path) -> Result<String> {
 
 fn run_legacy_scan_delegation(workspace_root: &Path) -> Result<String> {
     let output = Command::new("cargo")
-        .args(["run", "-p", "legacy-scan", "--", "--path", workspace_root.to_string_lossy().as_ref(), "--json"])
+        .args([
+            "run",
+            "-p",
+            "legacy-scan",
+            "--",
+            "--path",
+            workspace_root.to_string_lossy().as_ref(),
+            "--json",
+        ])
         .output()?;
 
     if !output.status.success() {
@@ -630,7 +670,14 @@ fn run_bench_guard_probe(workspace_root: &Path) -> Result<String> {
     let baseline = workspace_root.join("docs/reference/perf_baseline.json");
     let baseline = baseline.to_string_lossy();
     let output = Command::new("cargo")
-        .args(["run", "-p", "bench-guard", "--", "--baseline", baseline.as_ref()])
+        .args([
+            "run",
+            "-p",
+            "bench-guard",
+            "--",
+            "--baseline",
+            baseline.as_ref(),
+        ])
         .current_dir(workspace_root)
         .output()?;
 
@@ -655,18 +702,26 @@ struct ProbeRunResult {
 pub fn render_markdown(score_card: &ScoreCard) -> String {
     let mut out = String::new();
     out.push_str("# Acceptance Scorecard\n\n");
-    out.push_str(&format!("- Contract: `{}`\n", score_card.contract_path.display()));
-    out.push_str(&format!("- Hard requirements passed: `{}`\n", score_card.hard_passed));
+    out.push_str(&format!(
+        "- Contract: `{}`\n",
+        score_card.contract_path.display()
+    ));
+    out.push_str(&format!(
+        "- Hard requirements passed: `{}`\n",
+        score_card.hard_passed
+    ));
     out.push_str(&format!(
         "- Soft score: {:.2} / {:.2} ({:.1}%)\n\n",
-        score_card.total_soft_score,
-        score_card.max_soft_score,
-        score_card.soft_percentage
+        score_card.total_soft_score, score_card.max_soft_score, score_card.soft_percentage
     ));
 
     out.push_str("## Hard requirements\n");
     for req in &score_card.hard_requirements {
-        out.push_str(&format!("- `{}` {}\n", req.id, if req.passed { "PASS" } else { "FAIL" }));
+        out.push_str(&format!(
+            "- `{}` {}\n",
+            req.id,
+            if req.passed { "PASS" } else { "FAIL" }
+        ));
         out.push_str(&format!("  - probe: {}\n", req.probe));
         out.push_str(&format!("  - value: `{}`\n", req.value));
         if let Some(msg) = &req.message {

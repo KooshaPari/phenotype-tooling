@@ -90,9 +90,15 @@ mod tests {
 
     #[test]
     fn happy_all_types() {
-        for ty in &["feat", "fix", "docs", "chore", "test", "refactor", "perf", "ci"] {
+        for ty in &[
+            "feat", "fix", "docs", "chore", "test", "refactor", "perf", "ci",
+        ] {
             let line = format!("{}: some description", ty);
-            assert!(validate_conventional_commit(&line).is_ok(), "type {} should pass", ty);
+            assert!(
+                validate_conventional_commit(&line).is_ok(),
+                "type {} should pass",
+                ty
+            );
         }
     }
 

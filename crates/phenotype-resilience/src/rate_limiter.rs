@@ -33,7 +33,12 @@ impl TokenBucket {
     /// Panics if `capacity == 0`.
     pub fn new(capacity: usize, refill_rate: usize) -> Self {
         assert!(capacity > 0, "TokenBucket capacity must be > 0");
-        Self { capacity, tokens: capacity, refill_rate, last_refill: Instant::now() }
+        Self {
+            capacity,
+            tokens: capacity,
+            refill_rate,
+            last_refill: Instant::now(),
+        }
     }
 
     /// Refill tokens based on elapsed time (called lazily on acquire).
@@ -97,7 +102,12 @@ impl LeakyBucket {
     /// Panics if `capacity == 0`.
     pub fn new(capacity: usize, leak_rate: usize) -> Self {
         assert!(capacity > 0, "LeakyBucket capacity must be > 0");
-        Self { capacity, leak_rate, last_leak: Instant::now(), pending: 0 }
+        Self {
+            capacity,
+            leak_rate,
+            last_leak: Instant::now(),
+            pending: 0,
+        }
     }
 
     fn leak(&mut self) {

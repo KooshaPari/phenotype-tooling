@@ -46,6 +46,7 @@ fn resolve_candidates(base_dir: &Path, link: &str) -> Vec<PathBuf> {
     ]
 }
 
+#[cfg(test)]
 /// Extracts all link URLs from a markdown string.
 fn extract_links_from_markdown(content: &str) -> Vec<String> {
     let parser = Parser::new(content);
@@ -250,8 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_candidates_existing_md_file_found(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn resolve_candidates_existing_md_file_found() -> Result<(), Box<dyn std::error::Error>> {
         let dir = TempDir::new()?;
         let target = dir.path().join("page.md");
         fs::write(&target, "# Page")?;
@@ -263,8 +263,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_candidates_index_md_found(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn resolve_candidates_index_md_found() -> Result<(), Box<dyn std::error::Error>> {
         let dir = TempDir::new()?;
         let subdir = dir.path().join("guide");
         fs::create_dir(&subdir)?;
@@ -272,7 +271,10 @@ mod tests {
 
         let candidates = resolve_candidates(dir.path(), "guide");
         // candidates[2] == dir/guide/index.md
-        assert!(candidates[2].exists(), "expected guide/index.md to be found");
+        assert!(
+            candidates[2].exists(),
+            "expected guide/index.md to be found"
+        );
         Ok(())
     }
 }

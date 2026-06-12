@@ -3,6 +3,8 @@
 
 # phenotype-tooling
 
+[cheap-llm-mcp has moved to the canonical phenotype-ops-mcp provider.](deprecation_notice.md)
+
 [![Build](https://img.shields.io/github/actions/workflow/status/KooshaPari/phenotype-tooling/ci.yml?branch=main&label=build)](https://github.com/KooshaPari/phenotype-tooling/actions)
 [![Release](https://img.shields.io/github/v/release/KooshaPari/phenotype-tooling?include_prereleases&sort=semver)](https://github.com/KooshaPari/phenotype-tooling/releases)
 [![License](https://img.shields.io/github/license/KooshaPari/phenotype-tooling)](LICENSE)

@@ -195,7 +195,11 @@ mod tests {
         let mut cb = make_cb(3);
         cb.record_failure();
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitState::Closed, "should stay closed before threshold");
+        assert_eq!(
+            cb.state(),
+            CircuitState::Closed,
+            "should stay closed before threshold"
+        );
         cb.record_failure();
         assert_eq!(cb.state(), CircuitState::Open);
     }
