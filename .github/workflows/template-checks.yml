@@ -1,0 +1,28 @@
+name: template-checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check-codeowners:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check CODEOWNERS adoption
+        run: ./scripts/check-codeowners-template.sh
+
+  check-gitignore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check .gitignore adoption
+        run: ./scripts/check-gitignore-template.sh
+
+  check-editorconfig:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check .editorconfig adoption
+        run: ./scripts/check-editorconfig-template.sh
