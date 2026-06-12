@@ -1,7 +1,13 @@
-# cheap-llm-mcp absorption
+# Absorption notice: `cheap-llm-mcp`
 
-`cheap-llm-mcp` has been absorbed into the canonical `phenotype-ops-mcp` package.
-New integrations should import `phenotype_ops_mcp.providers.cheap_llm` directly.
+`phenotype-tooling` absorbs `cheap-llm-mcp`. The canonical home is
+[`KooshaPari/phenotype-ops-mcp/providers/cheap_llm/`](https://github.com/KooshaPari/phenotype-ops-mcp/tree/main/providers/cheap_llm).
 
-For existing callers, `phenotype-tooling` provides a temporary compatibility
-alias at `cheap_llm` that re-exports the canonical provider module.
+New integrations should depend on `phenotype-ops-mcp` and import the
+provider from `providers/cheap_llm/`. Existing callers can rely on the
+`phenotype-tooling` re-export during the deprecation window; that alias
+will be removed in a future major release.
+
+For migration steps, see the upstream guide in
+`phenotype-ops-mcp/docs/migrations/cheap_llm.md`.
+
