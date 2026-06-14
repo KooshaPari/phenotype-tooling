@@ -1,3 +1,5 @@
+# Phenotype-org standard .editorconfig
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/.editorconfig
 root = true
 
 [*]
