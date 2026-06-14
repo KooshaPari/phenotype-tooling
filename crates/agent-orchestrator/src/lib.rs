@@ -239,4 +239,26 @@ mod tests {
         assert_eq!(deserialized.lanes.len(), 1);
         assert!(deserialized.lanes["lane1"].in_flight);
     }
+
+    #[test]
+    fn test_mark_coverage_complete_increments_counter() {
+        let mut state = TrackerState::new();
+        state.update_lane("lane1".to_string(), true);
+
+        assert_eq!(state.lanes["lane1"].coverage_count, 0);
+
+        state.mark_coverage_complete("lane1");
+        assert_eq!(state.lanes["lane1"].coverage_count, 1);
+
+        state.mark_coverage_complete("lane1");
+        assert_eq!(state.lanes["lane1"].coverage_count, 2);
+    }
+
+    #[test]
+    fn test_mark_coverage_complete_no_panic_on_missing_lane() {
+        let mut state = TrackerState::new();
+        // Calling mark_coverage_complete on a lane that doesn't exist should not panic.
+        state.mark_coverage_complete("nonexistent");
+        assert!(state.lanes.is_empty());
+    }
 }
