@@ -1,3 +1,0 @@
-# Clippy configuration for worktree-manager
-
-avoid-breaking-exported-api = false

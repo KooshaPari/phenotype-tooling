@@ -1,6 +1,0 @@
-[build]
-incremental = true
-
-[build]
-# Keeps compiler caches local to the working tree and avoids host pollution.
-target-dir = "target"
