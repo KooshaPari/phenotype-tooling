@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## 📚 Documentation
 - Docs(fr): scaffold FUNCTIONAL_REQUIREMENTS.md
 
@@ -39,3 +53,4 @@ Refs: phenotype/repos/tooling/legacy-enforcement/ (`9914758`)
 🤖 Generated with [Claude Code](https://claude.ai/code)
 
 Co-Authored-By: Claude <noreply@anthropic.com> (`c53a0f6`)
+[Unreleased]: https://github.com/KooshaPari/KlipDot/compare/HEAD
