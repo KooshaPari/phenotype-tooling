@@ -1,0 +1,209 @@
+# Dependabot config — Phenotype-org standard (v2 / 2026-06-14)
+#
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/dependabot.yml
+#
+# Place this file at .github/dependabot.yml in the consumer repo.
+# Dependabot reads it on every push and on a schedule (defined per-ecosystem).
+# It is a strict superset of .github/dependabot.yml v1 — adds 6 new
+# ecosystems, groups updates, and enables vulnerability alerts.
+#
+# Changes from v1 (2026-06-11):
+#   + new ecosystems: gomod, pip (uv/poetry), docker, devcontainers,
+#                     terraform, bun
+#   + groups updates by major vs minor/patch per ecosystem
+#   + ignores major-version bumps for packages that the repo pins
+#     (cargo, npm) — opt in by adding to `ignore` blocks below
+#   + vulnerability alerts enabled with `security:` rules
+#   + opens PRs in the same repo (not a fork) by default
+#   + commit-message format aligns with conventional commits
+#   + `rebase-strategy: "auto"` to avoid noisy auto-merge of incompatible
+#     version pins
+#   + `insecure-external-code-execution: deny` for actions
+#
+# Run dependabot locally: `gh dependabot` or via dependabot-cli.
+# Validate this file: https://docs.github.com/en/code-security/dependabot
+
+version: 2
+
+# ── global settings ────────────────────────────────────────────────────────
+updates:
+
+  # ── cargo (Rust) ─────────────────────────────────────────────────────────
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 10
+    versioning-strategy: "increase"
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "rust"
+    groups:
+      rust-minor-patch:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
+      rust-major:
+        patterns: ["*"]
+        update-types:
+          - "major"
+    ignore:
+      # Ignore majors for crates that have already been triaged;
+      # uncomment / extend as needed.
+      # - dependency-name: "tokio"
+      #   update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
+
+  # ── npm / pnpm / yarn / bun (Node) ───────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 10
+    versioning-strategy: "increase"
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "node"
+    groups:
+      node-minor-patch:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
+
+  # ── pip via uv or poetry (Python) ────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "04:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 8
+    versioning-strategy: "increase"
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      python-minor-patch:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
+
+  # ── gomod (Go) ───────────────────────────────────────────────────────────
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "04:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 8
+    versioning-strategy: "increase"
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "go"
+    groups:
+      go-minor-patch:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  # ── GitHub Actions ───────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "04:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "ci"
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
+      actions-digest:
+        patterns: ["*"]
+        update-types:
+          - "digest"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # ── Docker (Dockerfiles) ──────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "04:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  # ── Devcontainer ─────────────────────────────────────────────────────────
+  - package-ecosystem: "devcontainer"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "devcontainer"
+    commit-message:
+      prefix: "chore(devcontainer)"
+      include: "scope"
+
+  # ── Terraform ────────────────────────────────────────────────────────────
+  - package-ecosystem: "terraform"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "terraform"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"

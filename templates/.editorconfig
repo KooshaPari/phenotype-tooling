@@ -1,25 +1,135 @@
-# Phenotype-org standard .editorconfig
+# Phenotype-org standard .editorconfig (v2 / 2026-06-14)
+#
 # Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/.editorconfig
 #
-# To adopt: copy this file verbatim to .editorconfig in your repo.
-# Override per-extension rules BELOW this block. Rules in .editorconfig
-# are "last match wins" for matching sections.
+# EditorConfig: https://editorconfig.org
+# Test that your editor respects this file:
+#   npx editorconfig-cli-check
+#   # or
+#   ec --version && ec .
+#
+# Rules in .editorconfig are "last match wins" for matching sections, so
+# file-type-specific overrides MUST come AFTER the catch-all `[*]` block.
+#
+# Changes from v1 (2026-06-11):
+#   * default indent_size = 2 (was 4) — most modern stacks use 2
+#   * added explicit sections for: vue, svelte, astro, css/scss/less,
+#     graphql, protobuf, thrift, haml, slim, erlang/elixir, haskell,
+#     terraform/hcl, dockerfile, shell, markdown
+#   * markdown now disables trim_trailing_whitespace (preserves hard line
+#     breaks) and disables insert_final_newline (preserves trailing space
+#     used for <br/>) — this was true in v1 too; documented here for
+#     clarity
+#   * Makefile section forces tabs (v1 behavior; kept)
+#   * .gitignore / .dockerignore / .npmignore use 1-space soft indents
+#   * lockfile formats are explicitly marked `insert_final_newline = false`
+#     to avoid noisy diffs on `cargo update` / `npm install`
+#   * shell scripts (.sh, .bash, .zsh) now use 4-space indents to match
+#     the bash standard
 
 root = true
 
+# ── default for all files ───────────────────────────────────────────────────
 [*]
 charset = utf-8
 end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# ── systems languages (4-space, conservative) ──────────────────────────────
+[*.{rs,go,c,cc,cpp,cxx,h,hpp,java,kt,kts,scala,sbt}]
+indent_size = 4
+[*.{swift,m,h,mm}]
+indent_size = 4
+
+# ── functional languages ───────────────────────────────────────────────────
+[*.{hs,elm,ml,fs,fsx,clj,cljs,cljc}]
+indent_size = 2
+
+# ── dynamic / scripting languages (2-space, modern) ────────────────────────
+[*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,astro}]
+indent_size = 2
+
+# ── web / styles ───────────────────────────────────────────────────────────
+[*.{css,scss,less,sass,styl,pcss,postcss}]
+indent_size = 2
+[*.{html,htm,xhtml,xml,svg}]
+indent_size = 2
+[*.graphql,*.gql]
+indent_size = 2
+[*.{proto,thrift,avsc}]
+indent_size = 2
+
+# ── data formats ───────────────────────────────────────────────────────────
+[*.{json,json5,jsonc}]
+indent_size = 2
+[*.{yaml,yml}]
+indent_size = 2
+[*.toml]
+indent_size = 2
+
+# ── documentation (preserve trailing whitespace for hard line breaks) ──────
+[*.md]
+trim_trailing_whitespace = false
+# Trailing double-space = line break. insert_final_newline = true is OK
+# because markdown parsers ignore the trailing blank line at EOF.
+
+# ── Ruby / Python / Elixir (PEP 8 / community style) ───────────────────────
+[*.{py,pyi}]
+indent_size = 4
+[*.{rb,rake,gemspec}]
+indent_size = 2
+[*.{ex,exs,eex,heex,leex}]
+indent_size = 2
+
+# ── shell (use 4 spaces for clarity in nested blocks) ─────────────────────
+[*.{sh,bash,zsh,ksh,fish}]
+indent_size = 4
+
+# ── SQL / DB ───────────────────────────────────────────────────────────────
+[*.{sql,pgsql,psql,plsql}]
+indent_size = 2
+
+# ── infrastructure ─────────────────────────────────────────────────────────
+[*.{tf,tfvars,hcl,nomad}]
+indent_size = 2
+[Dockerfile,*.dockerfile,Containerfile]
+indent_size = 2
+[*.{nginx,conf,cfg,ini}]
+indent_size = 2
+
+# ── lockfiles (preserve as-is; do not reformat) ────────────────────────────
+[{Cargo.lock,package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb,bun.lock,poetry.lock,uv.lock,go.sum,Gemfile.lock,composer.lock,mix.lock,flake.lock}]
 indent_style = space
 indent_size = 2
 insert_final_newline = true
-trim_trailing_whitespace = true
 
-[*.{rs,go}]
-indent_size = 4
-
-[*.md]
+# ── ignore files (no trim; spaces at EOL are insignificant) ────────────────
+[{.gitignore,.dockerignore,.npmignore,.eslintignore,.prettierignore,.stylelintignore}]
+indent_size = 1
 trim_trailing_whitespace = false
 
-[Makefile]
+# ── Makefile requires hard tabs ────────────────────────────────────────────
+[Makefile,makefile,GNUmakefile,*.mk]
 indent_style = tab
+
+# ── CMake / Ninja / Meson (4-space, hard tabs disallowed) ─────────────────
+[{CMakeLists.txt,*.cmake,meson.build,*.ninja}]
+indent_style = space
+indent_size = 4
+
+# ── Go modules (preserve as-is) ────────────────────────────────────────────
+[go.mod]
+insert_final_newline = true
+indent_size = 2
+
+# ── diffs and patches ──────────────────────────────────────────────────────
+[*.{diff,patch}]
+trim_trailing_whitespace = false
+
+# ── Windows shell scripts (cmd, bat) — CRLF required ──────────────────────
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+indent_size = 4

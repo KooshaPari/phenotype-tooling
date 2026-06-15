@@ -1,0 +1,45 @@
+# Phenotype-org standard consumer justfile (v2 / 2026-06-14)
+#
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/justfile
+#
+# This is a thin shell that re-exports the shared `phenotype.just` library.
+# The 17 recipes that consumers used to copy-paste
+# (default, build, test, lint, fmt, audit, unused, typecheck, outdated, update,
+#  coverage, sbom, license, version, ci, docs, dev, clean, info, doctor,
+#  benchmark, fuzz, release-dryrun) are now defined once in
+# `phenotype.just` and parameterized over the build system.
+#
+# Stack-specific recipes (e.g. `register-startmenu` for Electrobun desktop
+# apps, `migrate` for Django, `db-reset` for Rails) stay in THIS file.
+# Add new stack-specific recipes here; do not modify `phenotype.just` from
+# a consumer repo.
+#
+# Changes from v1 (2026-06-11):
+#   * imports the v2 shared library which adds outdated/update/coverage/sbom/
+#     license/version/benchmark/fuzz/release-dryrun/doctor recipes
+#   * recommends `import "phenotype.just"` (path-submodule) as the default
+#     layout; consumers can switch to `import "just/phenotype.just"` if
+#     vendoring the library in-repo.
+
+# Path to the shared library. Adjust if you vendor it under just/.
+import "phenotype.just"
+
+# === stack-specific recipes (examples) ===
+# Uncomment / adapt the block that matches your stack. Add new blocks below;
+# the shared library will never define these because they are non-portable.
+
+# Register/refresh Windows Start-Menu shortcuts for Electrobun desktop apps.
+# no-arg = all apps in Tools/apps.json; `just register-startmenu AppName` = one.
+# BUILD HOOK: call this at the END of each `electrobun build` step so a
+# completed build always re-points its shortcut at the latest output, e.g.:
+#     electrobun build && just register-startmenu {{app}}
+# register-startmenu app="":
+#     pwsh -NoProfile -File Tools/Register-StartMenuApps.ps1 {{ if app == "" { "" } else { "-App " + app } }}
+
+# Django: apply migrations against the configured database.
+# migrate:
+#     uv run python manage.py migrate
+
+# Rails: drop, create, migrate, seed.
+# db-reset:
+#     bin/rails db:drop db:create db:migrate db:seed

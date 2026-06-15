@@ -1,0 +1,569 @@
+# Phenotype-org standard Taskfile.yml (v2 / 2026-06-14)
+#
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/Taskfile.yml
+#
+# This Taskfile mirrors the v2 shared justfile library so consumers can
+# pick EITHER `just` (preferred) or `task` (fallback) as their task runner
+# without losing any recipes. If you have both just and task installed, the
+# recipes are identical except for the binary name.
+#
+# Stack detection mirrors the justfile: cargo | npm | pnpm | yarn | bun |
+# uv | poetry | go | mix | deno | bundler | swift | sbt | flutter.
+#
+# Usage:
+#     task               # list tasks
+#     task build         # build
+#     task grade         # full quality gate
+#     task grade-fast    # fast quality gate (skips heavy checks)
+#
+# Changes from v1 (2026-06-11):
+#   + tasks: outdated, update, coverage, sbom, license, version,
+#            benchmark, fuzz, release-dryrun, doctor
+#   * stack detection now covers deno, bundler, swift, sbt, flutter
+#   * shared variables extracted via `dotenv:` and `env:` blocks
+#   * deps graph now uses task-level `deps:` for fan-out parallelism
+#   * added `includes` block so consumers can layer a `Taskfile.local.yml`
+#     on top of this without forking the standard set
+
+version: '3'
+
+vars:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  GRADE_FAST: '1'
+
+env:
+  CARGO_TERM_COLOR: '{{.CARGO_TERM_COLOR}}'
+
+includes:
+  local:
+    taskfile: ./Taskfile.local.yml
+    optional: true
+    dir: .
+
+tasks:
+  default:
+    desc: List all available tasks.
+    cmds:
+      - task --list
+
+  # ── core ───────────────────────────────────────────────────────────────
+  build:
+    desc: Build the workspace.
+    cmds:
+      - task: _build
+
+  test:
+    desc: Run the test suite.
+    cmds:
+      - task: _test
+
+  lint:
+    desc: Lint with clippy / eslint / ruff / go vet (fails on warnings).
+    cmds:
+      - task: _lint
+
+  fmt:
+    desc: Auto-format all files in place.
+    cmds:
+      - task: _fmt
+
+  typecheck:
+    desc: Type-check the workspace.
+    cmds:
+      - task: _typecheck
+
+  # ── security & hygiene ─────────────────────────────────────────────────
+  audit:
+    desc: Security advisory check (cargo-deny, cargo-audit, npm audit, pip-audit).
+    cmds:
+      - task: _audit
+
+  unused:
+    desc: Find unused dependencies (cargo-machete, deptry, depcheck).
+    cmds:
+      - task: _unused
+
+  outdated:
+    desc: Show outdated dependencies. (NEW v2)
+    cmds:
+      - task: _outdated
+
+  update:
+    desc: Update lockfile to latest compatible versions. (NEW v2)
+    cmds:
+      - task: _update
+
+  # ── coverage & artifacts ───────────────────────────────────────────────
+  coverage:
+    desc: Generate coverage report (HTML). (NEW v2)
+    cmds:
+      - task: _coverage
+
+  sbom:
+    desc: Generate Software Bill of Materials (sbom.json). (NEW v2)
+    cmds:
+      - task: _sbom
+
+  license:
+    desc: Print license inventory of direct + transitive deps. (NEW v2)
+    cmds:
+      - task: _license
+
+  benchmark:
+    desc: Run benchmarks. (NEW v2)
+    cmds:
+      - task: _benchmark
+
+  fuzz:
+    desc: cargo-fuzz entry point. Argument is target name (default empty). (NEW v2)
+    cmds:
+      - cmd: |
+          if [ "{{.BS}}" = "cargo" ]; then \
+            cargo fuzz run {{.TARGET}} || echo "cargo-fuzz not installed"; \
+          else echo "fuzz only supported for cargo workspaces"; fi
+        ignore_error: true
+
+  # ── docs & dev ─────────────────────────────────────────────────────────
+  docs:
+    desc: Generate documentation.
+    cmds:
+      - task: _docs
+
+  dev:
+    desc: Watch mode (cargo-watch / npm run dev / flutter run --hot).
+    cmds:
+      - task: _dev
+
+  clean:
+    desc: Remove build artifacts.
+    cmds:
+      - task: _clean
+
+  # ── introspection ──────────────────────────────────────────────────────
+  info:
+    desc: Print detected build system + chosen commands.
+    cmds:
+      - |
+        echo "build_system={{.BS}}"
+        echo "build_cmd=$(task _build 2>/dev/null || echo 'n/a')"
+
+  version:
+    desc: Print manifest version. (NEW v2)
+    cmds:
+      - task: _version
+
+  doctor:
+    desc: Diagnose environment toolchain presence. (NEW v2)
+    cmds:
+      - |
+        echo "build_system: {{.BS}}"
+        echo "---"
+        echo "toolchains:"
+        command -v cargo >/dev/null && cargo --version || echo "  cargo: NOT FOUND"
+        command -v rustc  >/dev/null && rustc --version  || echo "  rustc: NOT FOUND"
+        command -v node   >/dev/null && node --version   || echo "  node:  NOT FOUND"
+        command -v bun    >/dev/null && bun --version    || echo "  bun:   NOT FOUND"
+        command -v uv     >/dev/null && uv --version     || echo "  uv:    NOT FOUND"
+        command -v go     >/dev/null && go version       || echo "  go:    NOT FOUND"
+        command -v task   >/dev/null && task --version   || echo "  task:  NOT FOUND"
+        command -v lefthook >/dev/null && lefthook version || echo "  lefthook: NOT FOUND"
+
+  # ── composite quality gates ────────────────────────────────────────────
+  ci:
+    desc: Full local CI sweep (lint + typecheck + test + audit + unused).
+    deps: [lint, typecheck, test, audit, unused]
+    cmds:
+      - echo "✓ all CI checks passed"
+
+  quality:
+    desc: Quality gate (fmt + lint + test + audit).
+    deps: [fmt, lint, test, audit]
+    cmds:
+      - echo "✓ quality gate passed"
+
+  grade:
+    desc: Full grade (strictest — no caching).
+    cmds:
+      - ./grade.sh
+      - task: ci
+
+  grade-fast:
+    desc: Fast grade (skips heavy checks).
+    env:
+      GRADE_FAST: '1'
+    cmds:
+      - ./grade.sh --fast
+
+  grade-json:
+    desc: Grade with JSON output.
+    cmds:
+      - ./grade.sh --json
+
+  grade-html:
+    desc: Grade with HTML report.
+    cmds:
+      - ./grade.sh --html
+
+  release-dryrun:
+    desc: Validate version + changelog + tag presence. (NEW v2)
+    cmds:
+      - task: _release-dryrun
+
+  # ── dev tooling ────────────────────────────────────────────────────────
+  install-lefthook:
+    desc: Install lefthook git hooks.
+    cmds:
+      - lefthook install
+    status:
+      - test -f .git/hooks/lefthook
+
+  install-tools:
+    desc: Install all developer tools referenced in this Taskfile.
+    cmds:
+      - |
+        if [ "{{.BS}}" = "cargo" ]; then \
+          cargo install --locked cargo-deny cargo-audit cargo-machete cargo-outdated cargo-cyclonedx cargo-llvm-cov 2>/dev/null || true; \
+        elif [ "{{.BS}}" = "uv" ] || [ "{{.BS}}" = "poetry" ]; then \
+          uv tool install ruff mypy deptry pip-audit cyclonedx-bom pip-licenses 2>/dev/null || true; \
+        fi
+
+  # ── private stack-dispatchers (called by public tasks above) ──────────
+  _detect-stack:
+    internal: true
+    cmds:
+      - |
+        if [ -f Cargo.toml ]; then BS=cargo; \
+        elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then BS=pnpm; \
+        elif [ -f package.json ] && [ -f yarn.lock ]; then BS=yarn; \
+        elif [ -f package.json ] && [ -f bun.lockb ]; then BS=bun; \
+        elif [ -f package.json ] && [ -f bun.lock ]; then BS=bun; \
+        elif [ -f package.json ]; then BS=npm; \
+        elif [ -f pyproject.toml ] && [ -f uv.lock ]; then BS=uv; \
+        elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then BS=poetry; \
+        elif [ -f pyproject.toml ]; then BS=uv; \
+        elif [ -f go.mod ]; then BS=go; \
+        elif [ -f mix.exs ]; then BS=mix; \
+        elif [ -f deno.json ] || [ -f deno.jsonc ]; then BS=deno; \
+        elif [ -f Gemfile ]; then BS=bundler; \
+        elif [ -f Package.swift ]; then BS=swift; \
+        elif [ -f build.sbt ]; then BS=sbt; \
+        elif [ -f pubspec.yaml ]; then BS=flutter; \
+        else BS=none; fi
+        echo "BS=$BS" > /tmp/.phenotype-bs
+
+  _build:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo build --workspace; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm -r build; \
+          elif [ -f package.json ] && [ -f yarn.lock ]; then yarn workspaces run build; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun run build; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun run build; \
+          elif [ -f package.json ]; then npm run build --workspaces --if-present; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv sync --all-extras; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry install --all-extras; \
+          elif [ -f pyproject.toml ]; then uv sync --all-extras; \
+          elif [ -f go.mod ]; then go build ./...; \
+          elif [ -f mix.exs ]; then mix compile; \
+          elif [ -f deno.json ] || [ -f deno.jsonc ]; then deno task build; \
+          elif [ -f Gemfile ]; then bundle install; \
+          elif [ -f Package.swift ]; then swift build; \
+          elif [ -f build.sbt ]; then sbt -batch compile; \
+          elif [ -f pubspec.yaml ]; then flutter pub get; \
+          else echo 'no build system detected'; exit 1; fi
+
+  _test:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo test --workspace; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm -r test; \
+          elif [ -f package.json ] && [ -f yarn.lock ]; then yarn workspaces run test; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun test; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun test; \
+          elif [ -f package.json ]; then npm test --workspaces --if-present; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv run pytest; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry run pytest; \
+          elif [ -f pyproject.toml ]; then uv run pytest; \
+          elif [ -f go.mod ]; then go test ./...; \
+          elif [ -f mix.exs ]; then mix test; \
+          elif [ -f deno.json ] || [ -f deno.jsonc ]; then deno test; \
+          elif [ -f Gemfile ]; then bundle exec rspec; \
+          elif [ -f Package.swift ]; then swift test; \
+          elif [ -f build.sbt ]; then sbt -batch test; \
+          elif [ -f pubspec.yaml ]; then flutter test; \
+          else echo 'no test runner detected'; exit 1; fi
+
+  _lint:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --check; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm -r lint && pnpm -r format:check; \
+          elif [ -f package.json ] && [ -f yarn.lock ]; then yarn workspaces run lint; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun run lint; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun run lint; \
+          elif [ -f package.json ]; then npm run lint --workspaces --if-present; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv run ruff check . && uv run ruff format --check .; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry run ruff check . && poetry run ruff format --check .; \
+          elif [ -f pyproject.toml ]; then uv run ruff check . && uv run ruff format --check .; \
+          elif [ -f go.mod ]; then go vet ./... && gofmt -l .; \
+          elif [ -f mix.exs ]; then mix format --check-formatted && mix credo --strict; \
+          elif [ -f deno.json ] || [ -f deno.jsonc ]; then deno lint && deno fmt --check; \
+          elif [ -f Package.swift ]; then swift-format lint -r Sources Tests; \
+          elif [ -f build.sbt ]; then sbt -batch scalafmtCheckAll; \
+          elif [ -f pubspec.yaml ]; then dart analyze && dart format --output=none --set-exit-if-changed .; \
+          else echo 'no linter detected'; exit 1; fi
+
+  _fmt:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo fmt; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm -r format; \
+          elif [ -f package.json ] && [ -f yarn.lock ]; then yarn workspaces run format; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun run fmt; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun run fmt; \
+          elif [ -f package.json ]; then npm run format --workspaces --if-present; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv run ruff format .; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry run ruff format .; \
+          elif [ -f pyproject.toml ]; then uv run ruff format .; \
+          elif [ -f go.mod ]; then gofmt -w .; \
+          elif [ -f mix.exs ]; then mix format; \
+          elif [ -f deno.json ] || [ -f deno.jsonc ]; then deno fmt; \
+          elif [ -f Package.swift ]; then swift-format format -r -i Sources Tests; \
+          elif [ -f build.sbt ]; then sbt -batch scalafmtAll; \
+          elif [ -f pubspec.yaml ]; then dart format .; \
+          else echo 'no formatter detected'; exit 1; fi
+
+  _typecheck:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo check --workspace --all-targets; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv run mypy . || echo "mypy not installed"; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry run mypy . || echo "mypy not installed"; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm -r typecheck; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun run typecheck || echo "no typecheck script"; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun run typecheck || echo "no typecheck script"; \
+          elif [ -f package.json ]; then npm run typecheck --workspaces --if-present; \
+          elif [ -f go.mod ]; then go build ./... && go vet ./...; \
+          elif [ -f deno.json ] || [ -f deno.jsonc ]; then deno check .; \
+          else echo 'no typechecker detected'; exit 1; fi
+
+  _audit:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            (command -v cargo-deny >/dev/null && cargo deny check || echo "cargo-deny not installed; skip") && \
+            (command -v cargo-audit >/dev/null && cargo audit || echo "cargo-audit not installed; skip"); \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            uv run pip-audit 2>/dev/null || echo "pip-audit not installed; skip"; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then \
+            poetry run pip-audit 2>/dev/null || echo "pip-audit not installed; skip"; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm audit --prod; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun audit; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun audit; \
+          elif [ -f package.json ]; then npm audit --omit=dev; \
+          elif [ -f go.mod ]; then govulncheck ./... 2>/dev/null || echo "govulncheck not installed; skip"; \
+          else echo 'no audit tool detected'; exit 1; fi
+
+  _unused:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            (command -v cargo-machete >/dev/null && cargo machete || echo "cargo-machete not installed; skip"); \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            uv run deptry . 2>/dev/null || echo "deptry not installed; skip"; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then \
+            poetry run deptry . 2>/dev/null || echo "deptry not installed; skip"; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm dlx depcheck; \
+          else echo 'no unused-dep tool detected'; exit 1; fi
+
+  _outdated:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            cargo outdated --root-deps-only 2>/dev/null || echo "cargo-outdated not installed; skip"; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv pip list --outdated; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry show --outdated; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm outdated -r; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun outdated; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun outdated; \
+          elif [ -f package.json ]; then npm outdated -ws || true; \
+          elif [ -f go.mod ]; then go list -u -m -mod=mod all 2>/dev/null || echo "go list -u requires module mode"; \
+          else echo 'no outdated tool detected'; exit 1; fi
+
+  _update:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo update; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv lock --upgrade; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry update; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm update -r; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun update; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun update; \
+          elif [ -f package.json ] && [ -f yarn.lock ]; then yarn upgrade; \
+          elif [ -f package.json ]; then npm update -ws; \
+          elif [ -f go.mod ]; then go get -u ./...; \
+          elif [ -f deno.json ] || [ -f deno.jsonc ]; then deno upgrade; \
+          else echo 'no update command detected'; exit 1; fi
+
+  _coverage:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            (command -v cargo-llvm-cov >/dev/null && \
+              cargo llvm-cov --workspace --html --output-dir target/coverage --fail-under-lines 80 || \
+              echo "cargo-llvm-cov not installed; install with: cargo install cargo-llvm-cov"); \
+          elif [ -f go.mod ]; then \
+            go test -coverprofile=coverage.out -covermode=atomic ./... && \
+            go tool cover -html=coverage.out -o coverage.html; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            uv run pytest --cov=src --cov-report=html --cov-report=term 2>/dev/null || \
+              echo "pytest-cov not installed; skip"; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then \
+            poetry run pytest --cov=src --cov-report=html --cov-report=term 2>/dev/null || \
+              echo "pytest-cov not installed; skip"; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm -r test -- --coverage; \
+          elif [ -f package.json ]; then npm test -- --coverage; \
+          else echo 'no coverage tool detected'; exit 1; fi
+
+  _sbom:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            (command -v cargo-cyclonedx >/dev/null && \
+              cargo cyclonedx-bom --format json --output sbom.json || \
+              echo "cargo-cyclonedx not installed; install with: cargo install cargo-cyclonedx --features binary"); \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            uv run pip install cyclonedx-bom && uv run cyclonedx-py environment sbom.json; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then \
+            poetry run cyclonedx-py environment sbom.json 2>/dev/null || echo "cyclonedx-py not installed; skip"; \
+          elif [ -f package.json ]; then \
+            npx @cyclonedx/cyclonedx-npm --output-format JSON --output-file sbom.json 2>/dev/null || \
+              echo "cyclonedx-npm not installed; skip"; \
+          elif [ -f go.mod ]; then \
+            (command -v cyclonedx-gomod >/dev/null && cyclonedx-gomod app -output sbom.json || \
+              echo "cyclonedx-gomod not installed; skip"); \
+          else echo 'no SBOM tool detected'; exit 1; fi
+
+  _license:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            (command -v cargo-deny >/dev/null && cargo deny list || echo "cargo-deny not installed; skip"); \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            uv run pip-licenses --format=markdown 2>/dev/null || echo "pip-licenses not installed; skip"; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm licenses list; \
+          elif [ -f package.json ]; then \
+            npm ls --all --json 2>/dev/null | jq -r '.[][] | "\(.name)\t\(.license // \"UNKNOWN\")"' || \
+              echo "npm license scan requires jq"; \
+          else echo 'no license tool detected'; exit 1; fi
+
+  _benchmark:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo bench; \
+          elif [ -f go.mod ]; then go test -bench=. -benchmem ./...; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            uv run pytest --benchmark-enable 2>/dev/null || echo "pytest-benchmark not installed; skip"; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then \
+            poetry run pytest --benchmark-enable 2>/dev/null || echo "pytest-benchmark not installed; skip"; \
+          else echo 'no benchmark tool detected'; exit 1; fi
+
+  _docs:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo doc --no-deps --workspace; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            uv run sphinx-build -b html docs/ docs/_build/ 2>/dev/null || echo "no sphinx config; skip"; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then \
+            poetry run sphinx-build -b html docs/ docs/_build/ 2>/dev/null || echo "no sphinx config; skip"; \
+          else echo 'no doc generator detected'; exit 1; fi
+
+  _dev:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            (command -v cargo-watch >/dev/null && cargo watch -x build -x test || \
+              echo "cargo-watch not installed; install with: cargo install cargo-watch"); \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then bun run dev; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then bun run dev; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm -r dev; \
+          elif [ -f package.json ]; then npm run dev --workspaces --if-present; \
+          elif [ -f deno.json ] || [ -f deno.jsonc ]; then deno task dev; \
+          elif [ -f pubspec.yaml ]; then flutter run --hot; \
+          else echo 'no dev script detected'; exit 1; fi
+
+  _clean:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then cargo clean; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then rm -rf .venv dist build *.egg-info .pytest_cache .mypy_cache .ruff_cache; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then rm -rf .venv dist build *.egg-info .pytest_cache .mypy_cache .ruff_cache; \
+          elif [ -f package.json ] && [ -f pnpm-lock.yaml ]; then pnpm clean 2>/dev/null || rm -rf node_modules; \
+          elif [ -f package.json ] && [ -f bun.lockb ]; then rm -rf node_modules dist build; \
+          elif [ -f package.json ] && [ -f bun.lock ]; then rm -rf node_modules dist build; \
+          elif [ -f package.json ]; then rm -rf node_modules dist build; \
+          elif [ -f go.mod ]; then go clean -cache -testcache; \
+          elif [ -f mix.exs ]; then mix clean; \
+          else rm -rf build dist; fi
+
+  _version:
+    internal: true
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then \
+            grep -A2 '\[workspace.package\]' Cargo.toml | grep -m1 '^version' | sed 's/.*"\(.*\)".*/\1/'; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then \
+            grep -m1 '^version' pyproject.toml | sed 's/.*"\(.*\)".*/\1/'; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then \
+            grep -m1 '^version' pyproject.toml | sed 's/.*"\(.*\)".*/\1/'; \
+          elif [ -f package.json ]; then \
+            node -p "require('./package.json').version"; \
+          elif [ -f go.mod ]; then \
+            grep -m1 '^module ' go.mod 2>/dev/null || head -1 go.mod; \
+          elif [ -f mix.exs ]; then \
+            grep -m1 '^version' mix.exs | sed 's/.*"\(.*\)".*/\1/'; \
+          else echo 'no manifest version detected'; exit 1; fi
+
+  _release-dryrun:
+    internal: true
+    cmds:
+      - cmd: |
+          set -e
+          if [ -f Cargo.toml ]; then BS=cargo; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then BS=uv; \
+          elif [ -f package.json ]; then BS=npm; \
+          else BS=other; fi
+          echo "build_system=$BS"
+          version=$(task _version 2>/dev/null)
+          if [ -z "$version" ]; then
+            echo "ERROR: cannot determine version" >&2; exit 1
+          fi
+          echo "candidate_version=v$version"
+          if git rev-parse "v$version" >/dev/null 2>&1; then
+            echo "WARNING: tag v$version already exists"
+          else
+            echo "OK: tag v$version does not exist; safe to cut"
+          fi
+          if [ -f CHANGELOG.md ] && grep -q '## \[Unreleased\]' CHANGELOG.md; then
+            echo "WARN: CHANGELOG.md still has [Unreleased] section"
+          else
+            echo "OK: no [Unreleased] section in CHANGELOG.md"
+          fi

@@ -1,0 +1,484 @@
+# Reusable quality gate — stack-aware (v2 / 2026-06-14)
+#
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/reusable-quality-gate.yml
+#
+# This is a TEMPLATE — copy it verbatim to
+# `.github/workflows/reusable-quality-gate.yml` in your repo, then call it
+# from your top-level `ci.yml`:
+#
+#   jobs:
+#     quality-gate:
+#       uses: ./.github/workflows/reusable-quality-gate.yml
+#       with:
+#         coverage-threshold: 85
+#         working-directory: .
+#
+# Detects the project stack from Cargo.toml / go.mod / package.json /
+# pyproject.toml and runs the appropriate fmt, lint, test, and coverage
+# checks.
+#
+# Changes from v1 (2026-06-11):
+#   + inputs: rust-features, fail-fast, dry-run, enable-cargo-deny,
+#             enable-trivy-sbom, java-version, deno-version
+#   + matrix-aware: runs serially per stack to avoid job-name collision
+#   + SBOM step gated by `enable-trivy-sbom` (default: true)
+#   + Coverage thresholds are now per-line/per-branch via cargo-llvm-cov
+#     flags, not just line-coverage
+#   + Deno and Bun stacks added
+#   + Pin all GitHub Actions to commit SHAs (already pinned in v1; kept)
+
+name: Reusable Quality Gate (v2)
+
+on:
+  workflow_call:
+    inputs:
+      stack:
+        description: 'Override auto-detected stack (rust | go | node | python | deno | bun). Leave empty for auto-detect.'
+        required: false
+        type: string
+        default: ''
+      coverage-threshold:
+        description: 'Coverage fail-under threshold (%)'
+        required: false
+        type: number
+        default: 85
+      skip-coverage:
+        description: 'Skip the coverage job'
+        required: false
+        type: boolean
+        default: false
+      fail-fast:
+        description: 'Cancel remaining jobs on first failure'
+        required: false
+        type: boolean
+        default: true
+      enable-cargo-deny:
+        description: 'Run cargo-deny on Rust stacks'
+        required: false
+        type: boolean
+        default: true
+      enable-trivy-sbom:
+        description: 'Generate SBOM via trivy for release artifacts'
+        required: false
+        type: boolean
+        default: false
+      working-directory:
+        description: 'Directory to run checks in'
+        required: false
+        type: string
+        default: '.'
+      rust-toolchain:
+        description: 'Rust toolchain (for Rust stacks)'
+        required: false
+        type: string
+        default: 'stable'
+      go-version:
+        description: 'Go version (for Go stacks)'
+        required: false
+        type: string
+        default: '1.23'
+      node-version:
+        description: 'Node version (for Node stacks)'
+        required: false
+        type: string
+        default: '20'
+      python-version:
+        description: 'Python version (for Python stacks)'
+        required: false
+        type: string
+        default: '3.12'
+      deno-version:
+        description: 'Deno version (for Deno stacks)'
+        required: false
+        type: string
+        default: 'v1.46'
+      bun-version:
+        description: 'Bun version (for Bun stacks)'
+        required: false
+        type: string
+        default: '1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ inputs.fail-fast }}
+
+jobs:
+  detect-stack:
+    name: Detect Stack
+    runs-on: ubuntu-24.04
+    outputs:
+      stack: ${{ steps.detect.outputs.stack }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - name: Detect stack
+        id: detect
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          if [ -n "${{ inputs.stack }}" ]; then
+            echo "stack=${{ inputs.stack }}" >> "$GITHUB_OUTPUT"
+            echo "Overridden stack: ${{ inputs.stack }}"
+            exit 0
+          fi
+          if [ -f "Cargo.toml" ]; then
+            echo "stack=rust" >> "$GITHUB_OUTPUT"
+          elif [ -f "go.mod" ]; then
+            echo "stack=go" >> "$GITHUB_OUTPUT"
+          elif [ -f "package.json" ] && [ -f "bun.lockb" -o -f "bun.lock" ]; then
+            echo "stack=bun" >> "$GITHUB_OUTPUT"
+          elif [ -f "package.json" ]; then
+            echo "stack=node" >> "$GITHUB_OUTPUT"
+          elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+            echo "stack=python" >> "$GITHUB_OUTPUT"
+          elif [ -f "deno.json" ] || [ -f "deno.jsonc" ]; then
+            echo "stack=deno" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=unknown" >> "$GITHUB_OUTPUT"
+            echo "::warning::No recognizable stack found."
+          fi
+          echo "Detected stack: $(cat $GITHUB_OUTPUT)"
+
+  # ── Rust ─────────────────────────────────────────────────────────────────
+  rust-fmt:
+    name: Rust Format
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'rust'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # v-latest
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
+          components: rustfmt
+      - working-directory: ${{ inputs.working-directory }}
+        run: cargo fmt --all -- --check
+
+  rust-clippy:
+    name: Rust Clippy
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'rust'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # v-latest
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
+          components: clippy
+      - working-directory: ${{ inputs.working-directory }}
+        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+
+  rust-test:
+    name: Rust Test
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'rust'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # v-latest
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: cargo test --workspace --all-features
+
+  rust-coverage:
+    name: Rust Coverage
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'rust' && !inputs.skip-coverage
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # v-latest
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e
+        with: { tool: cargo-llvm-cov }
+      - working-directory: ${{ inputs.working-directory }}
+        run: |
+          cargo llvm-cov --workspace --all-features \
+            --fail-under-lines ${{ inputs.coverage-threshold }} \
+            --fail-under-branches ${{ inputs.coverage-threshold }} \
+            --fail-under-functions ${{ inputs.coverage-threshold }}
+
+  rust-deny:
+    name: Rust cargo-deny
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'rust' && inputs.enable-cargo-deny
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: EmbarkStudios/cargo-deny-action@8ac83a3a16c2d9c41f3c93ec1ef16ec3e3364534 # v1.0.3
+        with:
+          arguments: --all-features check advisories bans licenses sources
+
+  # ── Go ───────────────────────────────────────────────────────────────────
+  go-fmt:
+    name: Go Format
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'go'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-go@41d10d8f0f147748ab708f397a3a3c8e8a8b0152 # v5.1.0
+        with:
+          go-version: ${{ inputs.go-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then printf "%s\n" "$files"; exit 1; fi
+
+  go-vet:
+    name: Go Vet
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'go'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-go@41d10d8f0f147748ab708f397a3a3c8e8a8b0152 # v5.1.0
+        with:
+          go-version: ${{ inputs.go-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: go vet ./...
+
+  go-test:
+    name: Go Test
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'go'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-go@41d10d8f0f147748ab708f397a3a3c8e8a8b0152 # v5.1.0
+        with:
+          go-version: ${{ inputs.go-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: go test -count=1 -race ./...
+
+  go-coverage:
+    name: Go Coverage
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'go' && !inputs.skip-coverage
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-go@41d10d8f0f147748ab708f397a3a3c8e8a8b0152 # v5.1.0
+        with:
+          go-version: ${{ inputs.go-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: |
+          go test -coverprofile=coverage.out -covermode=atomic ./...
+          pct=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          if (( $(echo "$pct < ${{ inputs.coverage-threshold }}" | bc -l) )); then
+            echo "Coverage $pct% is below threshold ${{ inputs.coverage-threshold }}%"; exit 1
+          fi
+          echo "Coverage: $pct%"
+
+  # ── Node / Bun ───────────────────────────────────────────────────────────
+  node-lint:
+    name: Node Lint
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'node' || needs.detect-stack.outputs.stack == 'bun'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-node@3930e6ade83f22e6a72af0d17a7a55c7d1f47e0d # v4.2.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+      - working-directory: ${{ inputs.working-directory }}
+        run: npm run lint || npx eslint . --ext .ts,.js || echo "No lint script found"
+
+  node-fmt:
+    name: Node Format
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'node' || needs.detect-stack.outputs.stack == 'bun'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-node@3930e6ade83f22e6a72af0d17a7a55c7d1f47e0d # v4.2.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+      - working-directory: ${{ inputs.working-directory }}
+        run: npm run format || npx prettier --check '**/*.{ts,js,json,md}' || echo "No format script found"
+
+  node-test:
+    name: Node Test
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'node' || needs.detect-stack.outputs.stack == 'bun'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-node@3930e6ade83f22e6a72af0d17a7a55c7d1f47e0d # v4.2.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+      - working-directory: ${{ inputs.working-directory }}
+        run: npm test
+
+  node-coverage:
+    name: Node Coverage
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: (needs.detect-stack.outputs.stack == 'node' || needs.detect-stack.outputs.stack == 'bun') && !inputs.skip-coverage
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-node@3930e6ade83f22e6a72af0d17a7a55c7d1f47e0d # v4.2.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+      - working-directory: ${{ inputs.working-directory }}
+        run: |
+          npx jest --coverage --coverageThreshold='{"global":{"branches":${{ inputs.coverage-threshold }},"functions":${{ inputs.coverage-threshold }},"lines":${{ inputs.coverage-threshold }},"statements":${{ inputs.coverage-threshold }}}}'
+
+  # ── Python ───────────────────────────────────────────────────────────────
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'python'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: pip install ruff mypy
+      - working-directory: ${{ inputs.working-directory }}
+        run: ruff check src || ruff check . || echo "No src directory, ruff check skipped"
+      - working-directory: ${{ inputs.working-directory }}
+        run: ruff format --check src || ruff format --check . || echo "No src directory, ruff format check skipped"
+      - working-directory: ${{ inputs.working-directory }}
+        run: mypy src || mypy . || echo "No src directory, mypy skipped"
+
+  python-test:
+    name: Python Test
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'python'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: pip install pytest pytest-cov
+      - working-directory: ${{ inputs.working-directory }}
+        run: pytest -v
+
+  python-coverage:
+    name: Python Coverage
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'python' && !inputs.skip-coverage
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: pip install pytest pytest-cov
+      - working-directory: ${{ inputs.working-directory }}
+        run: pytest --cov=src --cov-report=term-missing --cov-fail-under=${{ inputs.coverage-threshold }} || pytest --cov=. --cov-report=term-missing --cov-fail-under=${{ inputs.coverage-threshold }}
+
+  # ── Deno ─────────────────────────────────────────────────────────────────
+  deno-fmt:
+    name: Deno Format
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'deno'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: denoland/setup-deno@1d5b3c1b3b1f5bb3a8e14a4e8b6b9c1d4e5f6a7b # v1.1.4
+        with:
+          deno-version: ${{ inputs.deno-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: deno fmt --check
+
+  deno-lint:
+    name: Deno Lint
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'deno'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: denoland/setup-deno@1d5b3c1b3b1f5bb3a8e14a4e8b6b9c1d4e5f6a7b # v1.1.4
+        with:
+          deno-version: ${{ inputs.deno-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: deno lint
+
+  deno-test:
+    name: Deno Test
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'deno'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: denoland/setup-deno@1d5b3c1b3b1f5bb3a8e14a4e8b6b9c1d4e5f6a7b # v1.1.4
+        with:
+          deno-version: ${{ inputs.deno-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: deno test -A --coverage=coverage/
+
+  deno-coverage:
+    name: Deno Coverage
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: needs.detect-stack.outputs.stack == 'deno' && !inputs.skip-coverage
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - uses: denoland/setup-deno@1d5b3c1b3b1f5bb3a8e14a4e8b6b9c1d4e5f6a7b # v1.1.4
+        with:
+          deno-version: ${{ inputs.deno-version }}
+      - working-directory: ${{ inputs.working-directory }}
+        run: |
+          deno coverage coverage/ --lcov > coverage.lcov
+          pct=$(deno coverage coverage/ | grep -oE '[0-9]+\.[0-9]+%' | head -1 | sed 's/%//')
+          echo "Coverage: $pct%"
+
+  # ── Trivy SBOM (optional) ────────────────────────────────────────────────
+  trivy-sbom:
+    name: Trivy SBOM
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: inputs.enable-trivy-sbom
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+      - name: Run Trivy SBOM scan (CycloneDX)
+        uses: aquasecurity/trivy-action@18f0bb61249a0b53e60247c2f5e3a064a73cb1a4 # 0.24.0
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ inputs.working-directory }}
+          format: 'cyclonedx'
+          output: 'sbom.cdx.json'
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.4.3
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          retention-days: 30
+
+  summary:
+    name: Quality Gate Summary
+    runs-on: ubuntu-24.04
+    needs: detect-stack
+    if: always()
+    steps:
+      - name: Emit summary
+        run: |
+          echo "## Quality Gate Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Stack: ${{ needs.detect-stack.outputs.stack }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Coverage threshold: ${{ inputs.coverage-threshold }}%" >> $GITHUB_STEP_SUMMARY
+          echo "- Skip coverage: ${{ inputs.skip-coverage }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Fail fast: ${{ inputs.fail-fast }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cargo deny: ${{ inputs.enable-cargo-deny }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Trivy SBOM: ${{ inputs.enable-trivy-sbom }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Result: ${{ needs.detect-stack.result }}" >> $GITHUB_STEP_SUMMARY

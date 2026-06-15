@@ -8,6 +8,11 @@ on:
     paths: ['Cargo.toml','Cargo.lock','deny.toml']
 permissions:
   contents: read
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   cargo-deny:
     uses: KooshaPari/phenotype-tooling/.github/workflows/reusable/cargo-deny.yml@main

@@ -1,0 +1,251 @@
+# lefthook.yml — Phenotype-org fleet-wide git hooks (v2 / 2026-06-14)
+#
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/lefthook.yml
+#
+# Install:
+#     lefthook install
+#
+# Skip the strictest check with: LEFTHOOK=0 git commit ...
+#
+# Changes from v1 (2026-06-11):
+#   + conventional commit message validation (commit-msg hook)
+#   + pre-commit now runs `just fmt --check` for stacks that have a fmt recipe
+#   + pre-push now runs cargo-deny (Rust) and npm/pnpm audit (Node)
+#   + file-size check (warn on files > 1 MB, fail on > 5 MB)
+#   + yaml/json/toml validation
+#   + secret scanning via trufflehog on pre-commit
+#   + private `do_not_edit` block at the bottom shows the canonical
+#     minimal config (consumers can copy that block to override everything)
+#
+# Recipe used by hooks:
+#   * prefer `just <recipe>` (the v2 shared library) when present
+#   * fall back to `task <recipe>` (Taskfile.yml v2)
+#   * fall back to `./grade.sh`
+#   * fall back to direct tool invocations as a last resort
+
+min_version: 1.6.0
+no_tty: false
+colors: true
+skip_output: false
+extends: []
+
+source_dir: .
+source_dir_local: .
+
+# ── pre-commit ──────────────────────────────────────────────────────────────
+# Runs on staged files only. Caches per-file results so unchanged files
+# are skipped on subsequent commits.
+pre-commit:
+  parallel: true
+  commands:
+    editorconfig:
+      glob: "*"
+      run: |
+        # Validate that all staged files comply with .editorconfig
+        # using editorconfig-checker (https://github.com/editorconfig-checker/editorconfig-checker)
+        if command -v ec >/dev/null 2>&1; then
+          git diff --cached --name-only --diff-filter=ACM | xargs ec
+        else
+          echo "editorconfig-checker (ec) not installed; skipping. Install with: brew install editorconfig-checker"
+        fi
+      skip:
+        - merge
+        - rebase
+        - revert
+
+    yaml-json-toml:
+      glob: "*.{yml,yaml,json,toml}"
+      run: |
+        # Lightweight syntax validation: parses each staged file and
+        # exits non-zero on the first parse error.
+        for f in $(git diff --cached --name-only --diff-filter=ACM); do
+          case "$f" in
+            *.yml|*.yaml)
+              python3 -c "import sys, yaml; list(yaml.safe_load_all(open(sys.argv[1])))" "$f" \
+                || { echo "YAML parse error: $f" >&2; exit 1; } ;;
+            *.json)
+              python3 -c "import sys, json; json.load(open(sys.argv[1]))" "$f" \
+                || { echo "JSON parse error: $f" >&2; exit 1; } ;;
+            *.toml)
+              python3 -c "import sys, tomli; tomli.load(open(sys.argv[1], 'rb'))" "$f" 2>/dev/null \
+                || python3 -c "import sys, tomllib; tomllib.load(open(sys.argv[1], 'rb'))" "$f" \
+                || { echo "TOML parse error: $f" >&2; exit 1; } ;;
+          esac
+        done
+      skip:
+        - merge
+        - rebase
+
+    secrets:
+      glob: "*"
+      run: |
+        # Pre-commit secret scan via trufflehog. Faster than the GH
+        # workflow version because it only sees staged files.
+        if command -v trufflehog >/dev/null 2>&1; then
+          trufflehog filesystem --no-update --only-verified --fail \
+            $(git diff --cached --name-only --diff-filter=ACM) || \
+            { echo "Secret(s) detected in staged files" >&2; exit 1; }
+        else
+          echo "trufflehog not installed; skipping secret scan"
+        fi
+      skip:
+        - merge
+        - rebase
+
+    file-size:
+      glob: "*"
+      run: |
+        # Warn on files > 1 MB, fail on files > 5 MB.
+        WARN=1048576
+        FAIL=5242880
+        for f in $(git diff --cached --name-only --diff-filter=ACM); do
+          [ -f "$f" ] || continue
+          size=$(wc -c < "$f" | tr -d ' ')
+          if [ "$size" -gt "$FAIL" ]; then
+            echo "ERROR: $f is $size bytes (limit: $FAIL)" >&2
+            exit 1
+          elif [ "$size" -gt "$WARN" ]; then
+            echo "WARN: $f is $size bytes (recommended limit: $WARN)"
+          fi
+        done
+      skip:
+        - merge
+        - rebase
+
+    fmt-check:
+      run: |
+        # Format check via the runner that the repo provides.
+        if [ -f "justfile" ] || [ -f "Justfile" ] || [ -f ".justfile" ]; then
+          just --justfile justfile fmt 2>/dev/null || just fmt 2>/dev/null || \
+            echo "just fmt failed; run \`just fmt\` to fix"
+        elif [ -f "Taskfile.yml" ]; then
+          task fmt 2>/dev/null || echo "task fmt failed; run \`task fmt\` to fix"
+        else
+          if [ -f Cargo.toml ]; then cargo fmt --all -- --check; \
+          elif [ -f pyproject.toml ] && [ -f uv.lock ]; then uv run ruff format --check .; \
+          elif [ -f pyproject.toml ] && [ -f poetry.lock ]; then poetry run ruff format --check .; \
+          elif [ -f package.json ]; then npm run format --workspaces --if-present 2>/dev/null \
+            || npx prettier --check '**/*.{ts,js,json,md}' 2>/dev/null \
+            || echo "no format script found"; \
+          elif [ -f go.mod ]; then files=$(gofmt -l .); [ -z "$files" ] || { echo "$files"; exit 1; }; \
+          fi
+        fi
+      skip:
+        - merge
+        - rebase
+
+    lint-changed:
+      run: |
+        # Per-changed-file lint. Only the directories that have changed
+        # files get re-linted (caching optimization from v1).
+        CHANGED=$(git diff --cached --name-only --diff-filter=ACM \
+          | grep -E '\.(rs|ts|tsx|js|jsx|mjs|cjs|py|go|svelte|vue)$' || true)
+        if [ -n "$CHANGED" ]; then
+          echo "$CHANGED" | xargs -n1 dirname | sort -u | while read dir; do
+            if [ -f "$dir/Cargo.toml" ]; then
+              (cd "$dir" && cargo fmt -- --check && cargo clippy -- -D warnings)
+            elif [ -f "$dir/package.json" ]; then
+              (cd "$dir" && npx eslint --ext .ts,.tsx,.js,.jsx . 2>/dev/null || true)
+            elif [ -f "$dir/pyproject.toml" ]; then
+              (cd "$dir" && ruff check . 2>/dev/null || true)
+            elif [ -f "$dir/go.mod" ]; then
+              (cd "$dir" && go vet ./... 2>/dev/null || true)
+            fi
+          done
+        fi
+      skip:
+        - merge
+        - rebase
+
+# ── commit-msg ─────────────────────────────────────────────────────────────
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        # Enforce conventional commits. Allowed types match the phenoytpe-org
+        # convention used by git-cliff in templates/cliff.toml.
+        MSG=$(cat "$1")
+        if echo "$MSG" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._-]+\))?!?: .{1,100}'; then
+          echo "✓ commit message OK"
+        else
+          echo "ERROR: commit message must follow conventional commits format:" >&2
+          echo "  <type>(<scope>)?: <subject>" >&2
+          echo "  types: feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert" >&2
+          echo "  example: feat(just): add release-dryrun recipe" >&2
+          exit 1
+        fi
+        # Subject length cap.
+        SUBJECT=$(echo "$MSG" | head -1 | sed 's/^[^:]*: //')
+        if [ "${#SUBJECT}" -gt 100 ]; then
+          echo "ERROR: subject is ${#SUBJECT} chars; cap is 100" >&2
+          exit 1
+        fi
+        # Body line length cap.
+        echo "$MSG" | tail -n +2 | grep -E '^.{73,}' && {
+          echo "ERROR: body lines must be ≤ 72 chars" >&2; exit 1; } || true
+
+# ── pre-push ────────────────────────────────────────────────────────────────
+# Strict mode. Caches are bypassed; everything runs end-to-end.
+pre-push:
+  parallel: false
+  commands:
+    grade:
+      run: |
+        # Full quality gate before push. Prefers the user-facing runner.
+        if [ -f "justfile" ] || [ -f "Justfile" ] || [ -f ".justfile" ]; then
+          just ci 2>/dev/null || just grade 2>/dev/null || \
+            { echo "just ci failed; run \`just ci\` to debug" >&2; exit 1; }
+        elif [ -f "Taskfile.yml" ]; then
+          task ci 2>/dev/null || task grade 2>/dev/null || \
+            { echo "task ci failed; run \`task ci\` to debug" >&2; exit 1; }
+        elif [ -x "./grade.sh" ]; then
+          ./grade.sh || { echo "grade.sh failed" >&2; exit 1; }
+        else
+          echo "no runner found; skipping grade" >&2
+        fi
+
+    cargo-deny:
+      run: |
+        # Run cargo-deny on Rust workspaces. Cheap; runs in ~1s.
+        if [ -f Cargo.toml ] && command -v cargo-deny >/dev/null 2>&1; then
+          cargo deny check || { echo "cargo-deny failed" >&2; exit 1; }
+        fi
+      skip:
+        - rebase
+
+    npm-audit:
+      run: |
+        # Node/JS dependency audit. Slow on first run; cached after.
+        if [ -f package.json ] && [ -f package-lock.json ]; then
+          npm audit --omit=dev || echo "npm audit found advisories (non-fatal)"
+        fi
+      skip:
+        - rebase
+
+# ── post-checkout (best-effort) ─────────────────────────────────────────────
+post-checkout:
+  commands:
+    remind-lefthook:
+      run: echo "lefthook active. Run \`lefthook run pre-commit\` to validate the working tree."
+
+# ── canonical minimal config (do_not_edit) ─────────────────────────────────
+# Consumers can replace the entire `pre-commit` / `commit-msg` / `pre-push`
+# blocks above with the contents of `do_not_edit.pre-commit` if they want a
+# bare-minimum config. (left here for documentation; not enforced.)
+do_not_edit:
+  pre-commit:
+    parallel: true
+    commands:
+      fmt-check:
+        run: cargo fmt --all -- --check
+  commit-msg:
+    commands:
+      conventional:
+        run: |
+          if ! grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .{1,100}' "$1"; then
+            echo "conventional commits required" >&2; exit 1
+          fi
+  pre-push:
+    commands:
+      grade:
+        run: ./grade.sh

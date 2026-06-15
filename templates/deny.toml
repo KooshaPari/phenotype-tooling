@@ -1,0 +1,141 @@
+# cargo-deny config — Phenotype-org standard (v2 / 2026-06-14)
+#
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/deny.toml
+#
+# Install cargo-deny: cargo install --locked cargo-deny
+# Run locally: cargo deny check
+# Run in CI: see templates/reusable-quality-gate.yml (rust-deny job)
+#
+# Changes from v1 (2026-06-11):
+#   + [graph] all-features = false → true (full advisory coverage)
+#   + [graph] feature-depth = 1 (cap the graph to 1-level features)
+#   + [licenses] allow list expanded (BSL-1.0, EPL-2.0, MPL-2.0 variants)
+#   + [licenses] confidence-threshold = 0.8 (require ≥ 80% license confidence)
+#   + [advisories] version = 2 (RUSTSEC schema v2)
+#   + [advisories] ignore = []  (fail-loud: do not silently ignore CVEs)
+#   + [bans] wildcards = "deny", multiple-versions = "warn"
+#   + [bans] deny = []  (ad-hoc ban list — see comments)
+#   + [sources] unknown-registry = "deny", unknown-git = "deny"
+#   + [sources] allow-registry = only crates.io
+#   + [sources] allow-git = []  (no git deps by default)
+#   + [patch] — empty by default, examples provided
+#
+# Tuned to be safe-by-default. Tighten the `[bans]` / `[sources]` blocks if
+# your repo has a specific whitelist; loosen `[licenses]` if you maintain
+# closed-source deps with private licenses.
+
+# ── graph ───────────────────────────────────────────────────────────────────
+[graph]
+all-features = true
+# Cap feature resolution depth. Many real-world crates have infinite
+# feature matrices; depth=1 is the sweet spot for security/audit.
+feature-depth = 1
+# Optional deps are skipped by default; flip to true if you depend on
+# `#[cfg(feature = "...")]` and need the graph to walk through them.
+optional-deps = false
+no-default-features = false
+# Lockfile target. Cargo.lock must exist for the offline walker.
+target = "x86_64-unknown-linux-gnu"
+
+# ── licenses ───────────────────────────────────────────────────────────────
+[licenses]
+# Allow-list. Add a license only after a legal review.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "0BSD",
+    "CC0-1.0",
+    "Zlib",
+    "Unlicense",
+    "BSL-1.0",          # Boost
+    "EPL-2.0",          # Eclipse Public License
+    "CDLA-Permissive-2.0",
+    "OpenSSL",          # OpenSSL/SSLeay
+    "NCSA",             # University of Illinois/NCSA
+]
+# Confidence threshold (0.0 - 1.0). 0.8 rejects anything cargo-deny is
+# not ≥80% sure about, surfacing ambiguous SPDX for manual review.
+confidence-threshold = 0.8
+
+# ── advisories ─────────────────────────────────────────────────────────────
+[advisories]
+version = 2
+# Empty by default — we want CI to fail loudly on new CVEs.
+# Add specific ignores only after triage (note the GHSA / RUSTSEC id).
+ignore = [
+    # Example: "RUSTSEC-2023-0044",  # tokio native-tls, accepted risk
+]
+
+# ── bans ────────────────────────────────────────────────────────────────────
+[bans]
+# Multiple versions of the same crate in the dep graph → warn.
+multiple-versions = "warn"
+# Wildcard deps (e.g. `serde = "*"`) are forbidden.
+wildcards = "deny"
+# Highlight the worst offenders in the build log.
+highlight = "all"
+# Allow specific crates to appear multiple times silently.
+allow = []
+# Explicit denials. Use this to forbid specific crates.
+deny = [
+    # Example: { name = "openssl", version = "*" }  # prefer rustls
+]
+# Skip these crates from the bans analysis.
+skip = []
+# Skip-tree: skip a crate AND all of its transitive deps from bans.
+skip-tree = []
+
+# ── sources ────────────────────────────────────────────────────────────────
+[sources]
+# Only crates.io is allowed.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+# ── patch ───────────────────────────────────────────────────────────────────
+# Override a crate to a git source. Use for security backports.
+[patch]
+# Example:
+# [patch.crates-io]
+# foo = { git = "https://github.com/example/foo", tag = "v1.2.3-fixed" }
+
+# ── output ─────────────────────────────────────────────────────────────────
+# Filename for cargo-deny's report. Consumed by `grade.sh` in some repos.
+output = ""
+
+# ── unstable ────────────────────────────────────────────────────────────────
+# Set to true if you want cargo-deny to emit experimental checks. Off by
+# default; do not enable in CI without a coordinated fleet rollout.
+[unstable]
+printWarnings = false
+bump = false
+msrv = false
+ignore-source = false
+external-default-features = false
+# Additional organizational content follows.
+# These sections are optional; remove them if you do not need them.
+
+# ── workspace ignores (Cargo.toml) ──────────────────────────────────────────
+# If your repo has sub-crates that should be excluded from deny checks, add
+# a [workspace.metadata.cargo-deny] table to your root Cargo.toml:
+#
+#     [workspace.metadata.cargo-deny]
+#     ignore = [
+#         "path/to/internal-crate",  # uses non-allowlisted deps by design
+#     ]
+#
+# ── CI integration ─────────────────────────────────────────────────────────
+# This file is consumed by:
+#   * `just audit` / `task audit` (developer-machine)
+#   * templates/reusable-quality-gate.yml (rust-deny job in CI)
+#   * .github/workflows/cargo-deny.yml (legacy standalone workflow, can be
+#     removed once the reusable workflow is wired in)
+# ───────────────────────────────────────────────────────────────────────────

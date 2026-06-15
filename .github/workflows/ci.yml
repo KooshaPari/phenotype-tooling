@@ -1,8 +1,4 @@
 name: CI
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   push:
     branches: [main]
@@ -12,6 +8,10 @@ on:
 # Thin caller that adopts the phenoShared reusable Rust CI workflow.
 # Pinned to main SHA 5ed0e3b — no semver tag yet; re-pin to a tag (e.g. @v1)
 # per the phenoShared release policy once one is cut with the reusable/ci.yml.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   rust-ci:
     uses: KooshaPari/phenoShared/.github/workflows/reusable/ci.yml@438e2e71e448c9f1f47f184d3ca4acbb28928677
