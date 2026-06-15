@@ -16,6 +16,16 @@ name: Reusable cargo-deny
 on:
   workflow_call:
     inputs:
+      manifest-path:
+        description: 'Path to Cargo.toml (default: ./Cargo.toml)'
+        type: string
+        required: false
+        default: './Cargo.toml'
+      command:
+        description: 'cargo-deny command to run (default: check advisories)'
+        type: string
+        required: false
+        default: 'check advisories'
       use-org-policy:
         description: >-
           When true (default), use the canonical deny.toml from
@@ -70,4 +80,6 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v6
         with:
           rust-version: stable
+          command: ${{ inputs.command }}
+          manifest-path: ${{ inputs.manifest-path }}
           command-arguments: ${{ steps.policy.outputs.command-arguments }}
