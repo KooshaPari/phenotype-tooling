@@ -1,27 +1,23 @@
-# Phenotype Tooling
+# phenotype-tooling — Documentation Index
 
-Phenotype Tooling is the shared Rust workspace for developer automation across
-the Phenotype repo set. It centralizes quality gates, documentation checks,
-release utilities, traceability scanners, and agent-operation helpers that were
-previously duplicated across projects.
+This index lists the design notes, ADRs, and supporting documentation maintained alongside this repository.
 
-## What It Provides
+## Top-level documents
 
-| Area | Tools |
-| --- | --- |
-| Quality | `quality-gate`, `docs-health`, `doc-link-check` |
-| Traceability | `fr-trace`, `fr-coverage`, `temporal-grounding` |
-| Release | `release-cut`, `commit-msg-check`, `sbom-gen` |
-| Governance | `legacy-scan`, `audit-privacy`, `bench-guard` |
-| Agent Ops | `agent-orchestrator`, `agent-forecast`, `anthropic-usage-poll` |
+- [`adoption.md`](adoption.md) — Adoption
+- [`app-inventory.md`](app-inventory.md) — App Inventory
+- [`cliff-adoption.md`](cliff-adoption.md) — Cliff Adoption
+- [`codeowners-adoption.md`](codeowners-adoption.md) — Codeowners Adoption
+- [`desktop-stack-decisions.md`](desktop-stack-decisions.md) — Desktop Stack Decisions
+- [`editorconfig-adoption.md`](editorconfig-adoption.md) — Editorconfig Adoption
+- [`gitignore-adoption.md`](gitignore-adoption.md) — Gitignore Adoption
+- [`hwledger-kokoro-migration.md`](hwledger-kokoro-migration.md) — Hwledger Kokoro Migration
+- [`tools.md`](tools.md) — Tools
 
-## Quick Start
+## Subdirectories
 
-```bash
-cargo check --workspace
-cargo test --workspace
-cargo install --path crates/quality-gate
-```
+- [`operations/`](operations/) — Operations (1 document)
 
-Use the [tool catalog](./tools.md) to find the right binary and the
-[adoption guide](./adoption.md) to wire it into another Phenotype repo.
+---
+
+_This index is auto-generated. To add new documents, place `.md` files in `docs/` and re-run the documentation indexer._
