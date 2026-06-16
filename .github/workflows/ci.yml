@@ -31,11 +31,9 @@ jobs:
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
     
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
+      uses: dtolnay/rust-toolchain@master
       with:
-        profile: minimal
         toolchain: ${{ matrix.rust }}
-        override: true
         components: rustfmt, clippy
     
     - name: Cache cargo registry
@@ -97,13 +95,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
-    
+
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
+      uses: dtolnay/rust-toolchain@master
       with:
-        profile: minimal
         toolchain: stable
-        override: true
     
     - name: Install cargo-audit
       run: cargo install cargo-audit
@@ -125,11 +121,9 @@ jobs:
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
     
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
+      uses: dtolnay/rust-toolchain@master
       with:
-        profile: minimal
         toolchain: stable
-        override: true
         components: llvm-tools-preview
     
     - name: Install system dependencies
@@ -196,12 +190,10 @@ jobs:
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
     
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
+      uses: dtolnay/rust-toolchain@master
       with:
-        profile: minimal
         toolchain: stable
-        override: true
-        target: ${{ matrix.target }}
+        targets: ${{ matrix.target }}
     
     - name: Install cross-compilation tools (Linux)
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
@@ -262,13 +254,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5@11bd71901bbe5b1630ceea73d27597364c9af683
-    
+
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
+      uses: dtolnay/rust-toolchain@master
       with:
-        profile: minimal
         toolchain: stable
-        override: true
     
     - name: Install system dependencies
       run: |
