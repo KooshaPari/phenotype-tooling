@@ -1,13 +1,13 @@
 pub mod clipboard;
 pub mod config;
 pub mod error;
+pub mod image_preview;
+pub mod image_processor;
+pub mod installer;
 pub mod interceptor;
 pub mod service;
-pub mod installer;
-pub mod image_processor;
-pub mod image_preview;
-pub mod stdout_monitor;
 pub mod shell_hooks;
+pub mod stdout_monitor;
 
 pub use error::{Error, Result};
 
@@ -92,56 +92,35 @@ pub const IMAGE_PROCESS_NAMES: &[&str] = &[
 ];
 
 /// Wayland screenshot tools
-pub const WAYLAND_SCREENSHOT_TOOLS: &[&str] = &[
-    "grim",
-    "wayshot", 
-    "grimshot",
-    "spectacle",
-    "flameshot",
-];
+pub const WAYLAND_SCREENSHOT_TOOLS: &[&str] =
+    &["grim", "wayshot", "grimshot", "spectacle", "flameshot"];
 
 /// X11 screenshot tools
-pub const X11_SCREENSHOT_TOOLS: &[&str] = &[
-    "scrot",
-    "gnome-screenshot",
-    "import",
-    "xfce4-screenshooter",
-];
+pub const X11_SCREENSHOT_TOOLS: &[&str] =
+    &["scrot", "gnome-screenshot", "import", "xfce4-screenshooter"];
 
 /// macOS screenshot tools
-pub const MACOS_SCREENSHOT_TOOLS: &[&str] = &[
-    "screencapture",
-    "screenshot",
-];
+pub const MACOS_SCREENSHOT_TOOLS: &[&str] = &["screencapture", "screenshot"];
 
 /// Wayland clipboard tools
-pub const WAYLAND_CLIPBOARD_TOOLS: &[&str] = &[
-    "wl-copy",
-    "wl-paste",
-];
+pub const WAYLAND_CLIPBOARD_TOOLS: &[&str] = &["wl-copy", "wl-paste"];
 
 /// X11 clipboard tools  
-pub const X11_CLIPBOARD_TOOLS: &[&str] = &[
-    "xclip",
-    "xsel",
-];
+pub const X11_CLIPBOARD_TOOLS: &[&str] = &["xclip", "xsel"];
 
 /// macOS clipboard tools
-pub const MACOS_CLIPBOARD_TOOLS: &[&str] = &[
-    "pbcopy",
-    "pbpaste",
-];
+pub const MACOS_CLIPBOARD_TOOLS: &[&str] = &["pbcopy", "pbpaste"];
 
 /// Initialize tracing for the application
 pub fn init_tracing(verbose: bool) {
     use tracing_subscriber::EnvFilter;
-    
+
     let filter = if verbose {
         EnvFilter::new("klipdot=debug")
     } else {
         EnvFilter::new("klipdot=info")
     };
-    
+
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
@@ -154,7 +133,7 @@ pub fn get_app_dir() -> Result<std::path::PathBuf> {
     let app_dir = dirs::data_dir()
         .ok_or_else(|| Error::Config("Failed to get data directory".to_string()))?
         .join(APP_NAME);
-    
+
     std::fs::create_dir_all(&app_dir)?;
     Ok(app_dir)
 }
@@ -164,7 +143,7 @@ pub fn get_config_dir() -> Result<std::path::PathBuf> {
     let config_dir = dirs::config_dir()
         .ok_or_else(|| Error::Config("Failed to get config directory".to_string()))?
         .join(APP_NAME);
-    
+
     std::fs::create_dir_all(&config_dir)?;
     Ok(config_dir)
 }
@@ -174,7 +153,7 @@ pub fn get_home_dir() -> Result<std::path::PathBuf> {
     let home_dir = dirs::home_dir()
         .ok_or_else(|| Error::Config("Failed to get home directory".to_string()))?
         .join(format!(".{}", APP_NAME));
-    
+
     std::fs::create_dir_all(&home_dir)?;
     Ok(home_dir)
 }
@@ -201,12 +180,12 @@ pub fn format_file_size(size: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = size as f64;
     let mut unit_index = 0;
-    
+
     while size >= 1024.0 && unit_index < UNITS.len() - 1 {
         size /= 1024.0;
         unit_index += 1;
     }
-    
+
     format!("{:.1} {}", size, UNITS[unit_index])
 }
 
@@ -216,7 +195,7 @@ pub fn format_duration(duration: std::time::Duration) -> String {
     let hours = total_seconds / 3600;
     let minutes = (total_seconds % 3600) / 60;
     let seconds = total_seconds % 60;
-    
+
     if hours > 0 {
         format!("{}h {}m {}s", hours, minutes, seconds)
     } else if minutes > 0 {
@@ -250,7 +229,7 @@ pub fn detect_display_server() -> DisplayServer {
         if std::env::var("WAYLAND_DISPLAY").is_ok() {
             return DisplayServer::Wayland;
         }
-        
+
         // Check XDG_SESSION_TYPE
         if let Ok(session_type) = std::env::var("XDG_SESSION_TYPE") {
             match session_type.to_lowercase().as_str() {
@@ -259,7 +238,7 @@ pub fn detect_display_server() -> DisplayServer {
                 _ => {}
             }
         }
-        
+
         // Check for DISPLAY variable (X11)
         if std::env::var("DISPLAY").is_ok() {
             return DisplayServer::X11;
@@ -285,16 +264,16 @@ pub fn detect_wayland_compositor() -> Option<String> {
             return Some("hyprland".to_string());
         }
     }
-    
+
     // Check for compositor-specific environment variables
     if std::env::var("SWAYSOCK").is_ok() {
         return Some("sway".to_string());
     }
-    
+
     if std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok() {
         return Some("hyprland".to_string());
     }
-    
+
     None
 }
 
@@ -306,7 +285,7 @@ pub fn is_command_available(command: &str) -> bool {
 /// Get available clipboard tools for the current display server
 pub fn get_available_clipboard_tools() -> Vec<String> {
     let mut tools = Vec::new();
-    
+
     match detect_display_server() {
         DisplayServer::Wayland => {
             for tool in WAYLAND_CLIPBOARD_TOOLS {
@@ -337,21 +316,25 @@ pub fn get_available_clipboard_tools() -> Vec<String> {
         }
         DisplayServer::Unknown => {
             // Try all tools
-            for tool in WAYLAND_CLIPBOARD_TOOLS.iter().chain(X11_CLIPBOARD_TOOLS.iter()).chain(MACOS_CLIPBOARD_TOOLS.iter()) {
+            for tool in WAYLAND_CLIPBOARD_TOOLS
+                .iter()
+                .chain(X11_CLIPBOARD_TOOLS.iter())
+                .chain(MACOS_CLIPBOARD_TOOLS.iter())
+            {
                 if is_command_available(tool) {
                     tools.push(tool.to_string());
                 }
             }
         }
     }
-    
+
     tools
 }
 
 /// Get available screenshot tools for the current display server
 pub fn get_available_screenshot_tools() -> Vec<String> {
     let mut tools = Vec::new();
-    
+
     match detect_display_server() {
         DisplayServer::Wayland => {
             for tool in WAYLAND_SCREENSHOT_TOOLS {
@@ -376,30 +359,34 @@ pub fn get_available_screenshot_tools() -> Vec<String> {
         }
         DisplayServer::Unknown => {
             // Try all tools
-            for tool in WAYLAND_SCREENSHOT_TOOLS.iter().chain(X11_SCREENSHOT_TOOLS.iter()).chain(MACOS_SCREENSHOT_TOOLS.iter()) {
+            for tool in WAYLAND_SCREENSHOT_TOOLS
+                .iter()
+                .chain(X11_SCREENSHOT_TOOLS.iter())
+                .chain(MACOS_SCREENSHOT_TOOLS.iter())
+            {
                 if is_command_available(tool) {
                     tools.push(tool.to_string());
                 }
             }
         }
     }
-    
+
     tools
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_is_image_file() {
-        assert!(is_image_file(&std::path::Path::new("test.png")));
-        assert!(is_image_file(&std::path::Path::new("test.jpg")));
-        assert!(is_image_file(&std::path::Path::new("test.PNG")));
-        assert!(!is_image_file(&std::path::Path::new("test.txt")));
-        assert!(!is_image_file(&std::path::Path::new("test")));
+        assert!(is_image_file(std::path::Path::new("test.png")));
+        assert!(is_image_file(std::path::Path::new("test.jpg")));
+        assert!(is_image_file(std::path::Path::new("test.PNG")));
+        assert!(!is_image_file(std::path::Path::new("test.txt")));
+        assert!(!is_image_file(std::path::Path::new("test")));
     }
-    
+
     #[test]
     fn test_generate_screenshot_filename() {
         let filename = generate_screenshot_filename("clipboard");
@@ -407,7 +394,7 @@ mod tests {
         assert!(filename.ends_with(".png"));
         assert!(filename.len() > 20);
     }
-    
+
     #[test]
     fn test_format_file_size() {
         assert_eq!(format_file_size(512), "512.0 B");
@@ -415,21 +402,30 @@ mod tests {
         assert_eq!(format_file_size(1536), "1.5 KB");
         assert_eq!(format_file_size(1024 * 1024), "1.0 MB");
     }
-    
+
     #[test]
     fn test_format_duration() {
         assert_eq!(format_duration(std::time::Duration::from_secs(30)), "30s");
-        assert_eq!(format_duration(std::time::Duration::from_secs(90)), "1m 30s");
-        assert_eq!(format_duration(std::time::Duration::from_secs(3665)), "1h 1m 5s");
+        assert_eq!(
+            format_duration(std::time::Duration::from_secs(90)),
+            "1m 30s"
+        );
+        assert_eq!(
+            format_duration(std::time::Duration::from_secs(3665)),
+            "1h 1m 5s"
+        );
     }
-    
+
     #[test]
     fn test_display_server_detection() {
         // Test that detection returns a valid enum value
         let server = detect_display_server();
-        assert!(matches!(server, DisplayServer::X11 | DisplayServer::Wayland | DisplayServer::Unknown));
+        assert!(matches!(
+            server,
+            DisplayServer::X11 | DisplayServer::Wayland | DisplayServer::Unknown
+        ));
     }
-    
+
     #[test]
     fn test_wayland_compositor_detection() {
         // Test that compositor detection returns an option
@@ -439,13 +435,13 @@ mod tests {
             assert!(!comp.is_empty());
         }
     }
-    
+
     #[test]
     fn test_available_tools() {
         // Test that we can get available tools without panicking
         let clipboard_tools = get_available_clipboard_tools();
         let screenshot_tools = get_available_screenshot_tools();
-        
+
         // The actual tools depend on the system, so we just check the calls work
         // Note: We can't assert specific tools exist, as they depend on the system
         let _clipboard_count = clipboard_tools.len();

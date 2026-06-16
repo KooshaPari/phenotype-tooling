@@ -3,13 +3,13 @@ use clap::{Parser, Subcommand};
 use klipdot::{
     clipboard::ClipboardMonitor,
     config::Config,
+    image_preview::ImagePreviewManager,
     interceptor::TerminalInterceptor,
     service::ServiceManager,
-    image_preview::ImagePreviewManager,
-    stdout_monitor::{StdoutMonitor, LivePreviewSystem},
+    stdout_monitor::{LivePreviewSystem, StdoutMonitor},
 };
 use std::path::PathBuf;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -22,10 +22,10 @@ use tracing_subscriber::EnvFilter;
 struct Args {
     #[command(subcommand)]
     command: Commands,
-    
+
     #[arg(short, long, global = true)]
     verbose: bool,
-    
+
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
 }
@@ -106,27 +106,25 @@ enum ConfigAction {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    
+
     // Initialize tracing
     let filter = if args.verbose {
         EnvFilter::new("klipdot=debug")
     } else {
         EnvFilter::new("klipdot=info")
     };
-    
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
-    
+
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+
     // Load configuration
     let config = if let Some(config_path) = args.config {
         Config::load_from_path(&config_path)?
     } else {
         Config::load_or_create_default()?
     };
-    
+
     info!("KlipDot starting with config: {:?}", config);
-    
+
     match args.command {
         Commands::Start { daemon } => {
             if daemon {
@@ -156,7 +154,11 @@ async fn main() -> Result<()> {
         Commands::Config { action } => {
             handle_config_command(action, &config).await?;
         }
-        Commands::Preview { image_path, width, height } => {
+        Commands::Preview {
+            image_path,
+            width,
+            height,
+        } => {
             handle_preview_command(&config, &image_path, width, height).await?;
         }
         Commands::MonitorOutput { command } => {
@@ -172,23 +174,23 @@ async fn main() -> Result<()> {
             handle_tui_command(&config, command).await?;
         }
     }
-    
+
     Ok(())
 }
 
 async fn start_foreground(config: &Config) -> Result<()> {
     info!("Starting KlipDot in foreground mode");
-    
+
     let mut interceptor = TerminalInterceptor::new(config.clone()).await?;
     let mut clipboard_monitor = ClipboardMonitor::new(config.clone()).await?;
-    
+
     // Handle shutdown gracefully
     let shutdown_signal = async {
         tokio::signal::ctrl_c()
             .await
             .expect("Failed to install CTRL+C signal handler");
     };
-    
+
     tokio::select! {
         result = interceptor.run() => {
             if let Err(e) = result {
@@ -204,47 +206,51 @@ async fn start_foreground(config: &Config) -> Result<()> {
             info!("Received shutdown signal, stopping KlipDot");
         }
     }
-    
+
     Ok(())
 }
 
 async fn start_daemon(config: &Config) -> Result<()> {
     info!("Starting KlipDot in daemon mode");
-    ServiceManager::start_daemon(config.clone()).await
+    ServiceManager::start_daemon(config.clone())
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to start daemon: {}", e))
 }
 
 async fn show_status(config: &Config) -> Result<()> {
     let service_manager = ServiceManager::new();
     let status = service_manager.status().await?;
-    
+
     println!("=== KlipDot Status ===");
-    println!("Service: {}", if status.running { "Running" } else { "Stopped" });
-    
+    println!(
+        "Service: {}",
+        if status.running { "Running" } else { "Stopped" }
+    );
+
     if let Some(pid) = status.pid {
         println!("PID: {}", pid);
     }
-    
+
     if let Some(uptime) = status.uptime {
         println!("Uptime: {}", klipdot::format_duration(uptime));
     }
-    
+
     println!("Configuration: {:?}", config.screenshot_dir);
-    
+
     // Show recent screenshots
     let screenshots = config.get_recent_screenshots(5).await?;
     println!("Recent screenshots: {}", screenshots.len());
-    
+
     for (i, screenshot) in screenshots.iter().enumerate() {
         println!("  {}. {} ({})", i + 1, screenshot.filename, screenshot.size);
     }
-    
+
     Ok(())
 }
 
 async fn install_hooks(shell: Option<String>) -> Result<()> {
     info!("Installing KlipDot shell hooks");
-    
+
     let shell = shell.unwrap_or_else(|| {
         std::env::var("SHELL")
             .unwrap_or_else(|_| "/bin/bash".to_string())
@@ -253,34 +259,34 @@ async fn install_hooks(shell: Option<String>) -> Result<()> {
             .unwrap_or("bash")
             .to_string()
     });
-    
+
     let installer = klipdot::installer::ShellInstaller::new(&shell);
     installer.install().await?;
-    
+
     println!("✅ Shell hooks installed for {}", shell);
     println!("Please restart your shell or run: source ~/.{}rc", shell);
-    
+
     Ok(())
 }
 
 async fn uninstall_hooks() -> Result<()> {
     info!("Uninstalling KlipDot shell hooks");
-    
+
     let installer = klipdot::installer::ShellInstaller::detect_shell();
     installer.uninstall().await?;
-    
+
     println!("✅ Shell hooks uninstalled");
     println!("Please restart your shell to complete removal");
-    
+
     Ok(())
 }
 
 async fn cleanup_screenshots(config: &Config, days: u32) -> Result<()> {
     info!("Cleaning up screenshots older than {} days", days);
-    
+
     let count = config.cleanup_old_screenshots(days).await?;
     println!("✅ Cleaned up {} old screenshots", count);
-    
+
     Ok(())
 }
 
@@ -293,11 +299,11 @@ async fn handle_config_command(action: Option<ConfigAction>, config: &Config) ->
         ConfigAction::Edit => {
             let editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
             let config_path = config.get_config_path();
-            
+
             std::process::Command::new(editor)
                 .arg(config_path)
                 .status()?;
-                
+
             println!("Configuration edited: {:?}", config_path);
         }
         ConfigAction::Reset => {
@@ -305,38 +311,47 @@ async fn handle_config_command(action: Option<ConfigAction>, config: &Config) ->
             println!("✅ Configuration reset to default");
         }
     }
-    
+
     Ok(())
 }
 
-async fn handle_preview_command(config: &Config, image_path: &PathBuf, width: Option<u32>, height: Option<u32>) -> Result<()> {
+async fn handle_preview_command(
+    config: &Config,
+    image_path: &PathBuf,
+    width: Option<u32>,
+    height: Option<u32>,
+) -> Result<()> {
     info!("Showing preview for image: {:?}", image_path);
-    
-    let preview_manager = ImagePreviewManager::new(config.clone()).await
+
+    let preview_manager = ImagePreviewManager::new(config.clone())
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to create preview manager: {}", e))?;
-    
-    preview_manager.show_preview(image_path, width, height).await
+
+    preview_manager
+        .show_preview(image_path, width, height)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to show preview: {}", e))?;
-    
+
     Ok(())
 }
 
 async fn handle_monitor_output_command(config: &Config, command: Vec<String>) -> Result<()> {
-    let monitor = StdoutMonitor::new(config.clone()).await
+    let monitor = StdoutMonitor::new(config.clone())
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to create stdout monitor: {}", e))?;
-    
+
     if command.is_empty() {
         // Monitor stdin
         info!("Monitoring stdin for image paths...");
         use std::io::{self, BufRead, BufReader};
-        
+
         let stdin = io::stdin();
         let reader = BufReader::new(stdin.lock());
-        
+
         for (line_num, line) in reader.lines().enumerate() {
             let line = line.map_err(|e| anyhow::anyhow!("Failed to read line: {}", e))?;
             println!("{}", line); // Echo the line
-            
+
             // Detect images in this line
             let detected = monitor.detect_images_in_line(&line, line_num + 1);
             for image in detected {
@@ -347,53 +362,63 @@ async fn handle_monitor_output_command(config: &Config, command: Vec<String>) ->
     } else {
         // Monitor command output
         info!("Monitoring command: {:?}", command);
-        monitor.monitor_command(command).await
+        monitor
+            .monitor_command(command)
+            .await
             .map_err(|e| anyhow::anyhow!("Failed to monitor command: {}", e))?;
     }
-    
+
     Ok(())
 }
 
 async fn handle_preview_stdin_command(config: &Config) -> Result<()> {
     info!("Reading image data from stdin...");
-    
-    let preview_manager = ImagePreviewManager::new(config.clone()).await
+
+    let preview_manager = ImagePreviewManager::new(config.clone())
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to create preview manager: {}", e))?;
-    
+
     use std::io::{self, Read};
-    
+
     let mut buffer = Vec::new();
-    io::stdin().read_to_end(&mut buffer)
+    io::stdin()
+        .read_to_end(&mut buffer)
         .map_err(|e| anyhow::anyhow!("Failed to read from stdin: {}", e))?;
-    
+
     if buffer.is_empty() {
         return Err(anyhow::anyhow!("No data received from stdin"));
     }
-    
-    preview_manager.preview_stdin_data(buffer).await
+
+    preview_manager
+        .preview_stdin_data(buffer)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to preview stdin data: {}", e))?;
-    
+
     Ok(())
 }
 
 async fn handle_live_preview_command(config: &Config, auto_preview: bool) -> Result<()> {
-    info!("Starting LSP-style live preview mode (auto_preview: {})", auto_preview);
-    
-    let mut live_system = LivePreviewSystem::new(config.clone()).await
+    info!(
+        "Starting LSP-style live preview mode (auto_preview: {})",
+        auto_preview
+    );
+
+    let mut live_system = LivePreviewSystem::new(config.clone())
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to create live preview system: {}", e))?;
-    
+
     println!("🔍 Live Preview Mode Enabled");
     println!("Type image paths and see previews in real-time!");
     println!("Press Ctrl+C to exit");
-    
+
     use std::io::{self, BufRead, BufReader};
-    
+
     let stdin = io::stdin();
     let reader = BufReader::new(stdin.lock());
-    
+
     for line in reader.lines() {
         let line = line.map_err(|e| anyhow::anyhow!("Failed to read line: {}", e))?;
-        
+
         if auto_preview {
             // Show live preview for the entire line
             let cursor_pos = line.len(); // Assume cursor is at end
@@ -401,10 +426,10 @@ async fn handle_live_preview_command(config: &Config, auto_preview: bool) -> Res
                 warn!("Failed to show live preview: {}", e);
             }
         }
-        
+
         println!("Input: {}", line);
     }
-    
+
     Ok(())
 }
 
@@ -412,15 +437,21 @@ async fn handle_tui_command(config: &Config, command: Vec<String>) -> Result<()>
     if command.is_empty() {
         return Err(anyhow::anyhow!("No TUI command provided"));
     }
-    
-    info!("Running TUI application with image monitoring: {:?}", command);
-    
-    let monitor = StdoutMonitor::new(config.clone()).await
+
+    info!(
+        "Running TUI application with image monitoring: {:?}",
+        command
+    );
+
+    let monitor = StdoutMonitor::new(config.clone())
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to create stdout monitor: {}", e))?;
-    
+
     // Run the TUI with monitoring
-    monitor.monitor_command(command).await
+    monitor
+        .monitor_command(command)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to monitor TUI command: {}", e))?;
-    
+
     Ok(())
 }
