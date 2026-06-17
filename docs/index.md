@@ -16,6 +16,7 @@ This index lists the design notes, ADRs, and supporting documentation maintained
 
 ## Subdirectories
 
+- [`absorption/`](absorption/) — Repo absorption trackers (router-monitor, BytePort, HeliosBench)
 - [`operations/`](operations/) — Operations (1 document)
 
 ---
