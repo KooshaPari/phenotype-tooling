@@ -19,10 +19,13 @@
 > human operator. Bug reports and contributions are still welcome, but please
 > expect AI-generated code, comments, and documentation throughout.
 <!-- AI-DD-META:END -->
+<!-- work-state: Phase 3 spec+test+trace added -->
+[████████░░] 80% — spec+test+trace layer
+
 # KlipDot — Terminal Image Interception Framework (Archived)
 
-> **Work state:** ARCHIVED · **Maintenance:** reference only · no active development
-> Updated 2026-06-08 — hygiene bundle (editorconfig, set -euo pipefail, standard files, justfile).
+> **Work state:** PHASE 3 (Spec + Test + Traceability)  
+> Updated 2026-06-15 — Phase 3 spec layer added (docs/specs/FR.md, docs/specs/TRACEABILITY.md)
 
 
 [![License](https://img.shields.io/github/license/KooshaPari/KlipDot)](LICENSE)
