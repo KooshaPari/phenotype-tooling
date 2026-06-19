@@ -1,0 +1,22 @@
+{
+  "name": "@phenotype/github-adapter",
+  "version": "0.1.0",
+  "description": "GitHub adapter for the Phenotype bot framework",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@phenotype/sdk": "workspace:*"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.0"
+  },
+  "license": "MIT"
+}

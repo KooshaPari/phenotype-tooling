@@ -1,0 +1,22 @@
+{
+  "name": "@phenotype/discord-adapter",
+  "version": "0.1.0",
+  "description": "Discord adapter for the Phenotype bot framework",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@phenotype/sdk": "workspace:*"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.0"
+  },
+  "license": "MIT"
+}

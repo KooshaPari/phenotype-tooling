@@ -1,0 +1,89 @@
+---
+source: tests/snapshot_tests.rs
+assertion_line: 8
+expression: tokens
+---
+[
+    Token {
+        token_type: Let,
+        span: Span {
+            start: Loc {
+                line: 1,
+                column: 4,
+            },
+            end: Loc {
+                line: 1,
+                column: 4,
+            },
+        },
+    },
+    Token {
+        token_type: Identifier(
+            "x",
+        ),
+        span: Span {
+            start: Loc {
+                line: 1,
+                column: 6,
+            },
+            end: Loc {
+                line: 1,
+                column: 6,
+            },
+        },
+    },
+    Token {
+        token_type: Equals,
+        span: Span {
+            start: Loc {
+                line: 1,
+                column: 7,
+            },
+            end: Loc {
+                line: 1,
+                column: 7,
+            },
+        },
+    },
+    Token {
+        token_type: Integer(
+            42,
+        ),
+        span: Span {
+            start: Loc {
+                line: 1,
+                column: 11,
+            },
+            end: Loc {
+                line: 1,
+                column: 11,
+            },
+        },
+    },
+    Token {
+        token_type: Semicolon,
+        span: Span {
+            start: Loc {
+                line: 1,
+                column: 11,
+            },
+            end: Loc {
+                line: 1,
+                column: 11,
+            },
+        },
+    },
+    Token {
+        token_type: Eof,
+        span: Span {
+            start: Loc {
+                line: 1,
+                column: 12,
+            },
+            end: Loc {
+                line: 1,
+                column: 12,
+            },
+        },
+    },
+]
