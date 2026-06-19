@@ -2,17 +2,23 @@
 
 **Source:** `KooshaPari/KodeVibe` (private, archived 2026-06-18)
 **Target:** `KooshaPari/phenotype-tooling/docs/absorbed-from-kodevibe/`
-**Reason:** KodeVibe's content was the HexaKit Genesis scaffold template; absorbed as a reference template under the tooling umbrella.
+**Reason:** KodeVibe contained a Go static analysis engine + OKF manifest format + HexaKit-style templates; absorbed as a historical reference.
 
 ## Contents
 
-- `hexa_template/` — Hexagonal layout template (domain/ports/adapters)
-- `Justfile` / `Taskfile.yml` — Task runner configs
-- `Justfile.just` — Variant
-- `mds/` — Markdown docs
+- `engine/` — Go static analysis engine (octofhir-grade)
+- `okf/` — OKF (Object Knowledge Format) manifest format
+- `kodevibe/` — CLI wrapper
+- `docs/` — Design docs
+- `Justfile` / `Taskfile.yml` / `Makefile` — Task runner configs
 - `Dockerfile` — Containerization
 - CI workflows (`.github/`)
+- `intent.md`, `charter.md` — Project intent + charter
+- `install.sh` — Installation script
+- `.kodevibe.yaml` — Project config
 
 ## Status
 
-Read-only reference. Use the `hexa_template/` as a starting point for new hexagonal Rust crates. The canonical template lives at `phenotype-cargo-template` for new crates; this is the historical/preserved snapshot.
+Read-only reference. The Go engine and OKF format are historical; canonical replacements:
+- Static analysis → `pheno-scaffold-kit` (Python), `pheno-framework-lint` (Rust)
+- Task runners → `Justfile` is canonical (Taskfile.yml is deprecated; see ADR-022)
