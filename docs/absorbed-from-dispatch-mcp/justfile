@@ -1,0 +1,32 @@
+# justfile for dispatch-mcp
+# Python project (uv-managed). See pyproject.toml for tool config.
+
+set shell := ["bash", "-uc"]
+
+# Default: list available recipes.
+default:
+    @just --list
+
+# Start the dev MCP server (placeholder — invoke the server entrypoint).
+dev:
+    uv run dispatch-mcp
+
+# Produce release artifacts (sdist + wheel via build).
+build:
+    uv run python -m build
+
+# Run the test suite (pytest).
+test:
+    uv run pytest -v
+
+# Run the linter (ruff check).
+lint:
+    uv run ruff check src tests
+
+# Apply the formatter (ruff format).
+fmt:
+    uv run ruff format src tests
+
+# Remove build artifacts.
+clean:
+    rm -rf build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache

@@ -1,0 +1,27 @@
+FROM python:3.13-slim
+
+LABEL org.opencontainers.image.source="https://github.com/KooshaPari/dispatch-mcp"
+LABEL org.opencontainers.image.description="dispatch-mcp with LlamaCpp local provider"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
+WORKDIR /app
+
+# Install system deps for llama-cpp-python
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project files
+COPY pyproject.toml README.md ./
+COPY src/ src/
+
+# Install dispatch-mcp with llama extras
+RUN pip install --no-cache-dir ".[llama]"
+
+# Expose the MCP server port (configurable via OMNIROUTE_URL)
+EXPOSE 20128
+
+# Default: start dispatch-mcp MCP server
+# Override CMD to run a llama.cpp server sidecar if needed
+CMD ["python", "-m", "dispatch_mcp.server"]

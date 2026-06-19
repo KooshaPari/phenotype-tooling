@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  # llama.cpp server - loads GGUF model and exposes /completion endpoint
+  llama-cpp:
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    # For CPU-only: image: ghcr.io/ggerganov/llama.cpp:server
+    # Or build local: build: ./docker/llama.cpp
+    environment:
+      - LLAMA_CPP_MODEL_PATH=/models/${MODEL_FILE:-llama-3-8b.gguf}
+      - LLAMA_CPP_N_CTX=4096
+      - LLAMA_CPP_N_GPU_LAYERS=-1  # -1 = all layers on GPU
+      - LLAMA_CPP_PORT=8080
+      - LLAMA_CPP_HOST=0.0.0.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./models:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # dispatch-mcp with local LlamaCpp provider (server mode)
+  dispatch-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.llama
+    environment:
+      - OMNIROUTE_URL=http://localhost:20128
+      - DISPATCH_COST_TRACKING=enabled
+      - LLAMA_CPP_SERVER_URL=http://llama-cpp:8080
+      - LOG_LEVEL=INFO
+    ports:
+      - "20128:20128"
+    depends_on:
+      llama-cpp:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Optional: OmniRoute backend (if running standalone)
+  # omnirute:
+  #   image: ghcr.io/kooshapari/omniroute:latest
+  #   environment:
+  #     - OMNIROUTE_PORT=20128
+  #   ports:
+  #     - "20128:20128"
+
+volumes:
+  models:
+    driver: local
