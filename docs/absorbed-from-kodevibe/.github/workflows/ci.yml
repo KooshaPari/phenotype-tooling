@@ -1,0 +1,33 @@
+name: CI
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (scaffolded)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+      - name: Build (placeholder)
+        run: |
+          echo "Build command not yet defined for this scaffolded repo. Replace this step with the project's build command."
+
+  test:
+    name: test (scaffolded)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+      - name: Test (placeholder)
+        run: |
+          echo "Test command not yet defined for this scaffolded repo. Replace this step with the project's test command."
