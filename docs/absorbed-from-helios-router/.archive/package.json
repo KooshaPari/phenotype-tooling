@@ -1,0 +1,22 @@
+{
+  "name": "helios-router",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "electrobun": "^1.18.1"
+  },
+  "scripts": {
+    "dev": "cd dashboard && bun run dev",
+    "test": "cd dashboard && bunx vitest run",
+    "build:dashboard": "cd dashboard && bun run build",
+    "app:dev": "concurrently \"bun run dev\" \"bunx electrobun dev\"",
+    "app:build": "bun run build:dashboard && bunx electrobun build"
+  }
+}

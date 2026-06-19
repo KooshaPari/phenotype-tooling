@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="helios-router">
+  <title>helios-router</title>
+  <desc>AI-coded vector mark: a radiant sun whose rays fan out as routing paths to nodes, for a Pareto routing dashboard. Hand-authored paths.</desc>
+  <defs>
+    <linearGradient id="hr-bg" x1="24" y1="24" x2="488" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1A1206"/>
+      <stop offset="1" stop-color="#3A2408"/>
+    </linearGradient>
+    <radialGradient id="hr-sun" cx="256" cy="256" r="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FEF08A"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="url(#hr-bg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="none" stroke="#5C3D10" stroke-width="2"/>
+
+  <!-- Sun rays as routing spokes to nodes -->
+  <g stroke="#FBBF24" stroke-width="10" stroke-linecap="round">
+    <path d="M 256 256 L 256 96"/>
+    <path d="M 256 256 L 396 176"/>
+    <path d="M 256 256 L 396 336"/>
+    <path d="M 256 256 L 256 416"/>
+    <path d="M 256 256 L 116 336"/>
+    <path d="M 256 256 L 116 176"/>
+  </g>
+  <!-- Routing nodes at ray ends -->
+  <g fill="#FDE68A" stroke="#B45309" stroke-width="4">
+    <circle cx="256" cy="92" r="16"/>
+    <circle cx="402" cy="172" r="16"/>
+    <circle cx="402" cy="340" r="16"/>
+    <circle cx="256" cy="420" r="16"/>
+    <circle cx="110" cy="340" r="16"/>
+    <circle cx="110" cy="172" r="16"/>
+  </g>
+
+  <!-- Sun core -->
+  <circle cx="256" cy="256" r="78" fill="url(#hr-sun)" stroke="#FDE68A" stroke-width="4"/>
+</svg>
