@@ -1,4 +1,0 @@
-[1m[91merror[0m[1m[97m: multiple input filenames provided (first two filenames are `src\lib.rs` and `;`)[0m
-
-[1m[91merror[0m: could not compile `klipdot` (lib) due to 1 previous error
-[1m[91merror[0m: could not compile `klipdot` (lib test) due to 1 previous error

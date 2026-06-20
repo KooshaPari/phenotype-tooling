@@ -27,14 +27,14 @@ device: macbook
 
 | Date | Source | File | Tag |
 | ---- | ------ | ---- | --- |
-| ? | claude-code | `docs/curated-prompts/claude-code/unknown/49ddf47e14020ac5.md` | implementation |
-| ? | claude-code | `docs/curated-prompts/claude-code/unknown/5cc5926fcbdb96ce.md` | implementation |
-| ? | claude-code | `docs/curated-prompts/claude-code/unknown/6dce7c6a38a4162f.md` | narrative |
-| ? | claude-code | `docs/curated-prompts/claude-code/unknown/8a8c6fb128e87a62.md` | implementation |
-| ? | claude-code | `docs/curated-prompts/claude-code/unknown/c9d26e45ab2132b1.md` | narrative |
-| ? | claude-code | `docs/curated-prompts/claude-code/unknown/d83c93a3655353c2.md` | narrative |
 | 2026-04-23 | claude-code | `docs/curated-prompts/claude-code/2026-04/ea4c6ff800771840.md` | narrative |
+| ? | claude-code | `docs/curated-prompts/claude-code/unknown/6dce7c6a38a4162f.md` | narrative |
+| ? | claude-code | `docs/curated-prompts/claude-code/unknown/c9d26e45ab2132b1.md` | narrative |
+| ? | claude-code | `docs/curated-prompts/claude-code/unknown/5cc5926fcbdb96ce.md` | implementation |
+| ? | claude-code | `docs/curated-prompts/claude-code/unknown/49ddf47e14020ac5.md` | implementation |
+| ? | claude-code | `docs/curated-prompts/claude-code/unknown/8a8c6fb128e87a62.md` | implementation |
 | ? | claude-code | `docs/curated-prompts/claude-code/unknown/f81cec645466c2f9.md` | policy-setting |
+| ? | claude-code | `docs/curated-prompts/claude-code/unknown/d83c93a3655353c2.md` | narrative |
 
 ## Bound Plans
 
