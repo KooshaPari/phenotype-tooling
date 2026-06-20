@@ -9,6 +9,7 @@ TBD - GitHub Actions billing-blocked org-wide
 - cargo-deny.yml: Monday 09:00 UTC cron + push/PR + workflow_dispatch
 - codeql-rust.yml: Tuesday 04:17 UTC cron + push/PR + workflow_dispatch
 - cargo-audit.yml: Wednesday 05:37 UTC cron + push/PR + workflow_dispatch
+- reusable workflows absorbed from `pheno-ci-templates`: `reusable/python-ci.yml`, `reusable/rust-ci.yml`, `reusable/rust-audit.yml`
 - pre-commit: client-side (cargo fmt + check + gitleaks)
 - branch protection: 1 reviewer required, no force-push, dismiss stale
 
