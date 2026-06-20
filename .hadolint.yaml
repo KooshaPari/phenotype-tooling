@@ -1,0 +1,17 @@
+---
+failure-threshold: error
+format-options:
+  no-color: false
+  no-fail-on-ignored: false
+ignored: []
+override:
+  error:
+    DL3008: warning  # pin versions in apt-get install
+    DL3018: warning  # pin versions in apk add
+  warning:
+    DL3059: info     # multiple consecutive RUNs
+trustedRegistries:
+  - docker.io
+  - ghcr.io
+  - gcr.io
+  - quay.io

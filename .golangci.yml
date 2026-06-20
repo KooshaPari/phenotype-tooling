@@ -1,0 +1,16 @@
+linters:
+  disable-all: false
+  enable-all: true
+  exclusions:
+    - "**/*.pb.go"
+    - "**/generated/**"
+  settings:
+    gocritic:
+      enabled-tags: [diagnostic, style, performance]
+    revive:
+      severity: warning
+    gocyclo:
+      min-complexity: 15
+    goimports:
+      local-prefixes: github.com/KooshaPari
+  timeout: 5m
