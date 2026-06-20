@@ -1,0 +1,44 @@
+# pheno-cost-card
+
+Per-repo and fleet cost card for CI minutes, LLM token spend, and storage.
+
+## Install
+
+```bash
+pip install pheno-cost-card
+```
+
+## Usage
+
+```python
+from datetime import datetime, timezone
+from pheno_cost_card import CostCard
+from pheno_cost_card.render import render_repo_card, render_fleet_card
+
+card = CostCard(
+    repo="my-repo",
+    ci_minutes=120.0,
+    llm_tokens_usd=4.25,
+    storage_gb=1.5,
+    contributors=("alice", "bob"),
+)
+print(render_repo_card(card, previous_total_usd=3.0))
+print(render_fleet_card([card, ...]))
+```
+
+## Collectors
+
+```python
+from pheno_cost_card.collectors import gh_actions_minutes, lfm_token_ledger, du_storage
+
+gh_actions_minutes(Path("/path/to/repo"), "2026-06")
+lfm_token_ledger(Path("/path/to/repo"), "2026-06")
+du_storage(Path("/path/to/repo"))
+```
+
+Collectors read checked-in `.cost-card/*.json` ledgers so the card is
+reproducible in CI without API access.
+
+## License
+
+MIT

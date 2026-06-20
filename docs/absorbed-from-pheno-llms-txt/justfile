@@ -1,0 +1,20 @@
+set dotenv-load := true
+
+test:
+    pytest
+
+build:
+    hatch build
+
+lint:
+    ruff check src tests
+    ruff format --check src tests
+
+audit:
+    pip-audit
+
+demo:
+    pheno-llms-txt --out /tmp/demo-llms.txt
+    cat /tmp/demo-llms.txt
+
+ci: lint build test audit

@@ -1,0 +1,59 @@
+# Gitattributes — tier-0 hygiene for pheno-scaffold-kit
+# Per ADR-023 Rule 1.2: every substrate ships with .gitattributes
+
+# Normalise line endings for all text files
+* text=auto eol=lf
+
+# Python source files
+*.py text diff=python
+*.pyw text
+
+# Documentation
+*.md text diff=markdown
+*.rst text
+
+# Configuration
+*.toml text
+*.yml text
+*.yaml text
+*.json text
+*.cfg text
+*.ini text
+
+# Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+
+# Justfile
+justfile text
+
+# Git/dotfiles
+.gitignore text
+.gitattributes text
+.editorconfig text
+
+# Deny
+deny.toml text
+
+# Binary files
+*.pyc binary
+*.pyo binary
+*.egg binary
+*.whl binary
+*.db binary
+*.sqlite3 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Lock files (generated, not diffed)
+package-lock.json binary
+pnpm-lock.yaml binary
+Cargo.lock binary

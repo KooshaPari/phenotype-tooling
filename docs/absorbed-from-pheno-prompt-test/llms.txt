@@ -1,0 +1,41 @@
+# llms.txt — pheno-prompt-test
+
+> pytest plugin for prompt regression tests.
+
+## Install
+```
+pip install pheno-prompt-test
+```
+
+## Usage
+```Place tests/prompts/*.prompt files (YAML) and run pytest.```
+
+## Public API (Python)
+- `pheno_prompt_test.PromptCase` (dataclass: name, input, runner, expected_output_matches, expected_tool_calls, expected_no_calls, extra)
+- `pheno_prompt_test.prompt_case(name, input, runner, **kwargs) -> PromptCase`
+- pytest plugin: auto-collects `*.prompt` files, registers each as a test
+
+## YAML schema for *.prompt files
+```yaml
+name: <str>
+input: |
+  <user message>
+runner: <module>::<function>           # e.g. my_pkg.runners::dispatch
+expected_output_matches: <regex>
+expected_tool_calls: [<tool_name>, ...]
+expected_no_calls: [<tool_name>, ...]
+```
+
+## Runner contract
+- Function takes `str` input, returns `dict` with at least:
+  - `output: str` — the LLM's text response
+  - `tool_calls: list[str]` — the tools the LLM invoked
+
+## Common errors
+- `KeyError: 'runner'`: every .prompt file must have a `runner:` field
+- `ModuleNotFoundError: my_pkg.runners`: install the package and check sys.path
+- `AssertionError: output did not match ...`: regex didn't match; update the test or fix the runner
+
+## See also
+- FLEET_100TASK_DAG_V4.md §70.3 + §77.3
+- Related: pheno-agents-md, pheno-llms-txt, pheno-vibecoding-guard

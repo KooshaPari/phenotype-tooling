@@ -1,0 +1,16 @@
+set dotenv-load := true
+
+test:
+    pytest
+
+build:
+    hatch build
+
+lint:
+    ruff check src tests
+    ruff format --check src tests
+
+audit:
+    pip-audit
+
+ci: lint build test audit

@@ -1,0 +1,28 @@
+set dotenv-load := true
+
+test:
+    pytest
+
+build:
+    hatch build
+
+lint:
+    ruff check src tests
+    ruff format --check src tests
+
+audit:
+    pip-audit
+
+self-validate:
+    pheno-worklog-validate ./WORKLOG.md
+
+# Pre-commit hook: validate WORKLOG.md files against v2.1 schema (ADR-025).
+# Usage: just precommit [paths...]  (defaults to repo WORKLOG.md)
+precommit path*="WORKLOG.md":
+    python3 validate_worklog.py {{path}}
+
+ci: lint build test audit self-validate
+
+# Measure code coverage (SSOT: see grade.sh for the canonical command)
+coverage:
+    pytest --cov=src --cov-report=term-missing --cov-fail-under=85

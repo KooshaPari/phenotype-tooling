@@ -1,0 +1,14 @@
+name: FR-Coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fr-coverage:
+    uses: KooshaPari/phenotype-tooling/.github/workflows/reusable-fr-coverage.yml@main

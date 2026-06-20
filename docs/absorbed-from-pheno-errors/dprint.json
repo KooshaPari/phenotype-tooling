@@ -1,0 +1,12 @@
+{
+  "indentWidth": 4,
+  "lineWidth": 120,
+  "includes": ["**/*.{rs,toml,md,json,yml,yaml}"],
+  "excludes": ["target/**", ".git/**"],
+  "plugins": [
+    "https://plugins.dprint.dev/rust-latest.wasm",
+    "https://plugins.dprint.dev/markdown-latest.wasm",
+    "https://plugins.dprint.dev/toml-latest.wasm",
+    "https://plugins.dprint.dev/json-latest.wasm"
+  ]
+}

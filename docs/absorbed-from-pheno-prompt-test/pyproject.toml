@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pheno-prompt-test"
+version = "0.1.0"
+description = "Prompt regression test harness for LLM-based tools (pytest plugin)."
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "KooshaPari"}]
+keywords = ["phenotype", "prompt-test", "ai-dd", "crutch", "vibecoding"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "pyyaml>=6",
+    "pytest>=7",
+]
+
+[project.entry-points.pytest11]
+pheno_prompt_test = "pheno_prompt_test.plugin"
+
+[project.urls]
+Homepage = "https://github.com/KooshaPari/pheno-prompt-test"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pheno_prompt_test"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/pheno_prompt_test", "tests", "README.md", "CHANGELOG.md", "LICENSE-MIT", "AGENTS.md", "llms.txt"]

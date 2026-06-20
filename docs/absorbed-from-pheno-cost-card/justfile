@@ -1,0 +1,33 @@
+default := just --list
+
+# Install package in editable mode + dev extras
+dev:
+    pip install -e ".[dev]"
+
+# Run the test suite
+test:
+    pytest -v
+
+# Build sdist + wheel
+build:
+    python -m build
+
+# Lint with ruff (config in pyproject.toml if present)
+lint:
+    ruff check src tests || true
+
+# Type-check
+typecheck:
+    mypy src || true
+
+# Clean build artifacts
+clean:
+    rm -rf build dist src/*.egg-info .pytest_cache .ruff_cache .mypy_cache
+
+# Release: build + twine check (does NOT upload)
+release: clean build
+    twine check dist/*
+
+# Audit: list outdated deps
+audit:
+    pip list --outdated

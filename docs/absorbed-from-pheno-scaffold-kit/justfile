@@ -1,0 +1,45 @@
+default := just --list
+
+# Install package in editable mode + dev extras
+dev:
+    pip install -e ".[dev]"
+
+# Run the test suite
+test:
+    pytest -v
+
+# Build sdist + wheel
+build:
+    python -m build
+
+# Lint with ruff (config in pyproject.toml if present)
+lint:
+    ruff check src tests
+
+# Format with ruff
+fmt:
+    ruff format src tests
+
+# Type-check (optional; many libs do not configure this)
+typecheck:
+    pyright src || true
+
+# Clean build artifacts
+clean:
+    rm -rf build dist src/*.egg-info .pytest_cache .ruff_cache .mypy_cache
+
+# Install and run pre-commit hooks
+precommit:
+    pip install pre-commit && pre-commit install && pre-commit run --all-files
+
+# Release: build + twine check (does NOT upload)
+release: clean build
+    twine check dist/*
+
+# Audit: list outdated deps
+audit:
+    pip list --outdated
+
+# Measure code coverage (SSOT: see grade.sh for the canonical command)
+coverage:
+    pytest --cov=src --cov-report=term-missing --cov-fail-under=85

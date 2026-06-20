@@ -1,0 +1,123 @@
+name: v2.1-validate
+
+# Worklog v2.1 validation gate (ADR-025 / ADR-015).
+# Fails any PR that introduces or modifies WORKLOG.md files in a format
+# other than the canonical v2.1 11-column schema (with `device:` field).
+#
+# Migration deadline: 2026-06-22 (ADR-025 deprecation of v2.0).
+# Fleet substrate: pheno-worklog-schema.
+# Companion template: pheno-ci-templates/worklog-v21.yml.
+
+on:
+  push:
+    branches: [main, chore/**, feat/**, fix/**, refactor/**, docs/**]
+  pull_request:
+    branches: [main, chore/**, feat/**, fix/**, refactor/**, docs/**]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v21-validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-worklog-v21:
+    name: WORKLOG.md v2.1 schema gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install pheno-worklog-schema
+        run: |
+          python -m pip install --upgrade pip
+          pip install pheno-worklog-schema
+          # Fallback to local source if PyPI version lags the spec.
+          if [ -f src/pheno_worklog_schema/__init__.py ]; then
+            pip install -e .
+          fi
+
+      - name: Validate all WORKLOG.md files are v2.1
+        run: |
+          set -e
+          python - <<'PY'
+          """Validate every WORKLOG.md in the repo is in v2.1 schema (ADR-025)."""
+          import sys
+          from pathlib import Path
+          from pheno_worklog_schema import parse_worklog, is_v20, is_v21
+          from pheno_worklog_schema.schema import V21_HEADER
+
+          # v2.0 10-col header per SPEC-v2.1.md
+          V20_HEADER = [
+              "task_id", "date", "repo", "category", "title",
+              "commit_sha", "pr_number", "status", "author", "notes",
+          ]
+
+          worklogs = list(Path(".").rglob("WORKLOG.md"))
+          if not worklogs:
+              print("No WORKLOG.md files found in repo — nothing to validate.")
+              sys.exit(0)
+
+          allowed_devices = {"macbook", "heavy-runner", "subagent", "ci", ""}
+          errors: list[str] = []
+          summary: list[tuple[str, int, int]] = []
+
+          for wl in worklogs:
+              rel = wl.relative_to(".")
+              text = wl.read_text()
+
+              if is_v20(text):
+                  errors.append(
+                      f"{rel}: still in v2.0 (10-col). Run "
+                      f"`python -m pheno_worklog_schema.migrate_v2_to_v2_1 {rel}` "
+                      f"or the migrate CLI to add the `device:` column."
+                  )
+                  continue
+
+              if not is_v21(text):
+                  errors.append(
+                      f"{rel}: header is neither v2.0 nor v2.1. Expected "
+                      f"v2.1 11-col: {V21_HEADER}. See SPEC-v2.1.md."
+                  )
+                  continue
+
+              entries = parse_worklog(text)
+              bad_devices = [
+                  i for i, e in enumerate(entries)
+                  if e.device not in allowed_devices
+              ]
+              if bad_devices:
+                  errors.append(
+                      f"{rel}: {len(bad_devices)} entries have invalid "
+                      f"`device` values. Allowed: {sorted(allowed_devices - {''})}. "
+                      f"Row indices: {bad_devices[:5]}{'...' if len(bad_devices) > 5 else ''}"
+                  )
+
+              summary.append((str(rel), len(entries), sum(1 for e in entries if e.device == "")))
+
+          print()
+          print("=" * 60)
+          print("WORKLOG.md v2.1 validation summary")
+          print("=" * 60)
+          for path, total, missing in summary:
+              print(f"  {path:60s}  rows={total:3d}  missing-device={missing:3d}")
+          print("=" * 60)
+
+          if errors:
+              print()
+              print("FAIL — the following errors must be fixed:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+
+          print()
+          print("OK — all WORKLOG.md files are valid v2.1 (ADR-025).")
+          PY

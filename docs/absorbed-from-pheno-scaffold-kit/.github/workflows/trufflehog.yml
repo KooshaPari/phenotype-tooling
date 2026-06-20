@@ -1,0 +1,14 @@
+name: Secret Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets-scan:
+    uses: KooshaPari/phenotype-tooling/.github/workflows/reusable-trufflehog.yml@main

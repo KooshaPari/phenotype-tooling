@@ -1,0 +1,19 @@
+# cliff.toml — git-cliff changelog generator config
+[changelog]
+header = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n"
+body = """
+{% for group, commits in commits | group_by(attribute=\"group\") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }}{% if commit.scope %} ({{ commit.scope }}){% endif %}
+{% endfor %}
+{% endfor %}
+"""
+footer = "---"
+trim = true
+postprocessors = []
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false

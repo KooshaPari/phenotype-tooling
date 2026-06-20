@@ -1,0 +1,35 @@
+# llms.txt — pheno-worklog-schema
+
+> WORKLOG.md schema + validator for Phenotype repos (v2.1 with device: column, ADR-015)
+
+## Install
+```bash
+pip install pheno-worklog-schema
+```
+
+## CLI / Quickstart
+```bash
+# After install
+pheno-worklog-schema --help
+```
+
+## Public API (Python)
+- Import: `import pheno_worklog_schema`
+- See `src/pheno_worklog_schema/` for the module layout
+- Tests: `pytest -q` (target: 30 tests)
+
+## CI matrix
+- Lint: `ruff check . && ruff format --check .`
+- Types: `mypy src`
+- Test: `pytest -q --cov=pheno-worklog-schema --cov-report=term-missing --cov-fail-under=80`
+
+## Cross-references
+- WORKLOG: `WORKLOG.md` (v2.1 — 11 columns; `device` per ADR-023)
+- Spec: `SPEC.md` (if present) or `README.md`
+- CHANGELOG: `CHANGELOG.md` (Keep-a-Changelog)
+- AGENTS: `AGENTS.md` (per-repo conventions)
+
+## Related pheno-* substrate
+- `pheno-worklog-schema` (worklog validator)
+- `pheno-ci-templates` (Python CI template, local-only)
+- `pheno-vibecoding-guard` (HITL gates for AI-pair commits)

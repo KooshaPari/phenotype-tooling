@@ -1,0 +1,50 @@
+# pheno-scaffold-kit
+
+Scaffold umbrella CLI wrapping 5 pheno-* AI-DD crutch libs:
+
+- pheno-agents-md — generates AGENTS.md
+- pheno-llms-txt — generates llms.txt
+- pheno-prompt-test — prompt regression harness
+- pheno-vibecoding-guard — pre-commit agent-drift guard
+- pheno-worklog-schema — WORKLOG.md validation
+
+## Install
+
+```bash
+pip install pheno-scaffold-kit
+```
+
+## Usage
+
+```bash
+# Detect repo + run all 5 scaffold steps
+pheno-scaffold init /path/to/repo
+
+# Or run individual steps
+pheno-scaffold init-agents /path/to/repo
+pheno-scaffold init-llms /path/to/repo
+pheno-scaffold init-prompt-test /path/to/repo
+pheno-scaffold install-hooks /path/to/repo
+pheno-scaffold init-worklog /path/to/repo
+```
+
+## Public API
+
+```python
+from pheno_scaffold_kit import init_scaffold, detect_repo_type
+
+print(detect_repo_type("/path/to/repo"))
+# {'exists': True, 'git': True, 'python': True, ...}
+
+print(init_scaffold("/path/to/repo"))
+# {'agents': {...}, 'llms': {...}, 'prompt_test': {...}, ...}
+```
+
+## Sub-library contract
+
+Each sub-lib is imported lazily + defensively — umbrella works even if
+0/5 sub-libs are installed. Tests use `monkeypatch.setattr` to mock.
+
+## License
+
+MIT

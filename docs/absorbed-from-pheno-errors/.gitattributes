@@ -1,0 +1,24 @@
+# Auto-detect text files and normalise line endings
+* text=auto
+
+# Rust source
+*.rs text diff=rust
+
+# Markdown
+*.md text diff=markdown
+
+# TOML
+*.toml text
+
+# YAML
+*.yml text
+*.yaml text
+
+# JSON
+*.json text
+
+# Shell
+*.sh text eol=lf
+
+# Lock files — keep as-is
+Cargo.lock -diff

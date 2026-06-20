@@ -1,0 +1,56 @@
+name: ci
+
+# Self-contained Python CI for the pheno-worklog-schema substrate (T15 pheno-flake refresh).
+# Mirrors the `pheno-ci-templates` Python job without depending on the
+# (local-only) reusable workflow. Coverage gate: 80% (lib/SDK per ADR-023).
+
+on:
+  push:
+    branches: [main, chore/**, feat/**]
+  pull_request:
+    branches: [main, chore/**, feat/**]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest (Python 3.11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff check)
+        run: ruff check .
+
+      - name: Lint (ruff format check)
+        run: ruff format --check .
+
+      - name: Type-check (mypy)
+        run: mypy src
+
+      - name: Test (pytest)
+        run: |
+          pytest -q --cov=pheno-worklog-schema --cov-report=term-missing --cov-fail-under=80
+
+      - name: Validate WORKLOG.md (v2.1)
+        run: |
+          pip install pheno-worklog-schema
+          pheno-worklog-validate ./WORKLOG.md
