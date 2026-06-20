@@ -1,0 +1,143 @@
+name: Reusable TruffleHog Secret Scan
+
+on:
+  workflow_call:
+    inputs:
+      allowlist_path:
+        description: "Path to the TruffleHog allowlist file"
+        required: false
+        type: string
+        default: ".trufflehog-allowlist.txt"
+      extra_paths:
+        description: "Additional paths to scan (space-separated, default: entire repo)"
+        required: false
+        type: string
+        default: ""
+      image:
+        description: "Pinned TruffleHog image"
+        required: false
+        type: string
+        default: "trufflesecurity/trufflehog:latest"
+      no_verification:
+        description: "Skip verification (faster, higher false-positive rate)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  trufflehog:
+    name: TruffleHog secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve allowlist path
+        id: allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "${{ inputs.allowlist_path }}" ]; then
+            echo "path=${{ inputs.allowlist_path }}" >> "$GITHUB_OUTPUT"
+          elif [ -f .trufflehog-allowlist.txt ]; then
+            echo "path=.trufflehog-allowlist.txt" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "::notice::No TruffleHog allowlist found; scanning without verification overrides"
+          fi
+
+      - name: Run TruffleHog
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DIR_FLAGS=( "--directory=." )
+          if [ -n "${{ inputs.extra_paths }}" ]; then
+            DIR_FLAGS=()
+            for p in ${{ inputs.extra_paths }}; do
+              DIR_FLAGS+=( "--directory=${p}" )
+            done
+          fi
+
+          ALLOW_FLAG=()
+          if [ -n "${{ steps.allowlist.outputs.path }}" ]; then
+            ALLOW_FLAG=( "--allow-verification-overrides=${{ steps.allowlist.outputs.path }}" )
+          fi
+
+          NO_VERIFY_FLAG=()
+          if [ "${{ inputs.no_verification }}" = "true" ]; then
+            NO_VERIFY_FLAG=( "--no-verification" )
+          fi
+
+          echo "::group::TruffleHog invocation"
+          echo "image:      ${{ inputs.image }}"
+          echo "extra:      ${{ inputs.extra_paths }}"
+          echo "no_verify:  ${{ inputs.no_verification }}"
+          echo "allowlist:  ${{ steps.allowlist.outputs.path }}"
+          echo "::endgroup::"
+
+          TMP_FINDINGS="$(mktemp)"
+          trap 'rm -f "${TMP_FINDINGS}" "${TMP_FINDINGS}.stderr"' EXIT
+
+          set +e
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/repo:ro" \
+            -w /repo \
+            "${{ inputs.image }}" \
+            git file:///repo \
+            --json \
+            --no-update \
+            --fail \
+            "${DIR_FLAGS[@]}" \
+            "${ALLOW_FLAG[@]}" \
+            "${NO_VERIFY_FLAG[@]}" \
+            1> "${TMP_FINDINGS}" 2> "${TMP_FINDINGS}.stderr"
+          rc=$?
+          set -e
+
+          {
+            echo "# TruffleHog secret-scan summary"
+            echo
+            echo "**Commit:** \`${GITHUB_SHA}\`"
+            echo "**Ref:** \`${GITHUB_REF}\`"
+            echo "**Event:** \`${GITHUB_EVENT_NAME}\`"
+            echo "**Exit:** \`${rc}\` (0 = clean, non-zero = verified finding)"
+            echo
+            echo "## Findings"
+            echo
+            if [ -s "${TMP_FINDINGS}" ]; then
+              echo "| Detector | Source | Verified | Description |"
+              echo "|----------|--------|----------|-------------|"
+              if command -v jq >/dev/null 2>&1; then
+                jq -r '"\(.DetectorName // "unknown")|\(.SourceMetadata.Data.Git.file // "?")|\(.Verified // false)|\((.Description // .DetectorDescription // "") | gsub("\\|"; "\\\\|") | gsub("\\n"; " "))"' "${TMP_FINDINGS}" \
+                  | awk -F'|' '{ printf "| %s | %s | %s | %s |\n", $1, $2, $3, $4 }'
+              else
+                echo "| (raw) | (raw) | (raw) | (jq missing; showing first 400 chars of each finding) |"
+                while IFS= read -r line; do
+                  printf "| ? | ? | ? | %s |\n" "$(echo "${line}" | cut -c1-400)"
+                done < "${TMP_FINDINGS}"
+              fi
+            else
+              echo "_No findings._"
+            fi
+            echo
+            echo "## Scanner stderr (truncated)"
+            echo
+            echo '```'
+            head -c 2000 "${TMP_FINDINGS}.stderr" 2>/dev/null || echo "(no stderr captured)"
+            echo
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [ "${rc}" -ne 0 ] && [ -s "${TMP_FINDINGS}" ]; then
+            echo "::error::TruffleHog found verified secret(s); see workflow summary for details."
+            exit "${rc}"
+          fi
+
+          exit 0
