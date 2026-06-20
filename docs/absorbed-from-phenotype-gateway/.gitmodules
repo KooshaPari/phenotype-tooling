@@ -1,0 +1,13 @@
+[submodule "third_party/agentapi-plusplus"]
+	path = third_party/agentapi-plusplus
+	url = https://github.com/KooshaPari/agentapi-plusplus.git
+[submodule "third_party/cliproxyapi-plusplus"]
+	path = third_party/cliproxyapi-plusplus
+	url = https://github.com/KooshaPari/cliproxyapi-plusplus.git
+[submodule "third_party/argis-extensions"]
+	path = third_party/argis-extensions
+	url = https://github.com/KooshaPari/argis-extensions.git
+
+[submodule "third_party/bifrost"]
+	path = third_party/bifrost
+	url = https://github.com/KooshaPari/bifrost.git

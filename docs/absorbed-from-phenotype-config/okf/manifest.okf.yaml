@@ -1,0 +1,19 @@
+okf_version: "1.0"
+project:
+  id: koosha.phenotype.phenotype-config
+  name: phenotype-config
+  charter_ref: charter.md
+  review_ref: review.md
+artifacts:
+  - id: charter
+    path: charter.md
+    kind: governance
+    summary: "config role owner; settly Rust core"
+  - id: intent-root
+    path: intent.md
+    kind: intent
+    summary: "Migrate settly from HexaKit per RFC 002"
+provenance:
+  intent_prompts: docs/intent/prompts/
+  last_scrape: null
+  sources: [cursor]

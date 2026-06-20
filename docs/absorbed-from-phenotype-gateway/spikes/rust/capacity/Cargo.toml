@@ -1,0 +1,36 @@
+[package]
+name = "phenotype-capacity-spike"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Pure-math library for VRAM estimation, model-fit scoring, and hardware capacity planning. Absorbed from KooshaPari/pheno-capacity v0.2.0 on 2026-06-19 per L5-117. no_std compatible; zero dependencies."
+repository = "https://github.com/KooshaPari/phenotype-gateway"
+keywords = ["vram", "llm", "capacity", "phenotype", "pheno-capacity", "model-fit", "inference", "attention", "kv-cache", "moe"]
+categories = ["no-std", "science", "data-structures"]
+publish = false
+rust-version = "1.75"
+readme = "README.md"
+
+[features]
+# Optional `alloc` support: enables `warning_labels`, which returns a
+# `Vec<&'static str>`. Core math functions remain `no_std`-compatible
+# with no allocations.
+default = []
+alloc = []
+
+# Empty workspace table: this spike crate is standalone and NOT a member
+# of the root monorepo workspace (which contains 3000+ files including
+# submodules, worktrees, and 50+ sub-repos).
+[workspace]
+
+[lib]
+name = "pheno_capacity"
+path = "src/lib.rs"
+
+# ADR-035A: pheno-capacity is pure math. No deps, no_std compatible,
+# deterministic. All test coverage targets 80%+ (lib tier per ADR-023).
+# This subcrate is a `pheno-*-lib` per ADR-023 Rule 3.1, hosted inside
+# the `phenotype-gateway` collection repo (L5-117, ADR-036).
+[dependencies]
+
+[dev-dependencies]

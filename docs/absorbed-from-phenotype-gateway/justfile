@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────
+# justfile — tier-0 task runner for phenotype-gateway
+# See: https://github.com/casey/just
+# ─────────────────────────────────────────────────────────────
+
+# ── Meta ────────────────────────────────────────────────────
+repo  := "phenotype-gateway"
+org   := "KooshaPari"
+
+# ── Rust utils ──────────────────────────────────────────────
+rust_crates := "packages/router spikes/rust/capacity spikes/rust/router"
+
+# ── Default ─────────────────────────────────────────────────
+default: check
+
+# ── Rust ────────────────────────────────────────────────────
+
+# Run cargo check on all workspace members
+check:
+    cargo check --workspace
+
+# Run cargo test on all workspace members
+test:
+    cargo test --workspace --all-features --no-fail-fast
+
+# Run cargo clippy on all crates (warn -> deny)
+lint:
+    @for crate in {{rust_crates}}; do \
+        echo ":: clippy $$crate"; \
+        cargo clippy --manifest-path "$$crate/Cargo.toml" --all-targets -- -D warnings; \
+    done
+
+# Run cargo fmt --check on all crates
+fmt-check:
+    @for crate in {{rust_crates}}; do \
+        echo ":: fmt $$crate"; \
+        cargo fmt --manifest-path "$$crate/Cargo.toml" --all -- --check; \
+    done
+
+# Apply cargo fmt to all crates
+fmt:
+    @for crate in {{rust_crates}}; do \
+        echo ":: fmt $$crate"; \
+        cargo fmt --manifest-path "$$crate/Cargo.toml" --all; \
+    done
+
+# Run cargo deny (advisories + licenses + bans)
+deny check=all:
+    cargo deny check {{check}}
+
+# ── Go ──────────────────────────────────────────────────────
+
+# Go vet on all packages/* .go modules
+go-vet:
+    @for dir in packages/*/; do \
+        if [ -f "$$dir/go.mod" ]; then \
+            echo ":: go vet $$dir"; \
+            (cd "$$dir" && go vet ./...); \
+        fi; \
+    done
+
+# Go build check on all packages/* .go modules
+go-build:
+    @for dir in packages/*/; do \
+        if [ -f "$$dir/go.mod" ]; then \
+            echo ":: go build $$dir"; \
+            (cd "$$dir" && go build ./...); \
+        fi; \
+    done
+
+# ── Polyglot smokes (delegate to task) ──────────────────────
+
+# Run full smoke suite (delegates to go-task)
+smoke:
+    task smoke:all
+
+# ── Maintenance ─────────────────────────────────────────────
+
+# Run all pre-flight checks
+all: check lint fmt-check deny go-vet go-build
+
+# Show this help
+help:
+    @just --list
+
+# ── Hygiene ─────────────────────────────────────────────────
+
+# Check for unused deps via cargo-udeps (nightly)
+udeps:
+    cargo +nightly udeps --workspace
+
+# Audit for non-OSI deps via cargo-deny
+audit:
+    cargo deny check advisories licenses bans sources

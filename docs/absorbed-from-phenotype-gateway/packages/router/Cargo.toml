@@ -1,0 +1,12 @@
+[package]
+name = "phenotype-router"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "H10 promotion package for Rust router revamp"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+phenotype-router-spike = { path = "../../spikes/rust/router" }

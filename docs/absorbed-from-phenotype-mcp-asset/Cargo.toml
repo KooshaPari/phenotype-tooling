@@ -1,0 +1,59 @@
+[package]
+name = "phenotype-mcp-asset"
+version = "0.3.0"
+edition = "2021"
+description = "Phenotype-pack asset handler for MCP servers — discovers, builds, validates, and resolves dependencies of phenotype packs (file-based)"
+authors = ["Phenotype Developers <dev@phenotype.dev>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/phenotype-mcp-asset"
+homepage = "https://github.com/KooshaPari/phenotype-mcp-asset"
+documentation = "https://docs.rs/phenotype-mcp-asset"
+readme = "README.md"
+keywords = ["mcp", "model-context-protocol", "phenotype", "pack", "asset"]
+categories = ["api-bindings", "development-tools", "filesystem"]
+rust-version = "1.75"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "process", "sync"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Observability (OTLP via pheno-tracing, per ADR-012; tracing crate is the substrate)
+tracing = "0.1"
+
+# Error handling
+thiserror = "2.0"
+
+# File-system walking for asset discovery
+walkdir = "2.5"
+
+# Pack manifest versioning
+semver = { version = "1.0", features = ["serde"] }
+
+# Checksumming for asset integrity (SHA-256)
+sha2 = "0.10"
+hex = "0.4"
+
+# Optional dev-only tempfile
+tempfile = { version = "3.0", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util", "macros", "rt"] }
+tempfile = "3.0"
+serde_json = "1.0"
+
+[features]
+default = ["tempfile"]
+
+[lib]
+name = "phenotype_mcp_asset"
+path = "src/lib.rs"
+
+# Standalone crate — opt out of any parent workspace.
+# This crate is destined to be `KooshaPari/phenotype-mcp-asset` (a separate
+# GitHub repo), so it must build independently of any parent workspace.
+[workspace]

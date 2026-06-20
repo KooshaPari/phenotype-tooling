@@ -1,0 +1,65 @@
+[build-system]
+requires = 
+[dependency-groups]
+dev = ["pyright>=1.1.390"]
+["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "phenotype-request-id"
+version = "0.1.0"
+description = "Zero-dep request-ID propagation (contextvars) for Python ASGI apps, with optional FastAPI/structlog integrations."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Phenotype" },
+]
+keywords = ["request-id", "asgi", "fastapi", "starlette", "observability", "contextvars"]
+classifiers = [
+    "Framework :: FastAPI",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.115", "starlette>=0.41"]
+structlog = ["structlog>=24"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "fastapi>=0.115",
+    "structlog>=24",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/phenotype_request_id"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/phenotype_request_id",
+    "tests",
+    "README.md",
+    "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]

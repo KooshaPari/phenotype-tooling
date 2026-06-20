@@ -1,0 +1,206 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omlx"
+dynamic = ["version"]
+description = "LLM inference server, optimized for your Mac"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+authors = [
+    {name = "omlx contributors"}
+]
+keywords = ["llm", "mlx", "apple-silicon", "vllm", "inference", "transformers"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "mlx>=0.31.2",
+    # mlx-lm from commit (ed1fca4, v0.31.3) - thread-local generation stream + ArraysCache batch dim fixes + think token None safety
+    "mlx-lm @ git+https://github.com/ml-explore/mlx-lm@ed1fca4cef15a824c5f1702c80f70b4cffc8e4dd",
+    # regex for mlx-lm's Gemma 4 tool parser (uses recursive patterns)
+    "regex",
+    # mlx-embeddings from latest commit (32981fa)
+    "mlx-embeddings @ git+https://github.com/Blaizzy/mlx-embeddings@32981fa4e8064ed664b52071789dd18271fe4206",
+    # mlx-vlm custom processors bypass HF AutoProcessor, so torch is not required
+    "transformers>=5.0.0",
+    # transformers 5.x's tokenization_mistral_common module imports
+    # ReasoningEffort from mistral_common (added in 1.10). The audio extras
+    # transitively pull mistral-common via mlx-audio[stt], which historically
+    # resolved to 1.9.x and broke WhisperProcessor.from_pretrained() with a
+    # silent "Processor not found" on every Whisper model. Pinning the
+    # minimum here ensures resolution lands on a compatible version even
+    # without the audio extra installed.
+    # See pmarreck/omlx#1 for full repro and root cause.
+    "mistral-common>=1.10",
+    "tokenizers>=0.19.0",
+    "huggingface-hub>=0.23.0",
+    "numpy>=1.24.0",
+    "tqdm>=4.66.0",
+    "pyyaml>=6.0",
+    "itsdangerous>=2.0",
+    "jinja2>=3.0",
+    "sentencepiece",
+    "tiktoken",
+    "protobuf",
+    "requests>=2.28.0",
+    # SOCKS proxy support (used by httpx via huggingface-hub)
+    "socksio>=1.0.0",
+    "tabulate>=0.9.0",
+    # Resource monitoring
+    "psutil>=5.9.0",
+    # Server
+    "fastapi>=0.108.0",
+    "uvicorn>=0.23.0",
+    # python-multipart is needed by audio_routes.py (File/Form uploads), which
+    # server.py unconditionally imports regardless of the [audio] extra.
+    "python-multipart>=0.0.5",
+    # JSON Schema validation for structured output
+    "jsonschema>=4.0.0",
+    # Harmony format parser for gpt-oss models
+    "openai-harmony",
+    # mlx-vlm from commit (f96138e) - Gemma4 MTP server batching (PR #1166), speculative utils refactor (PR #1169), Qwen native MTP drafter, MiniCPM-V 4.6
+    "mlx-vlm @ git+https://github.com/Blaizzy/mlx-vlm@f96138eef1f5ce7fb5d97f8dd41a664a195b5659",
+    "Pillow>=9.0.0",
+    # dflash-mlx v0.1.7 (1ba6713) — bstnxbt repo. Qwen thinking/GDN exactness fix, GQA SDPA reshape, DDTree + CopySpec decode path, prefix cache identity hardening, fp16 draft on old Apple chips
+    "dflash-mlx @ git+https://github.com/bstnxbt/dflash-mlx@1ba671372b289c025b435c1a13aabb4bfb80b183",
+]
+
+[project.optional-dependencies]
+grammar = [
+    # Grammar-constrained decoding for structured output (requires torch ~2GB)
+    "xgrammar>=0.1.32",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
+modelscope = [
+    "modelscope>=1.10.0",
+]
+audio = [
+    # mlx-audio from commit (5175326) with tts/stt/sts extras
+    # tts extra: misaki, num2words, spacy, phonemizer-fork, espeakng-loader, sentencepiece
+    # stt extra: tiktoken, mistral-common[audio]
+    # sts extra: tts deps + stt deps + webrtcvad
+    "mlx-audio[tts,stt,sts] @ git+https://github.com/Blaizzy/mlx-audio@51753266e0a4f766fd5e6fbc46652224efc23981",
+]
+paroquant = [
+    # ParoQuant runtime loader for paroquant-quantized models. Installed
+    # with --no-deps semantics here because the official [mlx] extra pulls
+    # torchvision, which the load path doesn't actually use (verified end
+    # to end on 0.1.14). The DMG build installs the same pin via build.py.
+    "paroquant==0.1.14; python_version >= '3.11'",
+]
+# Internal extra consumed by packaging/build.py to populate the
+# venvstacks mlx-framework layer's requirements list. Listed here as the
+# single source of truth so the layer-template venvstacks.toml stays
+# version-free. End-users don't `pip install omlx[bundle]`; this is for
+# the macOS .app build pipeline.
+#
+# mlx-audio[tts,stt,sts]'s 12 transitive deps appear explicitly because
+# venvstacks 0.7.0's internal `uv pip compile` runs with --no-config and
+# doesn't propagate pyproject.toml's `tool.uv.override-dependencies`,
+# so it can't resolve mlx-audio's `mlx-lm==0.31.1` pin against our
+# git-pinned mlx-lm (v0.31.3). build.py installs mlx-audio + paroquant
+# separately via --no-deps post-resolution.
+bundle = [
+    "mcp>=1.0.0",
+    "modelscope>=1.10.0",
+    # mlx-audio[tts,stt,sts] transitives:
+    "scipy>=1.11.0",
+    "librosa>=0.10.0",
+    "miniaudio>=1.59",
+    "numba>=0.59.0",
+    "pyloudnorm>=0.1.0",
+    "sounddevice>=0.4.6",
+    "misaki>=0.9.4",
+    "num2words>=0.5.14",
+    "spacy>=3.8.4",
+    "phonemizer-fork>=3.3.2",
+    "espeakng-loader>=0.2.4",
+    "webrtcvad>=2.0.10",
+    # [audio] extra on top of pyproject's plain mistral-common>=1.10
+    "mistral-common[audio]>=1.10",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "mcp>=1.0.0",
+    "venvstacks>=0.7.0",
+]
+# PEP 735 dependency groups — consumed by `uv sync --dev`.
+# Keep in sync with [project.optional-dependencies] dev above
+# (pip/legacy toolchains use that section instead).
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "mcp>=1.0.0",
+    "venvstacks>=0.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jundot/omlx"
+Documentation = "https://github.com/jundot/omlx#readme"
+Repository = "https://github.com/jundot/omlx"
+
+[project.scripts]
+omlx = "omlx.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "omlx._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["omlx*"]
+
+[tool.setuptools.package-data]
+"omlx" = ["oq_calibration_data.json"]
+"omlx.admin" = ["templates/**/*.html", "static/**/*", "i18n/*.json"]
+"omlx.eval" = ["data/*.jsonl"]
+
+[tool.uv]
+# mlx-lm is pinned to a git commit; override transitive pins
+# (e.g. mlx-audio → mlx-lm==0.31.1) so the resolver accepts it.
+override-dependencies = [
+    "mlx-lm @ git+https://github.com/ml-explore/mlx-lm@ed1fca4cef15a824c5f1702c80f70b4cffc8e4dd",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501", "B905"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"

@@ -1,0 +1,21 @@
+/target/
+/Cargo.lock.bak
+**/*.rs.bk
+*.pdb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Build artifacts
+**/*.d
+**/*.so
+**/*.dylib
+**/*.dll

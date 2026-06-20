@@ -1,0 +1,28 @@
+# llms.txt — pheno-llms-txt
+
+> Generate llms.txt files for Phenotype repos (LLM-friendly README).
+
+## Install
+```
+pip install pheno-llms-txt
+```
+
+## Usage
+```pheno-llms-txt                    # writes ./llms.txt from ./pheno-llms-txt.yaml```
+```pheno-llms-txt --out docs/llms.txt```
+
+## Public API
+- `pheno_llms_txt.LlmConfig` (dataclass with: repo_name, tagline, install, usage, public_api, common_errors, references)
+- `pheno_llms_txt.render(config) -> str`
+- `pheno_llms_txt.load_config(path) -> LlmConfig`
+- `pheno_llms_txt.write_llms_txt(config, dest)`
+
+## Common errors
+- `Error: read config at ./pheno-llms-txt.yaml: No such file`: config is optional; safe to ignore or create an empty file
+- `Error: parse YAML at ./pheno-llms-txt.yaml: ...`: check the YAML syntax; all fields are optional
+- `Wrote llms.txt` (success): file should be 30-80 lines, well under the 200-line cap
+
+## See also
+- https://llmstxt.org (llms.txt spec)
+- FLEET_100TASK_DAG_V4.md §70.3 + §77.2
+- Related: pheno-agents-md, pheno-prompt-test, pheno-vibecoding-guard, pheno-worklog-schema

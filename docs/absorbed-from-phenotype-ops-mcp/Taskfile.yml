@@ -1,0 +1,63 @@
+version: "3"
+
+vars:
+  BINARY_NAME: ops-mcp
+  GO_PACKAGES: ./...
+  GO_PARALLELISM: 1
+  GOCACHE_DIR: "{{.TASKFILE_DIR}}/.cache/go-build"
+  GOMODCACHE_DIR: "{{.TASKFILE_DIR}}/.cache/go-mod"
+  GOTMP_DIR: "{{.TASKFILE_DIR}}/.cache/go-tmp"
+
+env:
+  GOTOOLCHAIN: go1.26.0
+  GOCACHE: "{{.GOCACHE_DIR}}"
+  GOMODCACHE: "{{.GOMODCACHE_DIR}}"
+  GOTMPDIR: "{{.GOTMP_DIR}}"
+
+tasks:
+  default:
+    desc: Build the MCP server
+    cmds:
+      - task: build
+
+  go:prepare:
+    internal: true
+    cmds:
+      - mkdir -p "{{.GOCACHE_DIR}}" "{{.GOMODCACHE_DIR}}" "{{.GOTMP_DIR}}"
+
+  build:
+    desc: Build the Go binary
+    summary: Compile the Go MCP server into ./{{.BINARY_NAME}}.
+    sources:
+      - ./*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BINARY_NAME}}"
+    cmds:
+      - task: go:prepare
+      - go build -p {{.GO_PARALLELISM}} -trimpath -o {{.BINARY_NAME}} .
+
+  test:
+    desc: Run the Go test suite
+    summary: Run all Go tests for the module.
+    cmds:
+      - task: go:prepare
+      - go test -p {{.GO_PARALLELISM}} {{.GO_PACKAGES}}
+
+  lint:
+    desc: Run static checks for the Go codebase
+    summary: Check Go formatting and run static analysis over all packages.
+    cmds:
+      - test -z "$(git ls-files '*.go' | xargs gofmt -l)"
+      - task: go:prepare
+      - go vet -p {{.GO_PARALLELISM}} {{.GO_PACKAGES}}
+
+  clean:
+    desc: Remove build artifacts and cached test data
+    summary: Delete the local binary, coverage output, and repo-local Go build/test caches.
+    cmds:
+      - find . -maxdepth 1 -type f \( -name '{{.BINARY_NAME}}' -o -name 'coverage.out' \) -delete
+      - chmod -R u+w .cache 2>/dev/null || true
+      - find .cache .taskcache -type f -delete 2>/dev/null || true
+      - find .cache .taskcache -type d -depth -empty -delete 2>/dev/null || true

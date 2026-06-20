@@ -1,0 +1,29 @@
+# ─────────────────────────────────────────────────────────────
+# CODEOWNERS — phenotype-gateway repository ownership
+# See: https://help.github.com/articles/about-codeowners/
+# ─────────────────────────────────────────────────────────────
+
+# Default owners for all files
+* @KooshaPari
+
+# ── Rust crates ─────────────────────────────────────────────
+/packages/router/          @KooshaPari
+/spikes/rust/              @KooshaPari
+
+# ── Go packages ─────────────────────────────────────────────
+/packages/agentapi/        @KooshaPari
+/packages/argis/           @KooshaPari
+/packages/bifrost/         @KooshaPari
+/packages/cliproxy/        @KooshaPari
+
+# ── Workflows & config ──────────────────────────────────────
+/.github/                  @KooshaPari
+/justfile                  @KooshaPari
+/deny.toml                 @KooshaPari
+/Taskfile.yml              @KooshaPari
+
+# ── Docs ────────────────────────────────────────────────────
+/docs/                     @KooshaPari
+
+# ── Third-party submodules ──────────────────────────────────
+/third_party/              @KooshaPari

@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "phenotype-py-extras"
+version = "0.1.0"
+description = "Shared Python extras (CLI, MCP, web, testing) for the Phenotype ecosystem."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Phenotype" },
+]
+keywords = ["phenotype", "extras", "cli", "mcp", "fastapi", "pytest"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "phenotype-py-utils @ git+https://github.com/KooshaPari/phenotype-py-utils.git@v0.1.0",
+]
+
+[project.optional-dependencies]
+cli = ["click>=8", "rich>=13", "typer>=0.12", "pydantic>=2.9"]
+mcp = ["fastmcp>=2.0", "pydantic>=2.9", "pydantic-settings>=2.5", "httpx>=0.27"]
+web = ["fastapi>=0.115", "uvicorn>=0.32", "pydantic>=2.9", "pydantic-settings>=2.5"]
+testing = ["pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=6"]
+testing-quality = ["pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=6", "coverage>=7", "mypy>=1.13"]
+observability = ["structlog>=24", "loguru>=0.7"]
+all = [
+  "click>=8", "rich>=13", "typer>=0.12", "pydantic>=2.9",
+  "fastmcp>=2.0", "pydantic-settings>=2.5", "httpx>=0.27",
+  "fastapi>=0.115", "uvicorn>=0.32",
+  "pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=6",
+  "coverage>=7", "mypy>=1.13",
+  "structlog>=24", "loguru>=0.7",
+]
+
+[project.entry-points.pytest11]
+pheno_prompt_test = "phenotype_py_extras.prompt_test.plugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/phenotype_py_extras"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+testpaths = ["tests"]
+asyncio_mode = "auto"

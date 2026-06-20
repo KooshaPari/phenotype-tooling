@@ -1,0 +1,23 @@
+version: "3"
+
+tasks:
+  smoke:
+    desc: Run Go build smoke on third_party + packages anchors
+    cmds:
+      - pwsh -NoProfile -File scripts/smoke-go.ps1
+
+  smoke:sh:
+    desc: Run Go build smoke (bash, for Linux/CI parity)
+    cmds:
+      - bash scripts/smoke-go.sh
+
+  router:test:
+    desc: Run Rust router spike + packages/router tests
+    cmds:
+      - pwsh -NoProfile -File scripts/smoke-router.ps1
+
+  smoke:all:
+    desc: Go planes + Rust router smoke
+    cmds:
+      - task: smoke
+      - task: router:test

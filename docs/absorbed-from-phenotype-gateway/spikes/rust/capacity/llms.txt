@@ -1,0 +1,74 @@
+# pheno-capacity
+
+> Pure-math library for **VRAM estimation**, **model-fit scoring**, and
+> **hardware capacity planning**. `no_std` compatible, zero
+> dependencies. Extracted from HwLedger per ADR-035A.
+
+## Public API
+
+```rust
+use pheno_capacity::{
+    vram_estimate, model_fits_in, optimizer_state_vram,
+    chinchilla_tokens, dtype_bytes, Dtype, Optimizer,
+};
+
+pub enum Dtype { F32, F16, BF16, I8, I4 }
+pub enum Optimizer { AdamW, LoRA, QLoRA, Adafactor }
+
+pub const fn vram_estimate(model_params: u64, dtype: Dtype) -> u64;
+pub const fn model_fits_in(model_params: u64, available: u64, dtype: Dtype) -> bool;
+pub fn optimizer_state_vram(weights_bytes: u64, optimizer: Optimizer) -> u64;
+pub fn chinchilla_tokens(parameter_count: u64, ratio: f32) -> u64;
+pub const fn dtype_bytes(d: Dtype) -> u8;
+```
+
+## Quickstart
+
+```toml
+[dependencies]
+pheno-capacity = "0.1"
+```
+
+```rust
+use pheno_capacity::{vram_estimate, model_fits_in, Dtype};
+
+let vram = vram_estimate(7_000_000_000, Dtype::F16); // 14 GB
+assert_eq!(vram, 14_000_000_000);
+
+let a100_40gb: u64 = 40 * 1024_u64.pow(3);
+assert!(model_fits_in(7_000_000_000, a100_40gb, Dtype::F16));
+```
+
+## Real-world anchors
+
+| Model | Params | Dtype | VRAM (weights) |
+|---|---|---|---|
+| LLaMA-7B | 7B | FP16 | 14 GB |
+| LLaMA-7B (AWQ) | 7B | INT4 | 7 GB |
+| LLaMA-70B | 70B | FP16 | 140 GB |
+| Mixtral 8x7B | 47B | FP16 | 94 GB |
+| Llama-3-70B (AWQ) | 70B | INT4 | 70 GB |
+
+## Conventions
+
+- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`).
+- `no_std` compatible; zero dependencies.
+- rustfmt + clippy (`-D warnings`); `#![deny(missing_docs)]`.
+- 80% lib coverage gate (ADR-023 Rule 3.1).
+- Standalone crate (empty `[workspace]` table in `Cargo.toml`).
+- 100% pure functions; no I/O, no panics on valid inputs (overflow
+  saturates to `u64::MAX`).
+- Dual-licensed MIT OR Apache-2.0.
+
+## See also
+
+- `README.md` — API surface, real-world anchors, examples.
+- `docs/SPEC.md` — 1-page spec.
+- `docs/methodology.md` — math methodology + source citations.
+- `AGENTS.md` — agent context.
+- `WORKLOG.md` — change history (v2.1 schema, ADR-015 v2.1).
+- `CHANGELOG.md` — release notes.
+- `LICENSE-MIT` / `LICENSE-APACHE` — dual license.
+- ADR-035A — extraction rationale (in HwLedger `docs/adr/2026-06-18/`).
+- Sibling crates: `pheno-config`, `pheno-context`, `pheno-errors`,
+  `pheno-port-adapter`, `pheno-flags`.

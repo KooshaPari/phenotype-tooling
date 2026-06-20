@@ -1,0 +1,118 @@
+name: cargo
+
+# Translated from KooshaPari/pheno-capacity v0.2.0 CI (3 jobs: test,
+# coverage, no_std) for the absorbed capacity spike. Triggers on any
+# change under spikes/rust/** (so the router spike benefits too).
+#
+# See: findings/2026-06-19-L5-117-pheno-capacity-collection-merge.md
+# See: ADR-036 (pheno-capacity absorb into phenotype-gateway)
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'spikes/rust/**'
+      - '.github/workflows/cargo.yml'
+  pull_request:
+    paths:
+      - 'spikes/rust/**'
+      - '.github/workflows/cargo.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: cargo test (stable + 1.75 MSRV)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - 1.75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@${{ matrix.toolchain }}
+        with:
+          components: rustfmt, clippy
+      - name: cargo fmt --check (spikes/rust/**)
+        run: |
+          for crate in spikes/rust/*/; do
+            [ -f "$crate/Cargo.toml" ] && (cd "$crate" && cargo fmt --all -- --check)
+          done
+      - name: cargo clippy (all targets, -D warnings)
+        run: |
+          for crate in spikes/rust/*/; do
+            [ -f "$crate/Cargo.toml" ] && (cd "$crate" && cargo clippy --all-targets -- -D warnings)
+          done
+      - name: cargo test --all-features
+        run: |
+          for crate in spikes/rust/*/; do
+            [ -f "$crate/Cargo.toml" ] && (cd "$crate" && cargo test --all-features --no-fail-fast -- --nocapture)
+          done
+      - name: cargo test --doc
+        run: |
+          for crate in spikes/rust/*/; do
+            [ -f "$crate/Cargo.toml" ] && (cd "$crate" && cargo test --doc --all-features)
+          done
+
+  coverage:
+    name: coverage (llvm-cov, lib tier ≥ 80%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: generate lcov (capacity spike)
+        run: |
+          cd spikes/rust/capacity
+          cargo llvm-cov --all-features --lcov --output-path ../../../lcov.info
+      - name: enforce 80% lib coverage
+        run: |
+          cd spikes/rust/capacity
+          COVERAGE=$(cargo llvm-cov --all-features --no-fail-fast --summary-only 2>&1 | grep -E "^Filename|Total" | tail -1 | awk '{print $NF}' | tr -d '%')
+          echo "lib coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "::error::lib coverage $COVERAGE% is below 80% (ADR-023 Rule 3.1)"
+            exit 1
+          fi
+      - uses: codecov/codecov-action@v4
+        with:
+          files: lcov.info
+
+  no_std:
+    name: build (no_std, no test harness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: build no_std (capacity spike)
+        # Verify the absorbed crate compiles under `#![no_std]` by
+        # building a tiny consumer that does no allocation. The
+        # path shifts by one extra `..` because the spike now lives
+        # two levels deeper (spikes/rust/capacity/, not at the repo
+        # root). Identical mechanism as the source CI.
+        run: |
+          mkdir -p spikes/rust/capacity/target/no_std_check && cd spikes/rust/capacity/target/no_std_check
+          cargo init --lib --name no_std_check 2>/dev/null || true
+          cat > src/lib.rs <<'EOF'
+            #![no_std]
+            extern crate pheno_capacity;
+            #[no_mangle]
+            pub extern "C" fn _vram(p: u64) -> u64 {
+                use pheno_capacity::{vram_estimate, Dtype};
+                vram_estimate(p, Dtype::F16)
+            }
+          EOF
+          cat > Cargo.toml <<'EOF'
+            [package]
+            name = "no_std_check"
+            version = "0.0.0"
+            edition = "2021"
+            [dependencies]
+            pheno-capacity = { path = "../.." }
+          EOF
+          cd ../../../
+          cargo build --manifest-path spikes/rust/capacity/target/no_std_check/Cargo.toml --release

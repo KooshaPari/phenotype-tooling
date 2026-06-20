@@ -1,0 +1,4 @@
+# Absorbed from KooshaPari/pheno-capacity v0.2.0 on 2026-06-19 per L5-117.
+# Single source of truth for the absorbed version going forward.
+# See: findings/2026-06-19-L5-117-pheno-capacity-collection-merge.md
+pheno_capacity = "0.2.0"
