@@ -1,0 +1,52 @@
+{
+  "name": "phenotype-ts-utils",
+  "version": "0.1.0",
+  "description": "Shared TypeScript utility library for the Phenotype org: cn, truncate, formatDate, debounce, deepMerge",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "prepublishOnly": "tsc",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src tests",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "utility",
+    "typescript",
+    "date",
+    "string",
+    "merge"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0",
+    "@typescript-eslint/eslint-plugin": "^8.0",
+    "@typescript-eslint/parser": "^8.0",
+    "@vitest/coverage-v8": "^2.0",
+    "eslint": "^9.0",
+    "prettier": "^3.3",
+    "typescript": "^5.5",
+    "vitest": "^2.0"
+  }
+}

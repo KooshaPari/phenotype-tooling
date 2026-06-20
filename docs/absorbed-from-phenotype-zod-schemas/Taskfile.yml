@@ -1,0 +1,73 @@
+version: "3"
+
+vars:
+  PROJECT: phenotype-zod-schemas
+
+env:
+  NODE_ENV: test
+
+tasks:
+  install:
+    desc: "Install dependencies (frozen lockfile)"
+    cmds:
+      - bun install --frozen-lockfile || bun install
+
+  typecheck:
+    desc: "TypeScript strict type check"
+    cmds:
+      - bunx tsc --noEmit
+
+  test:
+    desc: "Run vitest unit tests"
+    cmds:
+      - bunx vitest run
+
+  test-watch:
+    desc: "Run vitest in watch mode"
+    cmds:
+      - bunx vitest
+
+  lint:
+    desc: "Biome lint + format check"
+    cmds:
+      - bunx biome check .
+
+  lint-fix:
+    desc: "Biome auto-fix"
+    cmds:
+      - bunx biome check --write .
+
+  build:
+    desc: "Build ESM bundle"
+    cmds:
+      - bunx tsc
+
+  clean:
+    desc: "Remove build artifacts"
+    cmds:
+      - rm -rf dist node_modules/.cache
+
+  verify:
+    desc: "Verify package exports are reachable"
+    cmds:
+      - node -e "console.log(Object.keys(require('./package.json').exports))"
+
+  quality:
+    desc: "Full quality gate (install, typecheck, lint, test, verify)"
+    cmds:
+      - task: install
+      - task: typecheck
+      - task: lint
+      - task: test
+      - task: verify
+
+  default:
+    desc: "Show available tasks"
+    cmds:
+      - task --list
+
+  coverage:
+    desc: "Run bun test with coverage, then generate Istanbul summary + human-readable SUMMARY.md"
+    cmds:
+      - bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage
+      - bun run scripts/lcov-to-summary.ts

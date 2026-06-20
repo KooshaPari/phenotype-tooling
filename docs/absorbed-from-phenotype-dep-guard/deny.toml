@@ -1,0 +1,35 @@
+# cargo-deny configuration for phenotype-dep-guard
+[advisories]
+vulnerability = "deny"
+unmaintained = "warn"
+notice = "warn"
+severity-threshold = "medium"
+ignore = []
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSL-1.0",
+    "ISC",
+    "Unlicense",
+    "Zlib",
+    "0BSD",
+]
+deny = []
+unlicensed = "deny"
+allow-osi-fsf-free = "neither"
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = []

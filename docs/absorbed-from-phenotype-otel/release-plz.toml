@@ -1,0 +1,24 @@
+# release-plz configuration for phenotype-otel.
+#
+# Single-crate workspace. Using [[package]] array (double bracket)
+# as required by release-plz >= 0.3.
+
+[[package]]
+name = "phenotype-otel"
+update_dependencies_workspace = false
+
+changelog_include = [
+  "^feat",
+  "^fix",
+  "^perf",
+  "^refactor",
+  "^docs",
+  "^test",
+]
+changelog_exclude = [
+  "^chore\\(release\\)",
+  "^chore\\(deps\\)",
+  "^style",
+  "^ci",
+  "^build",
+]

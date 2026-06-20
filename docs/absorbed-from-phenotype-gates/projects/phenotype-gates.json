@@ -1,0 +1,18 @@
+{
+  "id": "phenotype-gates",
+  "name": "phenotype-gates",
+  "status": "scaffold",
+  "type": "tool",
+  "language": "rust",
+  "repo": "KooshaPari/phenotype-gates",
+  "description": "Policy-as-code gate engine for the Phenotype org",
+  "registry": {
+    "index": "KooshaPari/phenotype-registry",
+    "master_index_file": "registry.json",
+    "entry_path": "projects/phenotype-gates.json"
+  },
+  "links": {
+    "homepage": "https://github.com/KooshaPari/phenotype-gates",
+    "spec": "SPEC.md"
+  }
+}

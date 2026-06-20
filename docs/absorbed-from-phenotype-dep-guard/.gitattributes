@@ -1,0 +1,38 @@
+# Auto-detect text files
+* text=auto
+
+# Source code
+*.py             text diff=python
+*.rs             text diff=rust
+*.toml           text
+*.json           text
+*.yaml           text
+*.yml            text
+*.sh             text eol=lf
+*.bash           text eol=lf
+*.zsh            text eol=lf
+*.md             text diff=markdown
+
+# Generated / binary
+*.pyc            binary
+*.pyo            binary
+*.so             binary
+*.dylib          binary
+*.dll            binary
+*.class          binary
+*.lock           text
+
+# Build outputs
+target/          binary
+dist/            binary
+build/           binary
+__pycache__/     binary
+*.egg-info/      binary
+
+# macOS
+.DS_Store        binary
+
+# Editors and IDEs
+*.swp            binary
+*.swo            binary
+*~               binary

@@ -1,0 +1,359 @@
+{
+  "generatedAt": "2026-06-15T06:16:27.532Z",
+  "totals": {
+    "required": 19,
+    "covered": 17,
+    "partial": 0,
+    "missing": 2,
+    "percentCovered": 89
+  },
+  "sites": [
+    {
+      "id": "byteport",
+      "url": "https://byteport.kooshapari.com"
+    },
+    {
+      "id": "phenokits",
+      "url": "https://phenokits.kooshapari.com"
+    },
+    {
+      "id": "agileplus",
+      "url": "https://agileplus.kooshapari.com"
+    },
+    {
+      "id": "projects",
+      "url": "https://projects.kooshapari.com"
+    },
+    {
+      "id": "kooshapari",
+      "url": "https://kooshapari.com"
+    }
+  ],
+  "projects": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "cells": [
+    {
+      "site": "byteport",
+      "flow": "hero-cta",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "hero CTA is visible and links to GitHub"
+      ]
+    },
+    {
+      "site": "byteport",
+      "flow": "github-stats",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "GitHub stats card renders"
+      ]
+    },
+    {
+      "site": "byteport",
+      "flow": "footer-year",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "footer has the current year"
+      ]
+    },
+    {
+      "site": "byteport",
+      "flow": "nav-links",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [],
+      "status": "missing",
+      "testNames": []
+    },
+    {
+      "site": "byteport",
+      "flow": "a11y-baseline",
+      "requiredProjects": [
+        "chromium"
+      ],
+      "actualProjects": [],
+      "status": "missing",
+      "testNames": []
+    },
+    {
+      "site": "phenokits",
+      "flow": "hero-cta",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "hero CTA is visible and links to GitHub"
+      ]
+    },
+    {
+      "site": "phenokits",
+      "flow": "github-stats",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "GitHub stats card renders"
+      ]
+    },
+    {
+      "site": "phenokits",
+      "flow": "footer-year",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "footer has the current year"
+      ]
+    },
+    {
+      "site": "phenokits",
+      "flow": "nav-links",
+      "requiredProjects": [
+        "chromium"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "nav links render and point to valid anchors"
+      ]
+    },
+    {
+      "site": "agileplus",
+      "flow": "hero-cta",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "hero CTA is visible and links to GitHub"
+      ]
+    },
+    {
+      "site": "agileplus",
+      "flow": "github-stats",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "GitHub stats card renders"
+      ]
+    },
+    {
+      "site": "agileplus",
+      "flow": "footer-year",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "footer has the current year"
+      ]
+    },
+    {
+      "site": "agileplus",
+      "flow": "nav-links",
+      "requiredProjects": [
+        "chromium"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "nav links render and point to valid anchors"
+      ]
+    },
+    {
+      "site": "projects",
+      "flow": "hero-cta",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "hero CTA is visible and links to GitHub"
+      ]
+    },
+    {
+      "site": "projects",
+      "flow": "footer-year",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "footer has the current year"
+      ]
+    },
+    {
+      "site": "projects",
+      "flow": "nav-links",
+      "requiredProjects": [
+        "chromium"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "nav links render and point to valid anchors"
+      ]
+    },
+    {
+      "site": "kooshapari",
+      "flow": "hero-cta",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "hero CTA is visible and links to GitHub"
+      ]
+    },
+    {
+      "site": "kooshapari",
+      "flow": "footer-year",
+      "requiredProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "footer has the current year"
+      ]
+    },
+    {
+      "site": "kooshapari",
+      "flow": "nav-links",
+      "requiredProjects": [
+        "chromium"
+      ],
+      "actualProjects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "status": "covered",
+      "testNames": [
+        "nav links render and point to valid anchors"
+      ]
+    }
+  ]
+}

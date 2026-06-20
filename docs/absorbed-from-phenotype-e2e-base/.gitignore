@@ -1,0 +1,44 @@
+# Phenotype-org standard .gitignore — Node
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/gitignore-node
+
+# Build artifacts
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Playwright artifacts
+test-results/
+playwright-report/
+.playwright-cache/
+playwright/.cache/
+
+# Bun
+bun.lockb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# --- adopted from phenotype-tooling/templates/gitignore-node ---
+.cache/
+.eslintcache
+.npm/
+.parcel-cache/
+.pnp
+.pnp.js
+*.log
+/build/
+/coverage/
+/dist/
+/out/
+lerna-debug.log*
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*

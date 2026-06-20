@@ -1,0 +1,42 @@
+# phenotype-py-utils example configuration
+# Copy this file to one of the discoverable locations:
+#   ./config.yaml
+#   ./config/config.yaml
+#   ~/.config/phenotype/config.yaml
+#   /etc/xdg/phenotype/config.yaml
+# Or point to it via $PHENOTYPE_CONFIG.
+
+# --- Logging ---
+log:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)
+  level: INFO
+
+  # Set to true to emit JSON-formatted log records (for OTel / Loki)
+  json_output: false
+
+# --- Application ---
+app:
+  # Environment: development, staging, production
+  environment: development
+
+  # Graceful shutdown timeout in seconds
+  shutdown_timeout: 30
+
+# --- Database (example) ---
+database:
+  host: localhost
+  port: 5432
+  name: phenotype
+  max_connections: 10
+  pool_timeout: 5.0
+
+# --- HTTP client defaults ---
+http:
+  timeout: 30.0
+  max_retries: 3
+  backoff_factor: 0.5
+
+# --- Feature flags ---
+features:
+  telemetry: true
+  verbose_logging: false

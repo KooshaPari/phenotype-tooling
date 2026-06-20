@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+.tox/
+.pyright_cache/
+
+# Hatch
+/src/*.egg-info/
+
+# Editor
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# OS
+Thumbs.db

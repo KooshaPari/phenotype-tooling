@@ -1,0 +1,16 @@
+[package]
+name = "phenotype-otel-backends"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.75"
+description = "Extensible observability backend registry for phenotype-otel (stdout and OTLP backends)"
+
+[dependencies]
+thiserror = "1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[lib]
+name = "phenotype_otel_backends"
+path = "src/lib.rs"

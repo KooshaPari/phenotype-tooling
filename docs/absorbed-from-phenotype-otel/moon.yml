@@ -1,0 +1,17 @@
+# Root project — `pheno-otel` library.
+
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+type: library
+language: rust
+
+env:
+  RUST_BACKTRACE: '1'
+
+tasks:
+  build:
+    command: 'cargo'
+    args: ['build', '--all-features']
+  test:
+    command: 'cargo'
+    args: ['test', '--all-features']

@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Minimal `just` shim for the phenotype-gates demo.
+# Recognizes recipes of the form:
+#   name:
+#       <single shell command>
+# Then `just <recipe>` runs that command with the passed args appended.
+
+set -euo pipefail
+
+if [ "$#" -lt 1 ]; then
+  echo "usage: just <recipe> [args...]" >&2
+  exit 2
+fi
+
+recipe="$1"
+shift
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root_dir="$(cd "$script_dir/.." && pwd)"
+
+justfile="$root_dir/justfile"
+if [ ! -f "$justfile" ]; then
+  echo "just: no justfile found at $justfile" >&2
+  exit 2
+fi
+
+# Extract the body (single line) of the named recipe.
+body="$(awk -v want="$recipe" '
+  /^[[:space:]]*#/ {next}
+  /^[[:space:]]*$/ {in_recipe=0; next}
+  {
+    if (!in_recipe) {
+      if ($0 ~ "^"want":[[:space:]]*$") {in_recipe=1; next}
+    } else {
+      sub(/^[[:space:]]+/, "", $0)
+      print; exit
+    }
+  }
+' "$justfile")"
+
+if [ -z "$body" ]; then
+  echo "just: recipe '$recipe' not found" >&2
+  exit 1
+fi
+
+( cd "$root_dir" && bash -c "$body" -- "$@" )

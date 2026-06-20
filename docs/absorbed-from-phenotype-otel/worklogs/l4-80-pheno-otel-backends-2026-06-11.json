@@ -1,0 +1,75 @@
+{
+  "status": "imported",
+  "task_id": "L4-80",
+  "title": "phenotype-otel-backends — extensible observability backend registry imported to KooshaPari/phenotype-otel (2026-06-17 wrap-up)",
+  "date": "2026-06-17",
+  "agent_id": "forge",
+  "branch": "import/l4-80-pheno-otel-backends-2026-06-17",
+  "source": {
+    "repo": "KooshaPari/repos",
+    "branch": "chore/l4-80-pheno-otel-backends-2026-06-11",
+    "feat_commit": "5b84a2837d",
+    "worklog_commit": "69fe8cddee",
+    "worktree": "/private/tmp/l4-80-wt"
+  },
+  "destination": {
+    "repo": "KooshaPari/phenotype-otel",
+    "branch": "import/l4-80-pheno-otel-backends-2026-06-17",
+    "pr_number": null,
+    "pr_url": null
+  },
+  "files_added": [
+    "phenotype-otel-backends/Cargo.toml",
+    "phenotype-otel-backends/src/lib.rs",
+    "worklogs/l4-80-pheno-otel-backends-2026-06-11.json"
+  ],
+  "files_modified": [
+    "Cargo.toml (added [workspace] section: members = [\".\", \"phenotype-otel-backends\"])"
+  ],
+  "adaptation_notes": [
+    "Renamed package from `pheno-otel-backends` to `phenotype-otel-backends` to match the existing phenotype-* convention in this repo's dependency set.",
+    "Renamed lib from `pheno_otel_backends` to `phenotype_otel_backends`.",
+    "Inlined the `Span` data type into the backends crate (originally came from a `pheno-otel` stub in the source worktree; the live `phenotype-otel` repo's `pheno-otel` package does not expose a `Span` type). The Span is now a backend-local data record decoupled from the OTLP pipeline; future versions can add From/Into conversions from the live `opentelemetry::trace::SpanContext`.",
+    "Removed the `pheno-otel` path dependency (no longer needed since Span is self-contained in the backends crate).",
+    "Downgraded thiserror from 2.0 to 1.0 to match the existing pheno-otel crate's thiserror version (avoids a duplicate-thiserror-version in the workspace).",
+    "Did NOT add the standalone `pheno-otel/src/lib.rs` from the source worktree (98 LOC) — the live repo's `pheno-otel` is a real OpenTelemetry bridge, not a stub, and adding the stub would shadow the real implementation.",
+    "Root `Cargo.toml` gained a `[workspace]` section with members = [\".\", \"phenotype-otel-backends\"]; the existing `[package]`, `[dependencies]`, `[[example]]`, and `[lib]` sections are unchanged so existing CI (cargo test --all-features, cargo build --example basic) keeps working."
+  ],
+  "public_api": {
+    "phenotype_otel_backends::Span": "pub struct Span { name: String, trace_id: String, span_id: String, start_time: SystemTime, end_time: SystemTime, attributes: Vec<(String, String)> } — backend-local data record (Serialize/Deserialize/Clone/Debug/PartialEq); constructor Span::new(name, trace_id, span_id); builder Span::with_attribute(key, value)",
+    "phenotype_otel_backends::BackendError": "thiserror enum { ExportFailed(String), HealthCheckFailed(String) }",
+    "phenotype_otel_backends::Backend": "pub trait Backend: Send + Sync { fn name(&self) -> &str; fn export(&self, spans: &[Span]) -> Result<(), BackendError>; fn health(&self) -> Result<(), BackendError>; }",
+    "phenotype_otel_backends::BackendRegistry": "pub struct BackendRegistry with new(), default(), register(name, backend), get(name) -> Option<&dyn Backend>, list() -> Vec<String>",
+    "phenotype_otel_backends::StdoutBackend": "JSON-lines stdout backend; name = 'stdout'",
+    "phenotype_otel_backends::OtlpBackend": "stub OTLP backend; name = 'otlp'"
+  },
+  "dependencies": {
+    "thiserror": "1",
+    "serde": { "version": "1.0", "features": ["derive"] },
+    "serde_json": "1.0"
+  },
+  "test_results": {
+    "command": "cargo test -p phenotype-otel-backends",
+    "unit": 12,
+    "integration": 0,
+    "doctest": 0,
+    "total": 12,
+    "passed": 12,
+    "failed": 0
+  },
+  "verification": {
+    "cargo_build": "cargo build -p phenotype-otel-backends --all-features — clean",
+    "cargo_test": "12/12 pass (added 2: span_with_attribute, span_serde_roundtrip)",
+    "cargo_clippy": "pending (will be run in CI)",
+    "rust_edition": "2021",
+    "rust_msrv": "1.75 (per phenotype-otel-backends/Cargo.toml)"
+  },
+  "constraints_respected": [
+    "Branch is local-only and pushed via gh PR to KooshaPari/phenotype-otel under the import/l4-80-... branch name.",
+    "Auth: gh active as KooshaPari (Dmouse92 inactive in keyring).",
+    "No touch of other crates in the workspace beyond adding the [workspace] section to root Cargo.toml.",
+    "CI workflows unchanged.",
+    "Did NOT push to Dmouse92/* remotes.",
+    "Did NOT create a new KooshaPari repo (phenotype-otel already exists; per graduation policy, pheno-otel-backends belongs as a sub-crate of the existing phenotype-otel repo, not as a standalone repo)."
+  ]
+}

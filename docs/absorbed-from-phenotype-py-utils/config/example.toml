@@ -1,0 +1,25 @@
+# phenotype-py-utils example configuration (TOML format)
+
+[log]
+level = "INFO"
+json_output = false
+
+[app]
+environment = "development"
+shutdown_timeout = 30
+
+[database]
+host = "localhost"
+port = 5432
+name = "phenotype"
+max_connections = 10
+pool_timeout = 5.0
+
+[http]
+timeout = 30.0
+max_retries = 3
+backoff_factor = 0.5
+
+[features]
+telemetry = true
+verbose_logging = false

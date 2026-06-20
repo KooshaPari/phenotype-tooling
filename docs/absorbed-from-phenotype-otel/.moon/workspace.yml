@@ -1,0 +1,74 @@
+# moon workspace — phenotype-otel
+#
+# Adopted SOTA: moon v2 (https://moonrepo.dev/moon) for monorepo task
+# orchestration. Although this crate is currently a single library, the
+# workspace config lets contributors and CI run a consistent set of tasks
+# (`moon run otel:build`, `moon run otel:test`, `moon run otel:lint`) using
+# the same pinned toolchain everywhere.
+#
+# Toolchain: tier-3 Rust integration via proto.
+
+$schema: 'https://moonrepo.dev/schemas/workspace.json'
+
+projects:
+  otel:
+    name: otel
+    type: library
+    language: rust
+    source: src
+    tags: ['opentelemetry', 'tracing', 'otlp']
+    projectRoot: .
+    # examples/ is treated as a derived subtree; moon does not auto-create a
+    # project for it, but `cargo run --example basic` works via the global
+    # `example` task below.
+
+tasks:
+  build:
+    description: 'Build the pheno-otel library (cargo build --all-features)'
+    command: 'cargo'
+    args: ['build', '--all-features']
+  test:
+    description: 'Run all unit tests (cargo test --workspace --all-features)'
+    command: 'cargo'
+    args: ['test', '--workspace', '--all-features']
+  lint:
+    description: 'Run clippy with warnings denied'
+    command: 'cargo'
+    args: ['clippy', '--workspace', '--all-targets', '--', '-D', 'warnings']
+  fmt:
+    description: 'Auto-format all Rust sources'
+    command: 'cargo'
+    args: ['fmt', '--all']
+  fmt-check:
+    description: 'Verify formatting (CI gate)'
+    command: 'cargo'
+    args: ['fmt', '--all', '--', '--check']
+  audit:
+    description: 'cargo deny + cargo audit'
+    command: 'cargo'
+    args: ['deny', 'check']
+  example:
+    description: 'Run the basic example (requires a local OTel collector on :4318)'
+    command: 'cargo'
+    args: ['run', '--example', 'basic']
+    env:
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318'
+    options:
+      cache: false
+  ci:
+    description: 'Full CI gate: fmt-check → lint → test → audit'
+    deps:
+      - 'fmt-check'
+      - 'lint'
+      - 'test'
+      - 'audit'
+
+toolchain:
+  rust:
+    version: '1.82'
+  node:
+    version: '20.18.0'
+
+vcs:
+  manager: git
+  defaultBranch: main

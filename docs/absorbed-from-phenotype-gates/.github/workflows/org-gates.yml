@@ -1,0 +1,87 @@
+# Reusable org-wide workflow hygiene gate.
+#
+# Adopter repos should `extends: KooshaPari/phenotype-gates/.github/workflows/org-gates.yml@<ref>`
+# and override inputs as needed. This workflow is intentionally narrow: it
+# enforces the contract shared across the Phenotype org (timeout, pinned
+# action SHAs, deny.toml presence, MSRV). It does NOT run domain-specific
+# tests; adopters keep their own jobs for that.
+name: org-gates
+
+on:
+  workflow_call:
+    inputs:
+      msrv:
+        description: "Minimum Supported Rust Version (semver) the repo must support"
+        type: string
+        default: "1.75.0"
+      deny-toml-path:
+        description: "Path to the deny.toml file"
+        type: string
+        default: "deny.toml"
+      gate-action-ref:
+        description: "Git ref (SHA) of phenotype-gates/action to invoke"
+        type: string
+        required: true
+      python-version:
+        description: "Python version used by the gate action runner"
+        type: string
+        default: "3.12"
+    secrets:
+      GITHUB_TOKEN:
+        description: "Token used by the gate action to post annotations"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: org-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Enforce deny.toml presence
+        run: |
+          set -euo pipefail
+          if [[ ! -f "${{ inputs.deny-toml-path }}" ]]; then
+            echo "::error::Required file ${{ inputs.deny-toml-path }} is missing." \
+                 "Add a deny.toml at the repo root (see KooshaPari/phenotype-gates docs)."
+            exit 1
+          fi
+          echo "deny.toml found at ${{ inputs.deny-toml-path }}"
+
+      - name: Setup Python
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.3.0
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Checkout gates source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: KooshaPari/phenotype-gates
+          ref: ${{ inputs.gate-action-ref }}
+          path: .gates-src
+
+      - name: Run gates check (pinned SHA)
+        id: gates
+        uses: ./../.gates-src/action
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PHENOTYPE_MSRV: ${{ inputs.msrv }}
+          PHENOTYPE_DENY_TOML: ${{ inputs.deny-toml-path }}
+        with:
+          msrv: ${{ inputs.msrv }}
+          deny-toml: ${{ inputs.deny-toml-path }}
+          fail-on: high
+
+      - name: Summarise
+        if: always()
+        run: |
+          echo "Gates outcome: ${{ steps.gates.outcome }}"
+          echo "MSRV enforced: ${{ inputs.msrv }}"
+          echo "deny.toml path: ${{ inputs.deny-toml-path }}"

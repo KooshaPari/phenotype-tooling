@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it."
+authors:
+  - family-names: "Pari"
+    given-names: "Koosha"
+title: "Phenotype Python Utils"
+version: 0.2.0
+date-released: 2026-06-20
+url: "https://github.com/KooshaPari/phenotype-py-utils"

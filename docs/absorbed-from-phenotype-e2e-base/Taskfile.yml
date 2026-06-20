@@ -1,0 +1,68 @@
+version: "3"
+
+vars:
+  PLAYWRIGHT_BROWSERS: chromium
+  # Only chromium for CI speed; dev can use all 3 via `task install:all`
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  install:
+    desc: Install Playwright test browser (Chromium)
+    cmds:
+      - bun install
+      - bunx playwright install --with-deps {{.PLAYWRIGHT_BROWSERS}}
+
+  install:all:
+    desc: Install all Playwright browsers (slow, local dev only)
+    cmds:
+      - bun install
+      - bunx playwright install --with-deps chromium firefox webkit
+
+  typecheck:
+    desc: TypeScript type-check
+    cmds:
+      - bunx tsc --noEmit
+
+  lint:
+    desc: Run Biome check
+    cmds:
+      - bunx biome check .
+
+  test:
+    desc: Run Playwright E2E test suite
+    cmds:
+      - bunx playwright test
+
+  build:
+    desc: TypeScript compile (output to dist/)
+    cmds:
+      - bunx tsc
+
+  clean:
+    desc: Remove generated artifacts
+    cmds:
+      - rm -rf playwright-report/ test-results/ dist/ node_modules/
+
+  report:
+    desc: Open Playwright HTML report
+    cmds:
+      - bunx playwright show-report
+
+  quality:
+    desc: Full quality gate (typecheck + lint + test)
+    cmds:
+      - task: typecheck
+      - task: lint
+      - task: test
+
+  verify:
+    desc: Verify file structure is intact
+    cmds:
+      - test -f fixtures/index.ts
+      - test -f tests/byteport.spec.ts
+      - ls fixtures/
+      - node -e "require('./package.json')"

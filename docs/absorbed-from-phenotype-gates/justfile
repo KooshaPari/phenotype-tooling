@@ -1,0 +1,4 @@
+set shell := ["bash", "-uc"]
+
+demo:
+    bash bench/e2e/just-demo.sh

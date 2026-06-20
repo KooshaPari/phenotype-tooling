@@ -1,0 +1,10 @@
+[gates]
+version = 1
+description = "Policy for phenotype-gates-fixture (FR-PGAT-001)"
+
+[gates.policies]
+id_prefix = "FR-PGAT"
+
+[gates.pinned_action_shas]
+"actions/checkout" = "b4ffde65f46336ab88eb53be808477a3936bae11"
+"actions/setup-node" = "39370e3970a6d050c480ffad4ff0ed4d3fdee5af"

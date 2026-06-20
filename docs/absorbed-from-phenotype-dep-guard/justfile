@@ -1,0 +1,68 @@
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+
+# ───────────────────────────────────────────────
+# List available recipes
+# ───────────────────────────────────────────────
+default:
+    just --list
+
+# ───────────────────────────────────────────────
+# Python tasks
+# ───────────────────────────────────────────────
+
+# Run the CLI in development mode
+dev:
+    PYTHONPATH=src python3 -m phenotype_dep_guard.cli
+
+# Build release artifacts
+build:
+    python3 -m pip wheel . --no-deps --wheel-dir dist
+
+# Run the test suite
+test:
+    PYTHONPATH=src python3 -m pytest -q
+
+# Run linter
+lint:
+    ruff check src/ tests/
+
+# Apply formatter
+fmt:
+    ruff format src/ tests/
+
+# Remove build artifacts
+clean:
+    rm -rf build dist *.egg-info .pytest_cache .ruff_cache
+    find . -type d -name __pycache__ -prune -exec rm -rf {} +
+    find . -type f -name "*.pyc" -delete
+
+# ───────────────────────────────────────────────
+# Rust (ports) tasks
+# ───────────────────────────────────────────────
+
+# Build Rust ports crate
+cargo-build:
+    cd ports && cargo build
+
+# Run Rust tests
+cargo-test:
+    cd ports && cargo test
+
+# Check Rust formatting
+cargo-fmt-check:
+    cd ports && cargo fmt --check
+
+# Format Rust source
+cargo-fmt:
+    cd ports && cargo fmt
+
+# Run Rust clippy
+cargo-clippy:
+    cd ports && cargo clippy --all-targets -- -D warnings
+
+# Audit Rust dependencies (requires cargo-deny)
+cargo-audit:
+    cd ports && cargo deny check
+
+# Full Rust quality gate
+cargo-check-all: cargo-fmt-check cargo-clippy cargo-test

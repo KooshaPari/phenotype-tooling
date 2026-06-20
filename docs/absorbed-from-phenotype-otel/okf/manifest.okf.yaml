@@ -1,0 +1,23 @@
+okf_version: "1.0"
+project:
+  id: koosha.phenotype.phenotype-otel
+  name: phenotype-otel
+  charter_ref: charter.md
+  review_ref: review.md
+artifacts:
+  - id: charter
+    path: charter.md
+    kind: governance
+    summary: "observe role boundary"
+  - id: intent-root
+    path: intent.md
+    kind: intent
+    summary: "Wave 4 genesis rollout"
+  - id: sota-root
+    path: SOTA.md
+    kind: sota
+    summary: "Rust Tier 1 thin bridge; must not absorb Traceon domain crates."
+dimensions:
+  technical: docs/sota/technical.md
+provenance:
+  intent_prompts: docs/intent/prompts/

@@ -1,0 +1,154 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "phenotype-py-utils"
+version = "0.2.0"
+description = "Shared Python utility library for the Phenotype org: load_config, setup_logging, parse_args, iso_now, truncate, plus optional extras (cli, mcp, web, testing)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "KooshaPari", email = "koosha@example.com" }]
+keywords = ["utility", "config", "logging", "argparse", "datetime"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+toml = [
+    "tomli>=2.0; python_version<'3.11'",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "mypy>=1.8",
+    "ruff>=0.4",
+    "types-PyYAML",
+    "tomli>=2.0; python_version<'3.11'",
+]
+
+# --- Extras (absorbed from phenotype-py-extras) ---
+cli = ["click>=8", "rich>=13", "typer>=0.12", "pydantic>=2.9"]
+mcp = ["fastmcp>=2.0", "pydantic>=2.9", "pydantic-settings>=2.5", "httpx>=0.27"]
+web = ["fastapi>=0.115", "uvicorn>=0.32", "pydantic>=2.9", "pydantic-settings>=2.5"]
+testing = ["pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=6"]
+testing-quality = ["pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=6", "coverage>=7", "mypy>=1.13"]
+observability = ["structlog>=24", "loguru>=0.7"]
+all = [
+  "click>=8", "rich>=13", "typer>=0.12", "pydantic>=2.9",
+  "fastmcp>=2.0", "pydantic-settings>=2.5", "httpx>=0.27",
+  "fastapi>=0.115", "uvicorn>=0.32",
+  "pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=6",
+  "coverage>=7", "mypy>=1.13",
+  "structlog>=24", "loguru>=0.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/KooshaPari/phenotype-py-utils"
+Source = "https://github.com/KooshaPari/phenotype-py-utils"
+Issues = "https://github.com/KooshaPari/phenotype-py-utils/issues"
+
+# ---------------------------------------------------------------------------
+# Hatchling build config
+# ---------------------------------------------------------------------------
+[tool.hatch.build.targets.wheel]
+packages = ["src/phenotype_py_utils", "src/phenotype_py_utils/extras", "src/phenotype_py_utils/extras/llms_txt"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/phenotype_py_utils",
+    "src/phenotype_py_utils/extras",
+    "src/phenotype_py_utils/extras/llms_txt",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B008"]
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "phenotype_py_utils.extras.*"
+disallow_untyped_defs = false
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=phenotype_py_utils",
+    "--cov-report=term-missing",
+    "--cov-branch",
+]
+
+# ---------------------------------------------------------------------------
+# coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["phenotype_py_utils"]
+
+[tool.coverage.paths]
+source = [
+    "src/",
+    "*/site-packages/",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[dependency-groups]
+dev = ["pyright>=1.1.390"]

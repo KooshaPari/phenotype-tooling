@@ -1,0 +1,42 @@
+{
+  "name": "@phenotype/zod-schemas",
+  "version": "0.1.0",
+  "description": "Shared Zod schemas for the Phenotype platform (email, URL, UUID, ISO timestamp, pagination query).",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "zod": "^3.22"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "zod": "^3.22.0"
+  },
+  "keywords": [
+    "zod",
+    "schemas",
+    "phenotype",
+    "validation"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

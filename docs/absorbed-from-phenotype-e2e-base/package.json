@@ -1,0 +1,28 @@
+{
+  "name": "phenotype-e2e-base",
+  "version": "0.1.0",
+  "description": "Phenotype E2E testing harness — Playwright + Bun + multi-browser visual regression",
+  "type": "module",
+  "private": true,
+  "license": "(MIT OR Apache-2.0)",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "install": "task install",
+    "typecheck": "task typecheck",
+    "lint": "task lint",
+    "test": "task test",
+    "test:update": "task test-update",
+    "build": "task build",
+    "clean": "task clean",
+    "quality": "task quality"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@biomejs/biome": "^1.9.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {}
+}

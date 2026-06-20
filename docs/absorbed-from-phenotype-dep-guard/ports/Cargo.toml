@@ -1,0 +1,16 @@
+[package]
+name = "phenotype-dep-guard-ports"
+version = "0.1.0"
+edition = "2021"
+description = "Hexagonal port adapters for phenotype-dep-guard supply chain analysis"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/phenotype-dep-guard"
+documentation = "https://github.com/KooshaPari/phenotype-dep-guard#readme"
+keywords = ["supply-chain", "security", "dependency", "analysis", "policy"]
+categories = ["development-tools", "security"]
+authors = ["Koosha Paridehpour <koosha@example.com>"]
+
+[dependencies]
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
