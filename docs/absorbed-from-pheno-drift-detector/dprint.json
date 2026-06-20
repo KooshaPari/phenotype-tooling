@@ -1,0 +1,57 @@
+{
+  "$schema": "https://dprint.dev/schemas/dprint-config.json",
+  "_comment": "dprint config — pheno-drift-detector. dprint is a language-agnostic formatter. We pin formatting to the Black-compatible profile for Python (the de facto Python formatter) and the standard markdown config.",
+  "lineWidth": 100,
+  "indentWidth": 4,
+  "useTabs": false,
+  "newLineKind": "lf",
+  "finalNewline": "required",
+  "includes": [
+    "**/*.py",
+    "**/*.md",
+    "**/*.json",
+    "**/*.toml",
+    "**/*.yml",
+    "**/*.yaml"
+  ],
+  "excludes": [
+    ".venv/**",
+    "build/**",
+    "dist/**",
+    "**/__pycache__/**",
+    ".pytest_cache/**",
+    ".ruff_cache/**",
+    "pheno_drift_detector.egg-info/**",
+    "**/*.egg-info/**",
+    "coverage.xml",
+    "pip-audit-report.json"
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/python-0.6.0.wasm",
+    "https://plugins.dprint.dev/markdown-0.10.0.wasm",
+    "https://plugins.dprint.dev/json-0.10.0.wasm",
+    "https://plugins.dprint.dev/toml-0.3.0.wasm",
+    "https://plugins.dprint.dev/dockerfile-0.2.0.wasm"
+  ],
+  "python": {
+    "lineWidth": 100,
+    "indentWidth": 4,
+    "useTabs": false
+  },
+  "markdown": {
+    "lineWidth": 100,
+    "newLineKind": "lf",
+    "codeBlockIndent": "  "
+  },
+  "json": {
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "useTabs": false,
+    "newLineKind": "lf"
+  },
+  "toml": {
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "newLineKind": "lf"
+  }
+}

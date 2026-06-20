@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pheno-framework-lint"
+version = "0.1.0"
+description = "L73 graduation discipline linter — enforces 4 substrate-tier conventions from ADR-023"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "KooshaPari"}]
+keywords = ["phenotype", "linter", "substrate", "tier", "adr-023", "l73"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7.0", "pytest-cov>=4.0"]
+
+[project.scripts]
+pheno-framework-lint = "pheno_framework_lint:main"
+
+[project.urls]
+Homepage = "https://github.com/KooshaPari/pheno-framework-lint"
+Issues = "https://github.com/KooshaPari/pheno-framework-lint/issues"
+
+[tool.setuptools]
+py-modules = ["pheno_framework_lint"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-v --tb=short"

@@ -1,0 +1,49 @@
+# .safety-policy.yml — Python safety policy (pip-audit / safety)
+#
+# This is the Python-equivalent of `deny.toml` for Rust. It controls which
+# vulnerabilities are flagged by `pip-audit` or `safety check` when run in CI.
+#
+# pheno-framework-lint is stdlib-only (zero third-party deps) so most of these
+# settings are placeholders. They become live the moment a dep is added.
+
+# --- pip-audit configuration ---
+# See https://pypi.org/project/pip-audit/ for full schema.
+
+# Severity threshold: warn on medium+, fail on high+
+severity-threshold:
+  - high
+  - medium
+
+# Vulnerability databases to query (PyPI Advisory DB + OSV)
+databases:
+  - pypi
+  - osv
+
+# Ignore list (placeholder; no deps to ignore today)
+ignore:
+  # - id: CVE-XXXX-XXXXX
+  #   reason: false positive; not applicable to our usage
+  #   expires: 2026-12-31
+
+# --- safety (legacy) configuration ---
+# https://pyup.io/safety/
+
+security:
+  # Fail the build on any known vulnerability
+  fail-on-any-vulnerability: true
+
+# --- Allowlist (Python equivalent of cargo-deny license allow) ---
+# Licenses allowed in any future dep
+allowed-licenses:
+  - MIT
+  - Apache-2.0
+  - BSD-3-Clause
+  - ISC
+  - PSF-2.0
+
+# Licenses explicitly forbidden
+forbidden-licenses:
+  - GPL-2.0
+  - GPL-3.0
+  - AGPL-3.0
+  - SSPL-1.0

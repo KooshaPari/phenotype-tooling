@@ -1,0 +1,23 @@
+# Python supply-chain policy for pheno-predict
+#
+# This file is the Python-equivalent of `deny.toml` (which is a Rust/cargo-deny
+# convention; see `deny.toml` for the cross-reference). It is consumed by:
+#   - `pip-audit` in CI (see `.github/workflows/ci.yml`) — blocks on any
+#     KNOWN-vulnerability match against the PyPI advisory database.
+#   - `safety` (local-dev only) — for ad-hoc checks with a custom policy.
+#
+# Policy: PHENO_PYTHON_POLICY
+#   - All advisories from the PyPI advisory db are "fail" (block on match).
+#   - No exceptions, no severity floor (we are stdlib-only — there are no
+#     runtime deps to audit; this file exists for the substrate quality bar).
+#   - `pip-audit` will report "no deps to audit" — that is the expected
+#     passing state for a stdlib-only project.
+
+security:
+  # Fail on any advisory — there are no runtime deps, so this is a no-op
+  # in steady state. The check exists to catch any accidental future dep
+  # additions.
+  fail_on_any: true
+
+  # Do not allow unmaintained packages. (No-op for stdlib-only.)
+  ignore_unmaintained: false

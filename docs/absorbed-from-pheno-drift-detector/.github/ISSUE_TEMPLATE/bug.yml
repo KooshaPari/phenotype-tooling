@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a defect or unexpected behavior in pheno-drift-detector.
+title: "[bug]: "
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill out the template below so we can
+        reproduce and triage. Bug reports that do not follow this template may
+        be closed without action.
+
+  - type: input
+    id: version
+    attributes:
+      label: pheno-drift-detector version
+      description: "Output of `pheno-drift-detector --help` or the version pinned in your environment."
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: "Output of `python --version`."
+      placeholder: "Python 3.11.9"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: "OS + version (e.g. macOS 14.5, Ubuntu 24.04, Windows 11 23H2)."
+      placeholder: "macOS 14.5"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: "Minimal command(s) that reproduce the bug. Include the exact `pheno-drift-detector` invocation."
+      placeholder: |
+        $ cd ~/code/my-monorepo
+        $ pheno-drift-detector scan --root . --format json --out /tmp/hits.json
+        # /tmp/hits.json contains hits that are clearly false positives
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: "What you expected to happen."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: "What actually happened. Include full stderr/stdout if relevant."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / artifacts
+      description: "Paste or attach the JSON / Markdown output, plus any error tracebacks."
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: "Anything else that might help (app repo structure, ADR reference, related issues)."
+    validations:
+      required: false

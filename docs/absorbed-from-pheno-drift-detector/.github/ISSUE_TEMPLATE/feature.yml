@@ -1,0 +1,62 @@
+name: Feature request
+description: Propose a new capability or behavior for pheno-drift-detector.
+title: "[feat]: "
+labels: ["enhancement", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests should explain the **problem** first, then the proposed
+        solution. pheno-drift-detector is a stdlib-only, heuristic substrate
+        tool — please read `AGENTS.md` and `SPEC.md` before proposing changes
+        that conflict with the "no external deps" or "heuristic, no AST" rules.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: "What problem are you trying to solve? What is the user-facing pain point?"
+      placeholder: |
+        When scanning the Pheno fleet for drift hits, I need to filter out
+        repos I have already triaged this week so I don't see the same hits
+        on every cron run.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: "Sketch the change to CLI / output schema / scoring. Reference the relevant ADR if applicable."
+      placeholder: |
+        Add a `--ignore-state PATH` flag pointing at a JSON file of repo
+        names that have been triaged in the current week. Emit them in the
+        output as `bucket: ignored` so the cron can record the suppression.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: "What other approaches did you consider, and why is this one preferred?"
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Compatibility impact
+      description: "Does this change the public API (CLI surface, JSON schema, exit codes)? Will existing cron jobs break?"
+    validations:
+      required: true
+
+  - type: input
+    id: adr
+    attributes:
+      label: Related ADR (if any)
+      description: "ADR-023 / ADR-024 / ADR-035 / etc. — leave blank if not applicable."
+      placeholder: "ADR-023"
+    validations:
+      required: false

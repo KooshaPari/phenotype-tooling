@@ -1,0 +1,22 @@
+# CODEOWNERS — pheno-drift-detector
+#
+# GitHub CODEOWNERS syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# The repository owner is the sole approver for every change. Add additional
+# reviewers below if the project gains more collaborators.
+
+# Default owner for everything in the repo.
+*       @kooshapari
+
+# Security-sensitive paths require an explicit review even if the change is small.
+/SECURITY.md             @kooshapari
+/.safety-policy.yml      @kooshapari
+/.github/workflows/      @kooshapari
+/deny.toml               @kooshapari
+
+# AGENTS.md / SPEC.md / README.md are operator-facing — require the owner to keep
+# the operator-doc narrative consistent.
+/AGENTS.md               @kooshapari
+/SPEC.md                 @kooshapari
+/README.md               @kooshapari
+/CHANGELOG.md            @kooshapari

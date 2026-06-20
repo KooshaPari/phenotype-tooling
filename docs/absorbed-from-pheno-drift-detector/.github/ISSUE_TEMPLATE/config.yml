@@ -1,0 +1,17 @@
+# Config — .github/ISSUE_TEMPLATE/config.yml
+# https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+
+blank_issues_enabled: false
+contact_links:
+  - name: Operator documentation (AGENTS.md)
+    url: https://github.com/KooshaPari/pheno-drift-detector/blob/main/AGENTS.md
+    about: How this tool is operated, configured, and integrated with the weekly heavy-runner cron.
+  - name: Specification (SPEC.md)
+    url: https://github.com/KooshaPari/pheno-drift-detector/blob/main/SPEC.md
+    about: 1-page L74 spec — algorithm, CLI surface, output schema, exit codes.
+  - name: Pheno governance — ADR-023 (app-level repo triage)
+    url: https://github.com/KooshaPari/phenotype-bus-framework/blob/main/docs/adr/ADR-023-app-level-repo-triage.md
+    about: The ADR that defines the PAUSED / CONDITIONAL / CAPSTONE buckets and the substrate-placement rule.
+  - name: Security policy (SECURITY.md)
+    url: https://github.com/KooshaPari/pheno-drift-detector/blob/main/SECURITY.md
+    about: How to report a security vulnerability.
