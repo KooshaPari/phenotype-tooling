@@ -1,5 +1,25 @@
 # Genesis documentation scaffold
 
+## Quickstart
+
+> Phenotype org internal tooling: usage-poll, agent-forecast, temporal-grounding
+
+```bash
+# Clone, build, test
+git clone https://github.com/KooshaPari/phenotype-tooling.git
+cd phenotype-tooling
+```
+
+```bash
+npm install
+```
+```svelte
+<!-- See src/lib/ for the public API -->
+```
+
+See [SPEC.md](SPEC.md) for the full specification and [llms.txt](llms.txt) for machine-readable metadata.
+
+
 Copy this entire directory into a new repository root (or use `hexakit genesis init` when available).
 
 HexaKit role: **project scaffolding and templates only** — not domain SDK libraries. See [charter.md](charter.md) boundary class `genesis`.
