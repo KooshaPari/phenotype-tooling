@@ -1,0 +1,84 @@
+name: audit
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mondays 06:00 UTC — dependency vulnerability sweep.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@82c7e631bb568cdc910f7e2f4550348a8c549add # v5.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit
+
+      - name: Audit installed deps
+        # --strict: non-zero exit on any vuln.
+        # --no-deps: scan the *project* deps declared in pyproject.toml.
+        run: |
+          pip-audit --strict --no-deps --progress-spinner=off
+
+      - name: Audit requirements (if present)
+        if: hashFiles('requirements.txt') != ''
+        run: pip-audit -r requirements.txt --strict --progress-spinner=off
+
+  outdated:
+    name: outdated packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@82c7e631bb568cdc910f7e2f4550348a8c549add # v5.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: List outdated (informational)
+        run: pip list --outdated --format=columns
+
+  aggregate:
+    name: aggregate
+    needs: [pip-audit, outdated]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All clear
+        if: needs.pip-audit.result == 'success' && needs.outdated.result == 'success'
+        run: echo "Audit OK."
+      - name: Failed
+        if: needs.pip-audit.result != 'success' || needs.outdated.result != 'success'
+        run: |
+          echo "pip-audit: ${{ needs.pip-audit.result }}"
+          echo "outdated:  ${{ needs.outdated.result }}"
+          exit 1

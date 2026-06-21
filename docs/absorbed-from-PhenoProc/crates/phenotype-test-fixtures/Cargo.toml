@@ -1,0 +1,15 @@
+[package]
+name = "phenotype-test-fixtures"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/PhenoProc"
+description = "phenotype test fixtures — Phenotype infrastructure crate (PhenoProc)"
+documentation = "https://docs.rs/phenotype-test-fixtures"
+keywords = ["phenotype", "pheno-proc", "test"]
+categories = ["development-tools::testing"]
+authors = ["kooshapari"]
+
+[dependencies]
+serde = { workspace = true }

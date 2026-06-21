@@ -1,0 +1,103 @@
+version: 2
+
+# Dependabot feed for PhenoDevOps.
+# This repo is currently in DRAIN per plans/2026-06-18-devhex-port-v1.md.
+# Once Stage 5 (archive) is complete this file should be deleted entirely.
+# While in drain we keep the feed but suppress PRs for sub-trees that have
+# already been migrated to their canonical homes.
+updates:
+  # -----------------------------------------------------------------
+  # Rust (Cargo) — primary workspace
+  # -----------------------------------------------------------------
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - rust
+    groups:
+      rust-dependencies:
+        patterns:
+          - '*'
+
+  # -----------------------------------------------------------------
+  # JS/TS (npm) — root bun.lock + docs/ + packages/* workspaces
+  # -----------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:30'
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - javascript
+    ignore:
+      # Don't bump dev tooling to majors weekly
+      - dependency-name: '*eslint*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '*prettier*'
+        update-types: ['version-update:semver-major']
+    groups:
+      js-dependencies:
+        patterns:
+          - '*'
+
+  # -----------------------------------------------------------------
+  # Python (pip) — python/ + pyproject.toml projects
+  # -----------------------------------------------------------------
+  - package-ecosystem: pip
+    directory: /python
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
+    groups:
+      python-dependencies:
+        patterns:
+          - '*'
+
+  # -----------------------------------------------------------------
+  # GitHub Actions — keep CI tooling current
+  # -----------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:00'
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+
+  # -----------------------------------------------------------------
+  # Go modules — for go.mod presence (used by bifrost and others)
+  # -----------------------------------------------------------------
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:30'
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - go
+    groups:
+      go-dependencies:
+        patterns:
+          - '*'

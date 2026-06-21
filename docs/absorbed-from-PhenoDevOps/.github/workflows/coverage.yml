@@ -1,0 +1,21 @@
+# Generated coverage workflow - calls reusable phenotype workflow
+name: Coverage
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+
+permissions:
+  contents: read
+jobs:
+  coverage:
+    timeout-minutes: 10
+    uses: KooshaPari/phenotype-infrakit/.github/workflows/coverage.yml@b2237417dadc970f66a0f445359ab3b01eba6289
+    secrets: inherit

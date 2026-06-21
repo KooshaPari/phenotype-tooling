@@ -1,0 +1,34 @@
+[package]
+name = "fastmcp-rust"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Fast, cancel-correct MCP framework for Rust"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+documentation = "https://docs.rs/fastmcp-rust"
+keywords = ["mcp", "json-rpc", "async", "ai", "protocol"]
+categories = ["network-programming", "api-bindings", "development-tools"]
+
+[dependencies]
+fastmcp-core.workspace = true
+fastmcp-protocol.workspace = true
+fastmcp-transport.workspace = true
+fastmcp-server.workspace = true
+fastmcp-client.workspace = true
+fastmcp-derive.workspace = true
+asupersync.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+trybuild.workspace = true
+jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
+
+[lints]
+workspace = true
+
+[features]
+jwt = ["fastmcp-server/jwt"]

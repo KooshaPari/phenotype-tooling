@@ -1,0 +1,45 @@
+# .gitattributes — pheno-mcp-router
+# See https://git-scm.com/docs/gitattributes
+
+# Normalize line endings for text files.
+*               text=auto eol=lf
+
+# Source code
+*.py            text eol=lf
+*.pyi           text eol=lf
+*.ipynb         text eol=lf
+*.sh            text eol=lf
+*.bash          text eol=lf
+*.zsh           text eol=lf
+
+# Config / docs
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.json          text eol=lf
+*.toml          text eol=lf
+*.md            text eol=lf
+*.txt           text eol=lf
+
+# Build artifacts — keep binary, never diff.
+*.whl           binary
+*.tar.gz        binary
+*.zip           binary
+*.egg           binary
+*.egg-info      -text merge=binary
+build/          -text merge=binary
+dist/           -text merge=binary
+
+# Generated / vendored
+docs/_build/    export-ignore
+.coverage       binary
+.pytest_cache/  export-ignore
+.ruff_cache/    export-ignore
+.mypy_cache/    export-ignore
+__pycache__/    export-ignore
+*.pyc           binary
+
+# Linguist overrides — make GitHub recognize what matters.
+docs/*          linguist-documentation
+examples/*      linguist-documentation
+tests/*         linguist-test
+justfile        linguist-cmake

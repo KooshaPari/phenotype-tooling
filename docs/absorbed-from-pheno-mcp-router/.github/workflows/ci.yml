@@ -1,0 +1,77 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR/branch; always keep the main-branch build.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@82c7e631bb568cdc910f7e2f4550348a8c549add # v5.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install (dev extras)
+        run: pip install -e ".[dev]"
+
+      - name: Install lint/format tooling
+        run: pip install ruff pip-audit
+
+      - name: Lint (ruff)
+        run: ruff check src tests
+
+      - name: Format-check (ruff)
+        run: ruff format --check src tests
+
+      - name: Test (pytest)
+        run: pytest -v
+
+      - name: Pyright (strict)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pyright>=1.1.390"
+          python -m pyright --version
+          python -m pyright
+
+  aggregate:
+    name: aggregate status
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All jobs passed
+        if: needs.test.result != 'success'
+        run: |
+          echo "One or more test jobs failed: ${{ needs.test.result }}"
+          exit 1
+      - name: Success
+        if: needs.test.result == 'success'
+        run: echo "All test jobs passed."

@@ -1,0 +1,168 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/fastmcp",
+    "crates/fastmcp-core",
+    "crates/fastmcp-transport",
+    "crates/fastmcp-protocol",
+    "crates/fastmcp-server",
+    "crates/fastmcp-client",
+    "crates/fastmcp-macros",
+    "crates/fastmcp-console",
+    "crates/fastmcp-cli",
+    "crates/fastmcp-asset",
+]
+
+[workspace.package]
+version = "0.3.1"
+edition = "2021"
+rust-version = "1.85"
+authors = ["Phenotype Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/PhenoFastMCP-rust.git"
+homepage = "https://github.com/KooshaPari/PhenoFastMCP-rust"
+readme = "README.md"
+
+[workspace.dependencies]
+# Runtime (our own)
+asupersync = "0.3.4"
+rich_rust = "0.2"
+
+# Serialization (only these)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Logging (facade only, zero-cost when disabled)
+log = "0.4"
+tracing = "0.1"
+
+# Opaque cursor encoding for pagination
+base64 = "0.22"
+semver = "1"
+ureq = "3"
+
+# Date/time
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+
+# File watching
+notify = "8"
+glob = "0.3"
+
+# Console output
+console = "0.16"
+
+# Redis (optional, for Docket distributed backend)
+redis = "1"
+
+# Configuration file parsing
+toml = "1.1"
+dirs = "6"
+
+# Cryptographic RNG (for WebSocket masking)
+getrandom = "0.4"
+
+# Cryptography (OAuth PKCE, OIDC signing)
+sha2 = "0.10"
+hmac = "0.12"
+
+# Regex (JSON Schema `pattern` validation)
+regex = "1"
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive", "env", "wrap_help"] }
+
+# Testing
+trybuild = { version = "1", default-features = false }
+
+# Error handling
+thiserror = "2.0"
+
+# Schema generation
+schemars = "1.0"
+
+# Async utilities
+async-trait = "0.1"
+tokio = { version = "1", features = ["full"] }
+
+# Proc macros
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+# Internal crates
+fastmcp-rust = { version = "0.3.1", path = "crates/fastmcp" }
+fastmcp-core = { version = "0.3.1", path = "crates/fastmcp-core" }
+fastmcp-transport = { version = "0.3.1", path = "crates/fastmcp-transport" }
+fastmcp-protocol = { version = "0.3.1", path = "crates/fastmcp-protocol" }
+fastmcp-server = { version = "0.3.1", path = "crates/fastmcp-server" }
+fastmcp-client = { version = "0.3.1", path = "crates/fastmcp-client" }
+fastmcp-derive = { version = "0.3.1", path = "crates/fastmcp-macros" }
+fastmcp-console = { version = "0.3.1", path = "crates/fastmcp-console" }
+fastmcp-cli = { version = "0.3.1", path = "crates/fastmcp-cli" }
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Allow these during early development
+doc_markdown = "allow"
+missing_const_for_fn = "allow"
+doc_link_with_quotes = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+uninlined_format_args = "allow"
+unused_self = "allow"
+cast_precision_loss = "allow"
+format_push_string = "allow"
+needless_continue = "allow"
+map_unwrap_or = "allow"
+cast_possible_truncation = "allow"
+similar_names = "allow"
+must_use_candidate = "allow"
+cast_lossless = "allow"
+return_self_not_must_use = "allow"
+match_same_arms = "allow"
+collapsible_if = "allow"
+clone_on_copy = "allow"
+match_wildcard_for_single_variants = "allow"
+manual_assert = "allow"
+if_not_else = "allow"
+trivially_copy_pass_by_ref = "allow"
+struct_excessive_bools = "allow"
+should_implement_trait = "allow"
+vec_init_then_push = "allow"
+unreadable_literal = "allow"
+ref_option = "allow"
+manual_pattern_char_comparison = "allow"
+implicit_clone = "allow"
+decimal_bitwise_operands = "allow"
+cast_sign_loss = "allow"
+needless_pass_by_value = "allow"
+field_reassign_with_default = "allow"
+# Additional pedantic lints allowed for early development
+cast_possible_wrap = "allow"
+assigning_clones = "allow"
+derivable_impls = "allow"
+manual_div_ceil = "allow"
+manual_split_once = "allow"
+unchecked_time_subtraction = "allow"
+redundant_closure_for_method_calls = "allow"
+missing_fields_in_debug = "allow"
+manual_let_else = "allow"
+single_match_else = "allow"
+len_zero = "allow"
+needless_borrows_for_generic_args = "allow"
+io_other_error = "allow"
+mut_range_bound = "allow"
+ptr_arg = "allow"
+approx_constant = "allow"
+manual_string_new = "allow"
+redundant_else = "allow"
+unnecessary_unwrap = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+too_many_lines = "allow"
+items_after_statements = "allow"

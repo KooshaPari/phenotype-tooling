@@ -1,0 +1,158 @@
+# ─────────────────────────────────────────────────────────────
+# Dependency Audit — cargo audit / npm audit / pip audit
+# ─────────────────────────────────────────────────────────────
+# Multi-ecosystem audit pass for PhenoProc.
+#
+#   cargo audit  → RustSec Advisory DB (Cargo.lock)
+#   npm audit    → npm registry advisories (package-lock.json)
+#   pip audit    → PyPI safety DB / OSV (requirements*.txt /
+#                  pyproject.toml)
+#
+# Each job is gated on the presence of its lockfile/manifest so
+# the workflow stays a no-op for ecosystems not currently used.
+# Runs alongside:
+#   - security-scan.yml → cargo-audit (scheduled-only file issue)
+#   - deny.yml          → cargo-deny + gomod verify
+#   - scorecard.yml     → OpenSSF Scorecard
+# ─────────────────────────────────────────────────────────────
+
+name: Dependency Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Tuesday 04:17 UTC — offset from CodeQL cron to spread load
+    - cron: '17 4 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-audit:
+    name: cargo audit (RustSec)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: hashFiles('Cargo.lock') != ''
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache RustSec advisory DB
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.cargo/advisory-db
+          key: advisory-db-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            advisory-db-
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@e75908a768da3e7a28ccaf3011aa18c8728c3992  # v2.49.0
+        with:
+          tool: cargo-audit
+
+      - name: Run cargo audit
+        run: cargo audit --deny warnings
+
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: hashFiles('**/package.json') != ''
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442cacd436585916f0e1d2bc25fd3bcaa51e5  # v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Detect npm lockfile
+        id: lock
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: npm audit (lockfile present)
+        if: steps.lock.outputs.present == 'true'
+        run: npm audit --audit-level=high
+        continue-on-error: false
+
+      - name: npm audit (best-effort, no lockfile)
+        if: steps.lock.outputs.present == 'false'
+        run: npm audit --audit-level=high || true
+        continue-on-error: true
+
+  pip-audit:
+    name: pip audit (PyPI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      hashFiles('**/requirements.txt') != '' ||
+      hashFiles('**/requirements-*.txt') != '' ||
+      hashFiles('**/pyproject.toml') != '' ||
+      hashFiles('**/Pipfile.lock') != ''
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Python
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit
+
+      - name: Detect Python manifests
+        id: manifests
+        run: |
+          set +e
+          {
+            echo "requirements_txt=$(ls requirements.txt 2>/dev/null | head -1 || true)"
+            echo "requirements_dev=$(ls requirements-dev.txt 2>/dev/null | head -1 || true)"
+            echo "requirements_test=$(ls requirements-test.txt 2>/dev/null | head -1 || true)"
+            echo "pyproject=$(ls pyproject.toml 2>/dev/null | head -1 || true)"
+            echo "pipfile_lock=$(ls Pipfile.lock 2>/dev/null | head -1 || true)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: pip audit (requirements.txt)
+        if: steps.manifests.outputs.requirements_txt != ''
+        run: pip-audit -r requirements.txt --strict
+        continue-on-error: false
+
+      - name: pip audit (requirements-dev.txt)
+        if: steps.manifests.outputs.requirements_dev != ''
+        run: pip-audit -r requirements-dev.txt --strict
+        continue-on-error: false
+
+      - name: pip audit (requirements-test.txt)
+        if: steps.manifests.outputs.requirements_test != ''
+        run: pip-audit -r requirements-test.txt --strict
+        continue-on-error: false
+
+      - name: pip audit (pyproject.toml)
+        if: steps.manifests.outputs.pyproject != '' && steps.manifests.outputs.requirements_txt == '' && steps.manifests.outputs.requirements_dev == '' && steps.manifests.outputs.requirements_test == ''
+        run: pip-audit --strict
+        continue-on-error: false
+
+      - name: pip audit (Pipfile.lock)
+        if: steps.manifests.outputs.pipfile_lock != ''
+        run: pip-audit --strict
+        continue-on-error: false

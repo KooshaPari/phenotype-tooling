@@ -1,0 +1,222 @@
+# Phenotype Polyglot Platform - Storage Infrastructure
+#
+# Storage Stack: Dragonfly, QuestDB, Qdrant, Meilisearch, NATS, MinIO
+#
+# NOTE: This is a standalone storage stack for PhenoDevOps, NOT a mirror of
+# docker-compose.yml. It provides the data-plane services (cache, TSDB, vector
+# search, full-text search, messaging, object storage) used by all shelf repos.
+#
+# Usage:
+#   docker-compose -f PhenoDevOps/docker/docker-compose.yml up -d
+#
+# Ports:
+#   Dragonfly:   6379 (Redis-compatible)
+#   QuestDB:     9000 (HTTP), 8812 (Postgres wire)
+#   Qdrant:     6333 (REST), 6334 (gRPC)
+#   Meilisearch: 7700
+#   NATS:       4222 (Client), 8222 (Monitoring)
+#   MinIO:      9000 (API), 9001 (Console)
+
+version: '3.8'
+
+services:
+  # ============================================
+  # Dragonfly (Redis Alternative - Cache/Sessions)
+  # ============================================
+  dragonfly:
+    image: dragonflydb/dragonfly:latest
+    container_name: phenotype-dragonfly
+    ports:
+      - "6379:6379"
+    volumes:
+      - dragonfly_data:/data
+    command: >
+      --maxmemory=4gb
+      --maxmemory_policy=LRU
+      --save_schedule=*/5/*
+      --dbfilename=dump.rdb
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - phenotype-network
+
+  # ============================================
+  # QuestDB (Time-Series - Metrics/Logs)
+  # ============================================
+  questdb:
+    image: questdb/questdb:latest
+    container_name: phenotype-questdb
+    ports:
+      - "9000:9000"   # HTTP/REST API
+      - "8812:8812"   # PostgreSQL wire protocol
+      - "9009:9009"   # TCP for Kafka/Qdrant ingest
+    volumes:
+      - questdb_data:/var/lib/questdb
+    environment:
+      QDB_HTTP_USERNAME: admin
+      QDB_HTTP_PASSWORD: admin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - phenotype-network
+
+  # ============================================
+  # Qdrant (Vector Search - Semantic/Embeddings)
+  # ============================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: phenotype-qdrant
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__HTTP_PORT: 6333
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - phenotype-network
+
+  # ============================================
+  # Meilisearch (Full-Text Search)
+  # ============================================
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: phenotype-meilisearch
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: devmasterkey123
+      MEILI_DB_PATH: /meili_data
+      MEILI_HTTP_ADDR: 0.0.0.0:7700
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - phenotype-network
+
+  # ============================================
+  # NATS (Message Queue - JetStream)
+  # ============================================
+  nats:
+    image: nats:latest
+    container_name: phenotype-nats
+    ports:
+      - "4222:4222"   # Client connection port
+      - "8222:8222"   # HTTP monitoring port
+      - "6222:6222"   # Cluster port (for multi-node)
+    command: >
+      -js
+      -kv
+      --max_memory_store=1GB
+      --max_file_store=10GB
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - phenotype-network
+
+  # ============================================
+  # MinIO (Object Storage - S3 Compatible)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: phenotype-minio
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?err}
+      MINIO_DEFAULT_BUCKETS: phenotype-artifacts,phenotype-models,phenotype-packages
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - phenotype-network
+
+  # ============================================
+  # Optional: CockroachDB (Global SQL)
+  # Uncomment for multi-region deployments
+  # ============================================
+  # cockroachdb:
+  #   image: cockroachdb/cockroach:latest
+  #   container_name: phenotype-cockroachdb
+  #   ports:
+  #     - "26257:26257"  # SQL/gRPC
+  #     - "8080:8080"     # Admin UI
+  #   volumes:
+  #     - cockroachdb_data:/cockroach/cockroach-data
+  #   command: start-single-node --insecure
+  #   healthcheck:
+  #     test: ["CMD", "cockroach", "sql", "--insecure", "-e", "SELECT 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   networks:
+  #     - phenotype-network
+
+  # ============================================
+  # Optional: NATS JetStream Backup (S3)
+  # ============================================
+  # minio-backup:
+  #   image: natsio/nats-account-server:latest
+  #   volumes:
+  #     - ./backup-config:/backup-config
+  #   depends_on:
+  #     - minio
+  #     - nats
+  #   networks:
+  #     - phenotype-network
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  dragonfly_data:
+    driver: local
+  questdb_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  meilisearch_data:
+    driver: local
+  minio_data:
+    driver: local
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  phenotype-network:
+    driver: bridge
+    name: phenotype-network

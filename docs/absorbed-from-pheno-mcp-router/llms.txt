@@ -1,0 +1,43 @@
+# pheno-mcp-router
+
+Generic FastMCP router wrapping a backend HTTP endpoint with tier
+allowlisting, payload sanitization, response allowlisting, and
+structured logging.
+
+## Install
+
+```bash
+pip install pheno-mcp-router
+```
+
+## Usage
+
+```python
+from pheno_mcp_router import McpRouter
+
+router = McpRouter(
+    name="dispatch-minimax",
+    backend_url="http://localhost:20128/v1/chat/completions",
+)
+router.add_tier("minimax", {"model": "minimax-m2p7"})
+router.serve()
+```
+
+## Scaffold a new MCP server
+
+```bash
+pheno-mcp-router init my-mcp-server
+# creates ./my-mcp-server/{pyproject.toml,src/my_mcp_server/__init__.py,server.py}
+```
+
+## Security model
+
+- **Tier allowlist** (must `add_tier` first) — never bypass
+- **Payload sanitize_keys** (default: model, messages, temperature, max_tokens) — strip everything else
+- **Response allowlist** (default: id, model, choices, usage) — strip everything else
+- **max_message_bytes / max_response_bytes** — prevent DoS
+- **structured logging** — every dispatch logs router, tier, bytes
+
+## License
+
+MIT

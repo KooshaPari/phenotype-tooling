@@ -1,0 +1,5 @@
+# Clippy configuration for PhenoProc
+# Note: allow/deny/warn lists removed (deprecated format)
+# Use #[allow()] / #[deny()] attributes in code instead
+
+too-many-arguments-threshold = 8

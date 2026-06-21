@@ -1,0 +1,19 @@
+[package]
+name = "phenotype-errors"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Error handling for Phenotype"
+repository = "https://github.com/KooshaPari/PhenoProc"
+documentation = "https://docs.rs/phenotype-errors"
+keywords = ["phenotype", "pheno-proc", "error"]
+categories = ["rust-patterns"]
+authors = ["kooshapari"]
+
+[dependencies]
+phenotype-error-core = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

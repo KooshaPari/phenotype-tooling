@@ -1,0 +1,34 @@
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+name: ZAP DAST
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+
+
+jobs:
+  zap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+      - name: Install ZAP
+        run: |
+          wget https://github.com/zaproxy/zap-full-bin/releases/download/2.15.0/zap-full-linux-amd64.tar.gz
+          tar -xzf zap-full-linux-amd64.tar.gz
+          mv zap-full-linux-amd64 zap
+      - name: Run ZAP
+        run: |
+          zap/wrapper.sh \
+            -t http://localhost:8080 \
+            -g https://github.com/kooshapari/phenotype-infrakit

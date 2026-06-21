@@ -1,0 +1,24 @@
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+name: self-merge-gate
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: github.event.review.state == 'approved'
+    steps:
+      - name: Check self-merge eligibility
+        run: ./scripts/self-merge-gate.sh

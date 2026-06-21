@@ -1,0 +1,90 @@
+default:
+    @just --list
+
+# ── Setup ───────────────────────────────────────────────────────────
+
+# Install package in editable mode + dev extras
+dev:
+    pip install -e ".[dev]"
+
+# Install audit + format tooling on top of dev extras
+dev-full:
+    pip install -e ".[dev]" pip-audit ruff
+
+# ── Test ────────────────────────────────────────────────────────────
+
+# Run the test suite
+test:
+    pytest -v
+
+# Run a fast test pass (no coverage, fail-fast)
+test-fast:
+    pytest -x -q
+
+# Measure code coverage (SSOT: see grade.sh for the canonical command)
+coverage:
+    pytest --cov=src --cov-report=term-missing --cov-fail-under=85
+
+# ── Build ───────────────────────────────────────────────────────────
+
+# Build sdist + wheel
+build:
+    python -m build
+
+# Clean build artifacts
+clean:
+    rm -rf build dist src/*.egg-info .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage
+
+# Release: build + twine check
+release: clean build
+    twine check dist/*
+
+# ── Lint / Format ───────────────────────────────────────────────────
+
+# Lint
+lint:
+    ruff check src tests || true
+
+# Format-check (no writes)
+fmt-check:
+    ruff format --check src tests
+
+# Auto-format in place
+fmt:
+    ruff format src tests
+
+# Type-check
+typecheck:
+    mypy src || true
+
+# Pyright (strict)
+pyright:
+    python -m pyright
+
+# ── Audit / Deny / Grade ────────────────────────────────────────────
+
+# Audit deps (outdated)
+audit:
+    pip list --outdated
+
+# Vulnerability audit via pip-audit (the Python "deny" equivalent)
+deny:
+    pip-audit --strict --progress-spinner=off
+
+# Run the fleet code-quality grader
+grade:
+    @echo "Generating audit_scorecard.json via the canonical grader…"
+    @if [ -x ./scripts/grade.sh ]; then ./scripts/grade.sh; \
+     elif command -v pheno-framework-grade >/dev/null 2>&1; then pheno-framework-grade; \
+     else echo "no grader available — see audit_scorecard.json for the last known grade"; \
+     fi
+
+# Local CI simulation (everything CI runs, locally)
+ci: lint fmt-check typecheck test
+    @echo "Local CI pass complete."
+
+# ── Convenience ─────────────────────────────────────────────────────
+
+# Run the CLI
+run *args:
+    python -m pheno_mcp_router {{args}}

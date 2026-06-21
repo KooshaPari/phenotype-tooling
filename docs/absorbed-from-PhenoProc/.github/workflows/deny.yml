@@ -1,0 +1,130 @@
+# ─────────────────────────────────────────────────────────────
+# Dependency Denial — cargo-deny + gomod check
+# ─────────────────────────────────────────────────────────────
+# Two complementary checks for PhenoProc:
+#
+#   cargo-deny   → licenses / bans / advisories / sources (Rust)
+#                  uses deny.toml at repo root
+#   gomod check  → verifies each Go module: go mod verify,
+#                  go mod tidy -diff (no surprise rewrites)
+#
+# The Go job iterates every go.mod in the workspace, so adding
+# new Go sub-crates requires no workflow change.
+# Runs alongside:
+#   - audit.yml         → cargo audit / npm audit / pip audit
+#   - security-scan.yml → cargo-audit (scheduled-only filing)
+# ─────────────────────────────────────────────────────────────
+
+name: Dependency Denial
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '**/Cargo.toml'
+      - 'go.mod'
+      - 'go.sum'
+      - '**/go.mod'
+      - '**/go.sum'
+      - 'deny.toml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '**/Cargo.toml'
+      - 'go.mod'
+      - 'go.sum'
+      - '**/go.mod'
+      - '**/go.sum'
+      - 'deny.toml'
+  schedule:
+    - cron: '0 9 * * 1'   # Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: hashFiles('Cargo.lock') != ''
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo-deny database
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: ~/.cargo/advisory-db
+          key: advisory-db-deny-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            advisory-db-deny-
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb
+        with:
+          rust-version: stable
+          arguments: --all-features check
+
+  gomod-check:
+    name: gomod check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: hashFiles('**/go.mod') != ''
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491  # v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Discover go.mod files
+        id: discover
+        run: |
+          set -euo pipefail
+          mapfile -t mods < <(find . -type f -name go.mod \
+            -not -path './.git/*' \
+            -not -path '*/node_modules/*' \
+            -not -path '*/vendor/*' | sort)
+          echo "found=${#mods[@]}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'modules<<EOF'
+            printf '%s\n' "${mods[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify each Go module
+        env:
+          MODULES: ${{ steps.discover.outputs.modules }}
+        run: |
+          set -euo pipefail
+          status=0
+          while IFS= read -r mod; do
+            [ -z "$mod" ] && continue
+            dir="$(dirname "$mod")"
+            echo "::group::go mod verify in ${dir}"
+            (
+              cd "$dir"
+              go mod verify
+              go mod tidy -diff
+            ) || status=$?
+            echo "::endgroup::"
+          done <<< "$MODULES"
+          exit "$status"

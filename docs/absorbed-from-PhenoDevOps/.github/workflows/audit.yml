@@ -1,0 +1,221 @@
+name: Security Audit (cargo / npm / pip)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'package.json'
+      - 'bun.lock'
+      - 'package-lock.json'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'requirements*.pip'
+      - 'uv.lock'
+      - 'poetry.lock'
+      - 'pip-audit.json'
+      - '.github/workflows/audit.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'package.json'
+      - 'bun.lock'
+      - 'package-lock.json'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'uv.lock'
+      - 'poetry.lock'
+      - '.github/workflows/audit.yml'
+  schedule:
+    # Weekly: Monday 06:00 UTC
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Rust: cargo audit (RustSec advisory DB)
+  # ---------------------------------------------------------------------
+  cargo-audit:
+    name: cargo audit (Rust)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    if: hashFiles('Cargo.lock') != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-audit-
+
+      - name: Run cargo audit
+        uses: rustsec/rustsec-action@v0.1.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ignore: |
+            # RUSTSEC-2025-0134: rustls-pemfile not used in this workspace
+            RUSTSEC-2025-0134
+            # RUSTSEC-2026-0049: rustls-webpki not used in this workspace
+            RUSTSEC-2026-0049
+            # RUSTSEC-2026-0002: lru not used in this workspace
+            RUSTSEC-2026-0002
+            # RUSTSEC-2025-0140: git2 not used (phenotype-git-core uses git2 directly)
+            RUSTSEC-2025-0140
+
+      - name: Upload cargo audit JSON
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: cargo-audit-report
+          path: |
+            rustsec-audit.json
+            audit-report.json
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------
+  # JS/TS: npm audit (covers bun.lock too — bun delegates to npm audit)
+  # ---------------------------------------------------------------------
+  npm-audit:
+    name: npm audit (JS/TS)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: hashFiles('package.json') != '' || hashFiles('bun.lock') != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with:
+          node-version: '20'
+
+      - name: Detect manifest files
+        id: detect
+        run: |
+          {
+            echo "manifests<<EOF"
+            find . -maxdepth 4 \
+              \( -name 'package.json' -o -name 'package-lock.json' -o -name 'bun.lock' \) \
+              -not -path '*/node_modules/*' \
+              -not -path '*/.git/*' \
+              -not -path '*/.vitepress/cache/*' \
+              -not -path '*/dist/*' \
+              | sort
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run npm audit (production)
+        if: hashFiles('package-lock.json') != ''
+        run: |
+          echo "Running npm audit --omit=dev on every package-lock.json"
+          npm audit --audit-level=high --omit=dev || true
+          # JSON form for upload
+          npm audit --json --omit=dev > npm-audit-prod.json || true
+
+      - name: Run npm audit (full)
+        if: hashFiles('package-lock.json') != ''
+        run: |
+          npm audit --json > npm-audit-full.json || true
+
+      - name: Upload npm audit reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: npm-audit-report
+          path: |
+            npm-audit-prod.json
+            npm-audit-full.json
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------
+  # Python: pip-audit
+  # ---------------------------------------------------------------------
+  pip-audit:
+    name: pip-audit (Python)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: |
+      hashFiles('**/requirements*.txt') != '' ||
+      hashFiles('**/pyproject.toml') != '' ||
+      hashFiles('uv.lock') != '' ||
+      hashFiles('poetry.lock') != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Setup Python
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip pip-audit
+
+      - name: Detect Python projects
+        id: detect
+        run: |
+          {
+            echo "pyprojects<<EOF"
+            find . -maxdepth 4 -name 'pyproject.toml' \
+              -not -path '*/.git/*' \
+              -not -path '*/.venv/*' \
+              -not -path '*/node_modules/*' \
+              -not -path '*/dist/*' \
+              | sort
+            echo "EOF"
+            echo "requirements<<EOF"
+            find . -maxdepth 4 \( -name 'requirements*.txt' -o -name 'requirements*.pip' \) \
+              -not -path '*/.git/*' \
+              -not -path '*/.venv/*' \
+              -not -path '*/node_modules/*' \
+              | sort
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: pip-audit (requirements*.txt)
+        if: steps.detect.outputs.requirements != ''
+        run: |
+          set +e
+          for req in ${{ steps.detect.outputs.requirements }}; do
+            echo "::group::pip-audit $req"
+            pip-audit -r "$req" --format json --output "pip-audit-$RANDOM.json" || true
+            echo "::endgroup::"
+          done
+
+      - name: pip-audit (pyproject.toml projects)
+        if: steps.detect.outputs.pyprojects != ''
+        run: |
+          set +e
+          for pp in ${{ steps.detect.outputs.pyprojects }}; do
+            echo "::group::pip-audit $pp"
+            dir=$(dirname "$pp")
+            (cd "$dir" && pip-audit --format json --output "../../pip-audit-$RANDOM.json" || true)
+            echo "::endgroup::"
+          done
+
+      - name: Upload pip-audit reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-*.json
+          if-no-files-found: ignore

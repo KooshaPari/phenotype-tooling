@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pheno-mcp-router"
+version = "0.1.0"
+description = "Generic FastMCP router wrapping a backend HTTP endpoint with tier allowlisting and payload sanitization."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Phenotype" }
+]
+dependencies = [
+  "click",
+  "httpx",
+  "fastmcp",
+]
+
+[project.scripts]
+pheno-mcp-router = "pheno_mcp_router.cli:cli"
+
+[project.optional-dependencies]
+dev = ["pytest", "pyright>=1.1.390"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pheno_mcp_router"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

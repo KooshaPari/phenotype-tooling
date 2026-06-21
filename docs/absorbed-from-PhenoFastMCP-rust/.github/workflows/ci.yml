@@ -1,0 +1,235 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+
+      # The `redis` feature's tests spawn a real `redis-server` subprocess
+      # (see crates/fastmcp-server/src/docket.rs).  Install it where the
+      # package manager makes it trivial; on Windows we skip those tests
+      # below since redis-for-Windows isn't shipped on the GH runners.
+      - name: Install redis-server (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y redis-server
+
+      - name: Install redis-server (macOS)
+        if: runner.os == 'macOS'
+        run: brew install redis
+
+      - name: Run tests (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cargo test --workspace --all-targets --all-features --verbose
+
+      - name: Run tests (Windows, skip redis)
+        if: runner.os == 'Windows'
+        run: cargo test --workspace --all-targets --all-features --verbose -- --skip test_redis_
+
+      - name: Run doc tests
+        run: cargo test --workspace --doc --all-features
+
+      - name: Upload test trace artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-traces-${{ matrix.os }}
+          path: |
+            crates/**/test_traces/**/*.json
+            crates/**/test_traces/**/*.txt
+          if-no-files-found: ignore
+
+  check:
+    name: Check (all targets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check all targets
+        run: cargo check --all-targets --all-features
+
+  coverage:
+    name: Coverage (llvm-cov)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      # Coverage runs the same redis-feature tests as the Test job above,
+      # so it needs the same redis-server binary available on PATH.
+      - name: Install redis-server
+        run: sudo apt-get update && sudo apt-get install -y redis-server
+
+      - name: Run coverage
+        run: |
+          cargo llvm-cov --all-features --workspace \
+            --lcov --output-path lcov.info \
+            --fail-under-lines 80
+
+      - name: Generate coverage summary JSON
+        # `cargo llvm-cov report` reuses the profraw data already on disk
+        # from the previous step, so we don't re-run the test suite.  The
+        # old `--no-run --no-clean` combo is no longer accepted (cargo-llvm-cov
+        # rejects both flags together as of recent releases).
+        run: |
+          cargo llvm-cov report --json --summary-only \
+            --output-path coverage-summary.json
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-reports
+          path: |
+            lcov.info
+            coverage-summary.json
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Run security audit
+        run: cargo audit || true  # Don't fail CI on advisories in deps
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: [lint, test, check]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: fastmcp-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/fastmcp*
+            !target/${{ matrix.target }}/release/*.d
+          if-no-files-found: ignore
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  msrv:
+    name: Minimum Rust Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      # Using nightly since edition 2024 requires it
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check MSRV
+        run: cargo check --all-targets

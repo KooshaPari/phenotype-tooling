@@ -1,8 +1,8 @@
 # Absorbed from pheno-errors
 
-**Source:** `KooshaPari/pheno-errors`
+**Source:** `KooshaPari/pheno-errors` (archived and deleted from GitHub 2026-06-21)
 **Target:** `phenotype-tooling/docs/absorbed-from-pheno-errors/`
-**Tracked file count:** 34
+**Tracked file count:** 16
 
 ## Purpose
 
@@ -12,40 +12,22 @@ All tracked source files from `git ls-files` are preserved here, plus this manif
 ## Preserved inventory
 
 ```text
-    .editorconfig
-    .gitattributes
     .github/CODEOWNERS
-    .github/ISSUE_TEMPLATE/bug_report.md
-    .github/ISSUE_TEMPLATE/feature_request.md
-    .github/ISSUE_TEMPLATE/other.md
-    .github/PULL_REQUEST_TEMPLATE.md
-    .github/dependabot.yml
     .github/workflows/cargo-audit.yml
     .github/workflows/cargo-deny.yml
     .github/workflows/ci.yml
     .github/workflows/codeql-rust.yml
     .github/workflows/governance.yml
-    .github/workflows/scorecard.yml
     AGENTS.md
-    ARCHITECTURE.md
-    CHANGELOG.md
-    CODE_OF_CONDUCT.md
-    CONTRIBUTING.md
     Cargo.toml
-    LICENSE
-    README.md
-    SECURITY.md
-    SPEC.md
-    cliff.toml
-    default_346674147141687263_0_89374.profraw
-    default_9677804025958737405_0_89374.profraw
     deny.toml
-    dprint.json
-    fuzz/.gitignore
-    fuzz/Cargo.toml
-    fuzz/fuzz_targets/app_error_display.rs
+    examples/otel_quickstart.rs
     justfile
+    llms.txt
+    llvm-cov.toml
+    scripts/coverage.sh
     src/lib.rs
+    src/rfc7807.rs
 ```
 
 ## Intentional exclusions
@@ -57,6 +39,7 @@ The following generated/runtime artifacts exist in the source working tree but a
 - `target/`
 - `.benchmarks/`
 - `.pytest_cache/`
+- `node_modules/`
 
 ## Verification note
 

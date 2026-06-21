@@ -1,0 +1,16 @@
+[package]
+name = "phenotype-health"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/PhenoProc"
+description = "phenotype health — Phenotype infrastructure crate (PhenoProc)"
+documentation = "https://docs.rs/phenotype-health"
+keywords = ["phenotype", "pheno-proc", "health"]
+categories = ["development-tools::profiling"]
+authors = ["kooshapari"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

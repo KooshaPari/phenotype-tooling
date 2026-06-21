@@ -1,0 +1,27 @@
+[package]
+name = "phenotype-cache-adapter"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/PhenoProc"
+description = "phenotype cache adapter — Phenotype infrastructure crate (PhenoProc)"
+documentation = "https://docs.rs/phenotype-cache-adapter"
+keywords = ["phenotype", "pheno-proc", "cache"]
+categories = ["caching"]
+authors = ["kooshapari"]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+moka = { version = "0.12", features = ["sync"] }
+lru = "0.16"
+dashmap = "5"
+tokio = { version = "1", features = ["sync", "rt"] }
+tracing = "0.1"
+phenotype-observability = { path = "../../libs/phenotype-observability" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

@@ -1,0 +1,24 @@
+[package]
+name = "phenotype_skills"
+version = "0.1.0"
+edition = "2021"
+authors = ["Phenotype Contributors"]
+license = "MIT"
+description = "Core skill types and traits for phenotype-daemon"
+repository = "https://github.com/phenotype/PhenoAgent"
+
+# Empty [workspace] so cargo can run from this directory standalone.
+# The parent repos monorepo does not list phenotype-skills in its
+# workspace.members, so without this cargo refuses to operate on the
+# crate from inside its own directory.
+[workspace]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+dashmap = "6"
+# LRU cache for DependencyResolver, per SPEC.md:444 ("Cached topologies:
+# Last 100 queries — LRU eviction"). The standard lru crate is small,
+# well-maintained, and avoids rolling our own doubly-linked list.
+lru = "0.12"

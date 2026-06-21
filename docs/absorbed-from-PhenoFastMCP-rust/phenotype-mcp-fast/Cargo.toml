@@ -1,0 +1,23 @@
+[package]
+name = "phenotype-mcp-fast"
+version = "0.1.0"
+edition = "2021"
+description = "FastMCP-equivalent high-level framework for building MCP servers in Rust"
+authors = ["Phenotype Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/McpKit"
+
+[dependencies]
+phenotype-mcp-fast-macros = { path = "../phenotype-mcp-fast-macros" }
+phenotype-mcp-core = { path = "../phenotype-mcp-core" }
+phenotype-mcp-framework = { path = "../phenotype-mcp-framework" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+schemars = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

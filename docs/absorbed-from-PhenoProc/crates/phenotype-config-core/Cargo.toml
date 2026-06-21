@@ -1,0 +1,21 @@
+[package]
+name = "phenotype-config-core"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Core configuration management for Phenotype"
+repository = "https://github.com/KooshaPari/PhenoProc"
+documentation = "https://docs.rs/phenotype-config-core"
+keywords = ["phenotype", "pheno-proc", "config"]
+categories = ["config", "data-structures"]
+authors = ["kooshapari"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+serde_yaml = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

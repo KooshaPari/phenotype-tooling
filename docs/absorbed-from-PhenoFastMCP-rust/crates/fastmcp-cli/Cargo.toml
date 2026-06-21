@@ -1,0 +1,59 @@
+[package]
+name = "fastmcp-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "CLI tooling for FastMCP - run, inspect, and install MCP servers"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+documentation = "https://docs.rs/fastmcp-cli"
+keywords = ["mcp", "cli", "server", "tools", "json-rpc"]
+categories = ["command-line-interface", "development-tools"]
+
+[[bin]]
+name = "fastmcp"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+fastmcp-client = { workspace = true }
+fastmcp-core = { workspace = true }
+fastmcp-protocol = { workspace = true }
+fastmcp-console = { workspace = true }
+fastmcp-transport = { workspace = true }
+
+# Runtime
+asupersync = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+# Configuration file parsing
+toml = { workspace = true }
+
+# CLI argument parsing
+clap = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+# Time/date handling
+chrono = { workspace = true }
+
+# File watching (for dev command)
+notify = { workspace = true }
+glob = { workspace = true }
+
+# Console output
+console = { workspace = true }
+
+# Update checking (parity with Python's check_for_updates)
+semver = { workspace = true }
+ureq = { workspace = true }
+
+[lints]
+workspace = true

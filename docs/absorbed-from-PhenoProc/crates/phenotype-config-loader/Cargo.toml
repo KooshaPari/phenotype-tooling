@@ -1,0 +1,25 @@
+[package]
+name = "phenotype-config-loader"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Configuration loading utilities for Phenotype"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/PhenoProc"
+documentation = "https://docs.rs/phenotype-config-loader"
+keywords = ["phenotype", "pheno-proc", "config"]
+categories = ["config"]
+authors = ["kooshapari"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+tempfile = { workspace = true }
+figment = { workspace = true }
+phenotype-config-core = { path = "../phenotype-config-core" }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

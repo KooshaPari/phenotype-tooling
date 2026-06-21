@@ -1,0 +1,44 @@
+name: scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Tuesdays 03:00 UTC — OSSF Scorecard weekly run.
+    - cron: "0 3 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: scorecard-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: OSSF Scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      security-events: write
+      # scorecard read-only access to repo metadata.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Run OSSF Scorecard
+        uses: ossf/scorecard-action@05b9bb3d59b94e9a9b84b86c4d3a8c3c8e0c8c3c # v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@4dd16135b69a43b6c8efb853346f8437d92d3c93 # v3.27.0
+        with:
+          sarif_file: results.sarif

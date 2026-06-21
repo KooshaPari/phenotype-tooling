@@ -1,0 +1,150 @@
+# justfile for PhenoAgent
+# Polyglot workspace: Rust daemons/skills (Cargo) and TypeScript packages (npm).
+# Use `just` (or `just <recipe>`) to run recipes.
+# `just` is the casey/just command runner: https://just.systems
+
+set shell := ["bash", "-uc"]
+set dotenv-load
+
+# ---- Detected features (eval once, exported as env vars) ----
+
+export HAS_CARGO := `test -f Cargo.toml && echo 1 || echo 0`
+export HAS_PHENOTYPE_DAEMON := `test -f phenotype-daemon/Cargo.toml && echo 1 || echo 0`
+export HAS_PHENOTYPE_SKILLS := `test -f phenotype-skills/Cargo.toml && echo 1 || echo 0`
+export HAS_ROOT_PACKAGE := `test -f package.json && echo 1 || echo 0`
+export JS_RUNNER := `command -v bun >/dev/null 2>&1 && echo bun || (command -v pnpm >/dev/null 2>&1 && echo pnpm || echo npm)`
+
+# ---- Default recipe: list available recipes ----
+
+default: list
+
+# Show all available recipes
+list:
+    @just --list
+
+# ---- Dev: run cargo watch on the Rust workspace (regenerates on file changes) ----
+
+dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if ! command -v cargo-watch >/dev/null 2>&1; then
+      echo "error: cargo-watch is not installed (run: cargo install cargo-watch)" >&2
+      exit 1
+    fi
+
+    cargo watch --quiet --clear \
+      --watch phenotype-daemon/src \
+      --watch phenotype-skills/src \
+      --shell "cargo check --workspace --all-targets"
+
+# ---- Build: build detected components ----
+
+build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [ "${HAS_CARGO}" = "1" ]; then
+      cargo build --workspace
+    fi
+
+    if [ "${HAS_PHENOTYPE_DAEMON}" = "1" ]; then
+      cargo build --manifest-path phenotype-daemon/Cargo.toml --release
+    fi
+
+    if [ "${HAS_PHENOTYPE_SKILLS}" = "1" ]; then
+      cargo build --manifest-path phenotype-skills/Cargo.toml --release
+    fi
+
+    if [ "${HAS_ROOT_PACKAGE}" = "1" ]; then
+      ${JS_RUNNER} run build
+    fi
+
+# ---- Test: run the test suite ----
+
+test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [ "${HAS_CARGO}" = "1" ]; then
+      cargo test --workspace --all-features
+    fi
+
+    if [ "${HAS_PHENOTYPE_DAEMON}" = "1" ]; then
+      cargo test --manifest-path phenotype-daemon/Cargo.toml --all-features
+    fi
+
+    if [ "${HAS_PHENOTYPE_SKILLS}" = "1" ]; then
+      cargo test --manifest-path phenotype-skills/Cargo.toml --all-features
+    fi
+
+    if [ "${HAS_ROOT_PACKAGE}" = "1" ]; then
+      ${JS_RUNNER} test
+    fi
+
+# ---- Lint: clippy for Rust, eslint/whatever the JS package defines for TS ----
+
+lint:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [ "${HAS_CARGO}" = "1" ]; then
+      cargo fmt --all -- --check
+      cargo clippy --workspace --all-targets --all-features -- -D warnings
+    fi
+
+    if [ "${HAS_PHENOTYPE_DAEMON}" = "1" ]; then
+      cargo clippy --manifest-path phenotype-daemon/Cargo.toml --all-targets --all-features -- -D warnings
+    fi
+
+    if [ "${HAS_PHENOTYPE_SKILLS}" = "1" ]; then
+      cargo clippy --manifest-path phenotype-skills/Cargo.toml --all-targets --all-features -- -D warnings
+    fi
+
+    if [ "${HAS_ROOT_PACKAGE}" = "1" ]; then
+      ${JS_RUNNER} run lint
+    fi
+
+# ---- Fmt: apply formatter in place ----
+
+fmt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [ "${HAS_CARGO}" = "1" ]; then
+      cargo fmt --all
+    fi
+
+    if [ "${HAS_PHENOTYPE_DAEMON}" = "1" ]; then
+      cargo fmt --manifest-path phenotype-daemon/Cargo.toml --all
+    fi
+
+    if [ "${HAS_PHENOTYPE_SKILLS}" = "1" ]; then
+      cargo fmt --manifest-path phenotype-skills/Cargo.toml --all
+    fi
+
+    if [ "${HAS_ROOT_PACKAGE}" = "1" ]; then
+      ${JS_RUNNER} run format || ${JS_RUNNER} run fix || true
+    fi
+
+# ---- Clean: remove generated artifacts ----
+
+clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [ "${HAS_CARGO}" = "1" ]; then
+      cargo clean
+    fi
+
+    if [ "${HAS_PHENOTYPE_DAEMON}" = "1" ]; then
+      rm -rf phenotype-daemon/target
+    fi
+
+    if [ "${HAS_PHENOTYPE_SKILLS}" = "1" ]; then
+      rm -rf phenotype-skills/target
+    fi
+
+    if [ "${HAS_ROOT_PACKAGE}" = "1" ]; then
+      rm -rf node_modules dist .turbo
+    fi

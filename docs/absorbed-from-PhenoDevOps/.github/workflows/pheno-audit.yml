@@ -1,0 +1,50 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+name: Audit Workspace
+
+
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      REPOS_DIR: ${{ inputs.repos_dir }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Setup mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151
+
+      - name: Install pheno-cli
+        run: mise run install || go install ./pheno-cli/... 2>/dev/null || true
+
+      - name: Run pheno audit
+        run: |
+          pheno audit --repos-dir "$REPOS_DIR" --format json > audit-results.json || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v-latest
+        with:
+          name: audit-results
+          path: audit-results.json
+          if-no-files-found: warn
+
+      - name: Audit summary
+        run: |
+          echo "✓ Audit completed for $REPOS_DIR"
+          if [ -f audit-results.json ]; then
+            echo "Results saved to audit-results.json"
+          fi
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+

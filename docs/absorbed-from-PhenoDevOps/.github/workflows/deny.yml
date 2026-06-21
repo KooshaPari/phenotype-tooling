@@ -1,0 +1,143 @@
+name: Dependency Deny (cargo-deny / gomod)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
+      - 'crates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '.github/workflows/deny.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
+      - 'crates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '.github/workflows/deny.yml'
+  schedule:
+    # Weekly: Monday 07:00 UTC (offset from audit job which runs at 06:00)
+    - cron: '0 7 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Rust: cargo-deny (licenses / bans / advisories / sources)
+  # ---------------------------------------------------------------------
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    if: hashFiles('Cargo.lock') != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-deny-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-deny-
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v6
+        with:
+          rust-version: stable
+          # Run all four checks (licenses, bans, advisories, sources)
+          arguments: --all-features check
+
+      - name: Upload cargo-deny report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: cargo-deny-report
+          path: deny.json
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------
+  # Go: gomod check (Go modules integrity + known vuln proxies via govulncheck
+  # when go.mod is present)
+  # ---------------------------------------------------------------------
+  gomod-check:
+    name: gomod check (Go)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: hashFiles('go.mod') != '' || hashFiles('**/go.mod') != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@0a52fbe6b1a85fb62873bc9f9a24fd1a6345c5b5 # v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Detect Go modules
+        id: detect
+        run: |
+          {
+            echo "gomods<<EOF"
+            find . -maxdepth 4 \( -name 'go.mod' \) \
+              -not -path '*/.git/*' \
+              -not -path '*/node_modules/*' \
+              -not -path '*/vendor/*' \
+              | sort
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run go mod verify
+        if: steps.detect.outputs.gomods != ''
+        run: |
+          set +e
+          for gomod in ${{ steps.detect.outputs.gomods }}; do
+            echo "::group::go mod verify in $gomod"
+            dir=$(dirname "$gomod")
+            (cd "$dir" && go mod verify) || exit 1
+            echo "::endgroup::"
+          done
+
+      - name: Run govulncheck (best-effort)
+        if: steps.detect.outputs.gomods != ''
+        continue-on-error: true
+        run: |
+          set +e
+          for gomod in ${{ steps.detect.outputs.gomods }}; do
+            echo "::group::govulncheck in $gomod"
+            dir=$(dirname "$gomod")
+            (cd "$dir" && go install golang.org/x/vuln/cmd/govulncheck@latest) || true
+            (cd "$dir" && govulncheck ./... || true) | tee "govulncheck-$(echo "$dir" | tr '/' '_').txt"
+            echo "::endgroup::"
+          done
+
+      - name: Upload govulncheck reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: govulncheck-report
+          path: govulncheck-*.txt
+          if-no-files-found: ignore

@@ -1,0 +1,46 @@
+name: CodeQL
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    - cron: "23 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+# NOTE: This is the only advanced CodeQL workflow in the repo.
+# Disable default repository CodeQL setup in GitHub settings to avoid SARIF upload conflicts.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  analyze:
+    name: Analyze Rust
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ed410739ba306e4ebe5e123421a6bd694e494a2b
+        with:
+          languages: rust
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@ed410739ba306e4ebe5e123421a6bd694e494a2b
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@ed410739ba306e4ebe5e123421a6bd694e494a2b
+        with:
+          category: "/language:rust"
