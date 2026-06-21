@@ -1,0 +1,38 @@
+# justfile for QuadSGM (4sgm) — https://just.systems
+# Run `just` (or `just default`) to list recipes.
+
+set dotenv-load
+set shell := ["bash", "-uc"]
+
+default:
+    @just --list
+
+# Start the dev server (FastAPI via uvicorn with reload)
+dev:
+    uv run uvicorn 4sgm.api.app:app --reload --port 8000
+
+# Produce release artifacts (wheel + sdist)
+build:
+    uv build
+
+# Run the test suite (pytest)
+test:
+    uv run pytest
+
+# Lint the project (ruff)
+lint:
+    uv run ruff check .
+
+# Apply formatter (ruff format)
+fmt:
+    uv run ruff format .
+
+# Type-check (basedpyright)
+typecheck:
+    uv run basedpyright
+
+# Remove build artifacts and caches
+clean:
+    rm -rf dist build .pytest_cache .ruff_cache .mypy_cache .pyright_cache
+    rm -rf .coverage htmlcov coverage
+    find . -type d -name __pycache__ -prune -exec rm -rf {} +

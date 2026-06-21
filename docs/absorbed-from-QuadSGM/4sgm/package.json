@@ -1,0 +1,19 @@
+{
+  "name": "4sgm-chatbot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "sst dev",
+    "deploy": "sst deploy",
+    "deploy:prod": "sst deploy --stage production",
+    "remove": "sst remove",
+    "console": "sst console",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "sst": "^4.12.2"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

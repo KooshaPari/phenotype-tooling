@@ -1,0 +1,19 @@
+{
+  "name": "paginary-theme",
+  "version": "0.0.1",
+  "description": "Shared VitePress theme for Paginary with impeccable baseline",
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./style.css": "./style.css"
+  },
+  "files": [
+    "index.ts",
+    "style.css"
+  ],
+  "dependencies": {
+    "vitepress": "^1.6.4",
+    "vue": "^3.4.21"
+  }
+}

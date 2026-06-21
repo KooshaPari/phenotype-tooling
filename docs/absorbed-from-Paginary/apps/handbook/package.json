@@ -1,0 +1,17 @@
+{
+  "name": "paginary-handbook",
+  "version": "0.0.1",
+  "description": "PhenoHandbook — Phenotype org-wide playbooks and operational guides",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview .",
+    "clean": "rm -rf .vitepress/dist"
+  },
+  "dependencies": {
+    "paginary-theme": "workspace:*",
+    "vue": "^3.4.21",
+    "vitepress": "^1.6.4"
+  }
+}

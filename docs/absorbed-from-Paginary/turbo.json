@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "outputs": [".vitepress/dist"],
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "preview": {
+      "outputs": [".vitepress/dist"],
+      "cache": false
+    },
+    "lint": {
+      "cache": false
+    },
+    "type-check": {
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

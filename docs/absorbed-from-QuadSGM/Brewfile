@@ -1,0 +1,109 @@
+# Brewfile - 4SGM Development Environment
+# Install with: brew bundle
+# Update with: brew bundle --upgrade
+
+# ============================================
+# Core Infrastructure
+# ============================================
+
+# PostgreSQL Database
+brew "postgresql@15"
+
+# Redis Cache
+brew "redis"
+
+# ============================================
+# Web & Networking
+# ============================================
+
+# Reverse Proxy & Web Server
+brew "caddy"
+
+# HTTP Client
+brew "curl"
+
+# ============================================
+# Python Environment
+# ============================================
+
+# Python 3.10+ (required by project)
+brew "python@3.10"
+
+# Package manager
+brew "uv"
+
+# ============================================
+# Task & Build Tools
+# ============================================
+
+# Task runner
+brew "just"
+
+# Environment management
+brew "direnv"
+
+# ============================================
+# Development & Debugging
+# ============================================
+
+# File system watcher
+brew "watchman"
+
+# JSON processor
+brew "jq"
+
+# Markdown viewer
+brew "mdless"
+
+# ============================================
+# System Monitoring & Utilities
+# ============================================
+
+# Better 'top' alternative
+brew "btop"
+
+# Log file navigator
+brew "lnav"
+
+# Package version checker
+brew "pkg-config"
+
+# ============================================
+# Process Orchestrator
+# ============================================
+
+tap "F1bonacc1/process-compose"
+brew "F1bonacc1/process-compose/process-compose"
+
+# ============================================
+# Optional: GUI Tools (casks)
+# ============================================
+
+# PostgreSQL Admin
+cask "pgadmin4", args: { appdir: "/Applications" }
+
+# Redis Client (free tier)
+cask "redis-pro", args: { appdir: "/Applications" }
+
+# PostgreSQL Client
+cask "postico2", args: { appdir: "/Applications" }
+
+# JSON Editor
+cask "json-editor", args: { appdir: "/Applications" }
+
+# API Client
+cask "insomnia", args: { appdir: "/Applications" }
+
+# ============================================
+# Verification
+# ============================================
+
+# Verify installation
+puts "✅ Brewfile configured"
+puts ""
+puts "To install all dependencies, run:"
+puts "  brew bundle"
+puts ""
+puts "To update dependencies, run:"
+puts "  brew bundle --upgrade"
+puts ""

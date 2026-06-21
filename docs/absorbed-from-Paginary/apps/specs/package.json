@@ -1,0 +1,17 @@
+{
+  "name": "paginary-specs",
+  "version": "0.0.1",
+  "description": "PhenoSpecs — Feature specifications and design documents",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview .",
+    "clean": "rm -rf .vitepress/dist"
+  },
+  "dependencies": {
+    "paginary-theme": "workspace:*",
+    "vue": "^3.4.21",
+    "vitepress": "^1.6.4"
+  }
+}

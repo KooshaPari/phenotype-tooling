@@ -1,0 +1,73 @@
+name: Docs Site
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Runner type'
+        required: false
+        default: 'self-hosted'
+        type: choice
+        options:
+          - self-hosted
+          - ubuntu-latest
+
+jobs:
+  docs-validation:
+    name: Docs Validation
+    runs-on: ${{ github.event.inputs.runner || 'self-hosted' }}
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Check docs directory exists
+        run: test -d docs
+
+      - name: Check index.md exists
+        run: test -f docs/index.md
+
+      - name: Validate markdown files
+        run: |
+          set -euo pipefail
+          # Check for common markdown issues
+          find docs -name "*.md" -exec sh -c '
+            for f; do
+              # Check for very long lines
+              if awk "length > 500" "$f" | grep -q .; then
+                echo "WARNING: Long lines in $f"
+              fi
+            done
+          ' sh {} +
+
+      - name: Check required docs exist
+        run: |
+          set -euo pipefail
+          required=("index.md")
+          for doc in "${required[@]}"; do
+            find docs -name "$doc" | head -1
+          done
+
+      - name: Check for broken internal links
+        run: |
+          set -euo pipefail
+          # Basic link validation
+          link_count=$(grep -rh "\[.*\](.*\.md)" docs/ | wc -l)
+          echo "Found $link_count markdown links"
+
+      - name: Generate docs report
+        run: |
+          set -euo pipefail
+          md_files=$(find docs -name "*.md" | wc -l)
+          total_lines=$(find docs -name "*.md" -exec cat {} \; | wc -l)
+          echo "Docs: $md_files files, $total_lines total lines"
+permissions:
+  contents: read
+

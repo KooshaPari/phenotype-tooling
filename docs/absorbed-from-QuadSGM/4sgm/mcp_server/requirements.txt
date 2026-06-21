@@ -1,0 +1,6 @@
+# FastMCP Server
+fastmcp>=3.4.0
+mcp>=1.27.2
+
+# Utilities
+python-dotenv>=1.2.2

@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "name": "4sgm-chatbot",
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/.next",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "functions": {
+    "frontend/app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "STAGE": "production",
+    "ANTHROPIC_API_KEY": "@anthropic_api_key",
+    "ANTHROPIC_BASE_URL": "@anthropic_base_url",
+    "CLAUDE_MODEL": "@claude_model",
+    "OPENROUTER_API_KEY": "@openrouter_api_key",
+    "EMBEDDING_MODEL": "@embedding_model",
+    "SUPABASE_URL": "@supabase_url",
+    "SUPABASE_KEY": "@supabase_key"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ]
+}

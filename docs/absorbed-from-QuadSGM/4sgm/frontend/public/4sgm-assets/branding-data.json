@@ -1,0 +1,24 @@
+{
+  "primary_color": "#0066CC",
+  "secondary_color": "#FFFFFF",
+  "accent_color": "#FF6B00",
+  "text_color": "#333333",
+  "background": "#F5F5F5",
+  "extracted_colors": [
+    "#ff4126",
+    "#fee0dc",
+    "#ff3b1f",
+    "#ff3518",
+    "#e4ebe9",
+    "#e9eeec",
+    "#e8efec",
+    "#edf1f0",
+    "#f5eae9",
+    "#e3eae8"
+  ],
+  "logo_url": "/assets/img/4sgmlogo.png",
+  "fonts": {
+    "primary": "Arial, sans-serif",
+    "headings": "Arial Black, sans-serif"
+  }
+}

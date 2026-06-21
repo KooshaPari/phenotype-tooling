@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.vitepress/dist/
+.vitepress/cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Rust build cache (appears nested in apps/journeys/src/content/)
+target/
+**/target/
+**/target
+
+# Pre-built npm tarballs (should be in a registry, not source)
+*.tgz
+*.tar.gz
+
+# VitePress build outputs (already in apps/*/dist/, but belt-and-suspenders)
+.vitepress/dist/
+.vitepress/cache/

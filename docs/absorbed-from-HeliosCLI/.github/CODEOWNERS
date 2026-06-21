@@ -1,0 +1,53 @@
+# CODEOWNERS — HeliosCLI
+# GitHub picks the most specific match; final fallback applies to all remaining files.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything
+*                               @kooshapari
+
+# Tier-0 governance: workflows, templates, and CODEOWNERS itself
+/.github/                       @kooshapari
+/.github/CODEOWNERS             @kooshapari
+/CODE_OF_CONDUCT.md             @kooshapari
+/CONTRIBUTING.md                @kooshapari
+/SECURITY.md                    @kooshapari
+/CHANGELOG.md                   @kooshapari
+/justfile                       @kooshapari
+/Taskfile.yml                   @kooshapari
+/deny.toml                      @kooshapari
+/.editorconfig                  @kooshapari
+/.gitattributes                 @kooshapari
+/AGENTS.md                      @kooshapari
+/CLAUDE.md                      @kooshapari
+
+# Primary Rust workspace (top-level crates/)
+/crates/                        @kooshapari
+/Cargo.toml                     @kooshapari
+/Cargo.lock                     @kooshapari
+/rust-toolchain.toml            @kooshapari
+/clippy.toml                    @kooshapari
+/rustfmt.toml                   @kooshapari
+/nextest.toml                   @kooshapari
+
+# Vendored upstream workspaces (changes here should be reviewed before re-vendoring)
+/codex-rs/                      @kooshapari
+/helios-rs/                     @kooshapari
+/transport/                     @kooshapari
+
+# Python harness and benchmarks
+/heliosBench/                   @kooshapari
+/heliosBench/**/                @kooshapari
+
+# Bazel build configuration
+/MODULE.bazel                   @kooshapari
+/MODULE.bazel.lock              @kooshapari
+/BUILD.bazel                    @kooshapari
+/defs.bzl                       @kooshapari
+/rbe.bzl                        @kooshapari
+/flake.nix                      @kooshapari
+/flake.lock                     @kooshapari
+
+# Documentation and specs
+/docs/                          @kooshapari
+/docs/sessions/                 @kooshapari
+/docs/adr/                      @kooshapari

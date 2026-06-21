@@ -1,0 +1,51 @@
+name: shell-tool-mcp CI
+
+on:
+  push:
+    paths:
+      - "shell-tool-mcp/**"
+      - ".github/workflows/shell-tool-mcp-ci.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  pull_request:
+    paths:
+      - "shell-tool-mcp/**"
+      - ".github/workflows/shell-tool-mcp-ci.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@511c269d2baa7c51e8a0bff3ef856a17ca32f5da
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm --filter @openai/codex-shell-tool-mcp run format
+
+      - name: Run tests
+        run: pnpm --filter @openai/codex-shell-tool-mcp test
+
+      - name: Build
+        run: pnpm --filter @openai/codex-shell-tool-mcp run build

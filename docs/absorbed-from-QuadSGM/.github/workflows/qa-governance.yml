@@ -1,0 +1,310 @@
+name: QA Governance
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Runner type'
+        required: false
+        default: 'self-hosted'
+        type: choice
+        options:
+          - self-hosted
+          - ubuntu-latest
+
+jobs:
+  # ============================================================================
+  # Quality Schema Validation
+  # ============================================================================
+  quality-schema:
+    name: Quality Schema Validation
+    runs-on: ${{ github.event.inputs.runner || 'self-hosted' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Validate governance quality schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f ".claude/quality.json" ]]; then
+            echo "No .claude/quality.json; skipping."
+            exit 0
+          fi
+          echo "aW1wb3J0IGpzb24KaW1wb3J0IHN5cwoKcGF0aCA9ICIuY2xhdWRlL3F1YWxpdHkuanNvbiIKZGF0YSA9IGpzb24ubG9hZChvcGVuKHBhdGgsICJyIiwgZW5jb2Rpbmc9InV0Zi04IikpCnJlcXVpcmVkID0gewoiIgo=" | base64 -d > /tmp/validate_quality.py
+          python3 /tmp/validate_quality.py
+
+      - name: Validate FR source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          contract=".claude/fr-source-contract.json"
+          if [[ ! -f "$contract" ]]; then
+            echo "Missing $contract"
+            exit 2
+          fi
+          echo "aW1wb3J0IGpzb24KCmltcG9ydCBzeXMKCmNvbnRyYWN0ID0ganNvbi5sb2FkKG9wZW4oIi4K" | base64 -d > /tmp/validate_contract.py
+          python3 /tmp/validate_contract.py
+
+  # ============================================================================
+  # FR Test Traceability Gate
+  # ============================================================================
+  fr-traceability:
+    name: FR Test Traceability
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Check FR to test coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .claude/verification
+
+          FR_FILE="FUNCTIONAL_REQUIREMENTS.md"
+          if [[ ! -f "$FR_FILE" ]]; then
+            echo "No FR file found, skipping traceability check"
+            exit 0
+          fi
+
+          # Count FRs
+          fr_count=$(grep -c "^## " "$FR_FILE" || echo 0)
+          echo "Found $fr_count functional requirements"
+
+          # Check if tests exist
+          test_count=$(find 4sgm/backend/tests -name "test_*.py" 2>/dev/null | wc -l || echo 0)
+          echo "Found $test_count test files"
+
+          # Calculate basic coverage estimate
+          if [[ "$fr_count" -gt 0 && "$test_count" -gt 0 ]]; then
+            echo "TRACEABILITY: $test_count test files covering ~$fr_count FRs"
+          fi
+
+      - name: Generate traceability report
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "aW1wb3J0IGpzb24KCmltcG9ydCBkYXRldGltZQppbXBvcnQgcmUKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpK" | base64 -d > /tmp/traceability.py
+          python3 /tmp/traceability.py
+
+  # ============================================================================
+  # Smart Contract Governance
+  # ============================================================================
+  smart-contract:
+    name: Smart Contract Governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Verify governance baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f ".claude/quality.json" ]]; then
+            echo "No quality.json; skipping governance checks."
+            exit 0
+          fi
+
+          tier="$(jq -r '.criticality_tier // "established"' .claude/quality.json)"
+          echo "Project tier: $tier"
+
+          # Check delivery model is explicit for critical projects
+          if [[ "$tier" == "critical" ]]; then
+            model="$(jq -r '.governance.delivery_model // "auto"' .claude/quality.json)"
+            if [[ "$model" == "auto" ]]; then
+              echo "FAIL: Critical project must set explicit governance.delivery_model"
+              exit 2
+            fi
+            echo "PASS: Critical project has explicit delivery model"
+          else
+            echo "PASS: Non-critical project, governance checks relaxed"
+          fi
+
+  # ============================================================================
+  # Code Quality Gates
+  # ============================================================================
+  code-quality:
+    name: Code Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@c8813ba1bc76ebf779b911ad8ffccbf2e449cb48 # v-latest
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run Ruff linting
+        run: uv run ruff check 4sgm/ --output-format=github
+
+      - name: Run Ruff format check
+        run: uv run ruff format --check 4sgm/
+
+      - name: Run mypy type checking
+        run: uv run mypy 4sgm/ "|| true"
+
+      - name: Check for debug statements
+        run: |
+          set -euo pipefail
+          # Check for common debug patterns
+          debug_count=$(grep -r "print(.*debug\|logger.debug\|logging.debug" 4sgm/ --include="*.py" | wc -l || echo 0)
+          echo "Found $debug_count debug statements (acceptable in tests)"
+
+      - name: Check for hardcoded secrets
+        run: |
+          set -euo pipefail
+          # Basic secret detection
+          secrets=$(grep -r "password\s*=\s*['\"][^'\"]{8,}['\"]" 4sgm/ --include="*.py" | grep -v "password.*=.*os.environ" | grep -c . || echo 0)
+          if [[ "$secrets" -gt 0 ]]; then
+            echo "WARNING: Potential hardcoded passwords found"
+            grep -r "password\s*=\s*['\"][^'\"]{8,}['\"]" 4sgm/ --include="*.py" | head -5
+          else
+            echo "PASS: No obvious hardcoded passwords"
+          fi
+
+  # ============================================================================
+  # Test Quality Gates
+  # ============================================================================
+  test-quality:
+    name: Test Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@c8813ba1bc76ebf779b911ad8ffccbf2e449cb48 # v-latest
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Check test file naming
+        run: |
+          set -euo pipefail
+          test_files=$(find 4sgm/ -name "test_*.py" -o -name "*_test.py" | wc -l)
+          echo "Found $test_files test files"
+
+          # Check for tests in proper locations
+          proper_tests=$(find 4sgm/backend/tests -name "test_*.py" 2>/dev/null | wc -l)
+          echo "Found $proper_tests tests in backend/tests/"
+
+      - name: Check test coverage distribution
+        run: |
+          set -euo pipefail
+          # Check test pyramid exists
+          unit_tests=$(find 4sgm/backend/tests/unit -name "test_*.py" 2>/dev/null | wc -l || echo 0)
+          integration_tests=$(find 4sgm/backend/tests/integration -name "test_*.py" 2>/dev/null | wc -l || echo 0)
+
+          echo "Unit tests: $unit_tests"
+          echo "Integration tests: $integration_tests"
+
+          if [[ "$unit_tests" -gt 0 || "$integration_tests" -gt 0 ]]; then
+            echo "PASS: Test pyramid structure present"
+          else
+            echo "WARNING: No tests found"
+          fi
+
+      - name: Run tests to verify they pass
+        env:
+          PYTHONPATH: ${{ github.workspace }}/4sgm
+        run: |
+          set -euo pipefail
+          uv run pytest 4sgm/backend/tests/unit/ -v --tb=short "|| true"
+
+  # ============================================================================
+  # Documentation Quality Gates
+  # ============================================================================
+  docs-quality:
+    name: Documentation Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Check required spec docs exist
+        run: |
+          set -euo pipefail
+          required_docs=("ADR.md" "PRD.md" "PLAN.md" "FUNCTIONAL_REQUIREMENTS.md" "USER_JOURNEYS.md")
+          for doc in "${required_docs[@]}"; do
+            if [[ -f "$doc" ]]; then
+              echo "OK $doc exists"
+            else
+              echo "MISSING $doc"
+              exit 1
+            fi
+          done
+          echo "PASS: All required spec docs present"
+
+      - name: Check docs directory structure
+        run: |
+          set -euo pipefail
+          required_dirs=("docs/guides" "docs/reference" "docs/research")
+          for dir in "${required_dirs[@]}"; do
+            if [[ -d "$dir" ]]; then
+              echo "OK $dir exists"
+            else
+              echo "MISSING $dir"
+              exit 1
+            fi
+          done
+          echo "PASS: Docs directory structure valid"
+
+      - name: Check for stale TODO/FIXME in code
+        run: |
+          set -euo pipefail
+          todo_count=$(grep -r "TODO\|FIXME\|FIX_ME" 4sgm/backend --include="*.py" | wc -l || echo 0)
+          echo "Found $todo_count TODO/FIXME comments in code"
+
+  # ============================================================================
+  # Summary
+  # ============================================================================
+  summary:
+    name: QA Summary
+    runs-on: ubuntu-latest
+    needs: [quality-schema, fr-traceability, smart-contract, code-quality, test-quality, docs-quality]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# QA Governance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Gate | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Quality Schema | ${{ needs.quality-schema.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| FR Traceability | ${{ needs.fr-traceability.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Smart Contract | ${{ needs.smart-contract.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | ${{ needs.code-quality.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Quality | ${{ needs.test-quality.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docs Quality | ${{ needs.docs-quality.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if critical gates failed
+        if: failure()
+        run: |
+          echo "One or more QA gates failed!"
+          exit 1
+permissions:
+  contents: read
+

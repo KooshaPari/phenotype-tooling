@@ -1,0 +1,22 @@
+name: Tag Automation
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+# Delegates to phenoShared reusable workflow.
+# See: https://github.com/KooshaPari/phenoShared/blob/main/.github/workflows/reusable/tag-automation.yml
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  tag:
+    uses: KooshaPari/phenoShared/.github/workflows/reusable/tag-automation.yml@72b9c6cbdb24c49189b0e7c7395d874830d1ed87
+    permissions:
+      contents: write
+permissions:
+  contents: read
+

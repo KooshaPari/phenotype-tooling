@@ -1,0 +1,41 @@
+/* impeccable CSS baseline — github.com/pbakaus/impeccable */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+code, pre, .code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+input, button, textarea, select {
+  font: inherit;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+
+/* Dark mode baseline */
+:root {
+  color-scheme: dark;
+}
+
+.dark {
+  --vp-c-bg: #1a1a1a;
+  --vp-c-bg-soft: #242424;
+  --vp-c-bg-mute: #2f2f2f;
+  --vp-c-fg: #e4e4e7;
+  --vp-c-fg-mute: #a1a1a6;
+}

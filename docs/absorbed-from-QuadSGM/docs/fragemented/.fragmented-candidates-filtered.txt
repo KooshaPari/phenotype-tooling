@@ -1,0 +1,5 @@
+plans/4sgm-native-orchestration-design.md
+plans/4sgm-native-orchestration-implementation.md
+plans/IMPLEMENTATION_SUMMARY.md
+plans/LOCAL_DEVELOPMENT_GUIDE.md
+plans/README.md

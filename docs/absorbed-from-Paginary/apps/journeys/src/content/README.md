@@ -1,0 +1,146 @@
+# phenotype-journeys
+
+Shared, project-agnostic **journey harness** for the Phenotype org: record a
+user-facing flow (CLI tape, UI test, or Playwright trace), emit a canonical
+manifest, and verify it with a Claude-describe + Claude-judge loop.
+
+## Why this exists
+
+Journey harness code kept accreting inside individual projects — VHS tapes +
+manifest JSON in `hwLedger/apps/cli-journeys/`, XCUITest capture in
+`hwLedger/apps/macos/HwLedgerUITests/`, a `JourneyViewer.vue` in the hwLedger
+docs theme, a `hwledger-gui-recorder` crate. None of it was reusable. Every
+new Phenotype project that wanted journeys had to re-derive the format and
+the verify loop from scratch.
+
+`phenotype-journeys` extracts those into one package:
+
+- **Canonical manifest schema** (`schema/manifest.schema.json`) — source of
+  truth for step/verification shape.
+- **`phenotype-journey-core`** (Rust) — serde types, schema export, and the
+  verify loop in both `mock` and `live` (Anthropic API) modes.
+- **`phenotype-journey`** (Rust CLI) — `record`, `verify`, `validate`, `sync`.
+- **`@phenotype/journey-viewer`** (Vue 3) — `JourneyViewer` +
+  `RecordingEmbed` components for VitePress docs.
+- **`@phenotype/journey-playwright`** (TypeScript) — script a web page and
+  emit a conformant manifest.
+
+## Planned consumers
+
+- **hwLedger** — swap `apps/cli-journeys/scripts/verify-manifests.sh` +
+  in-theme `JourneyViewer.vue` for this package. (See `MIGRATION.md` in the
+  hwLedger repo.)
+- **AgilePlus** — journeys for feature specs (one per tagged FR).
+- **thegent** — journeys for plugin onboarding flows.
+
+## Acceptance criteria
+
+Consuming projects should fail their quality gate if a spec tagged as
+user-facing does not have a corresponding passing journey manifest. Enforce
+via CI:
+
+```bash
+phenotype-journey validate docs/journeys/manifests/<spec-id>/manifest.verified.json
+```
+
+## Quickstart
+
+```bash
+# 1. Record a CLI tape (wraps charmbracelet/vhs)
+phenotype-journey record --tape tapes/first-plan.tape --out journeys/
+
+# 2. Write a stub manifest (hand-authored or from journey-playwright)
+
+# 3. Validate against the canonical schema
+phenotype-journey validate journeys/manifests/first-plan/manifest.json
+
+# 4. Verify (mock mode, offline, no API key needed)
+phenotype-journey verify journeys/manifests/first-plan/manifest.json
+
+# 5. Ship artefacts to the docs public dir
+phenotype-journey sync --from journeys --to docs/public/journeys
+```
+
+Set `ANTHROPIC_API_KEY` and pass `--live` (requires building with
+`--features live`) to call real Claude for describe + judge passes.
+
+## Ground-truth assertions (`phenotype-journey assert`)
+
+Claude-judge alone is soft. A tape can literally display
+`error: unexpected argument` and still pass if the judge hallucinates. The
+`assert` subcommand adds hard gates that fail the build when frame content is
+wrong.
+
+### Dependencies
+
+- `tesseract` CLI — install with `brew install tesseract` (macOS) or
+  `apt-get install tesseract-ocr` (Debian). **No silent skip**: if tesseract
+  is missing the command exits non-zero with a clear message.
+- Override OCR for tests or custom pipelines via
+  `PHENOTYPE_JOURNEY_OCR_CMD="my-ocr {{PATH}}"` (the `{{PATH}}` token is
+  replaced with the PNG path).
+
+### Intents YAML schema extension
+
+Each step may carry an `assertions` block:
+
+```yaml
+journey: traceability-report
+steps:
+  - index: 1
+    intent: "Command typed: cargo run ..."
+    assertions:
+      must_contain: ["cargo run", "hwledger-traceability"]
+      must_not_contain: ["error:", "unexpected argument"]
+      ocr_required: true
+  - index: 8
+    intent: "Integer row-count returned"
+    assertions:
+      expected_exit: 0
+```
+
+- `must_contain` — every listed substring must appear in the OCR of that
+  step's keyframe.
+- `must_not_contain` — none of the listed substrings may appear.
+- `expected_exit` — the LAST keyframe of the journey must include the
+  sentinel `__EXIT_<N>__`.
+- `ocr_required` — reserved for future "OCR must succeed" gating; default
+  inferred from the presence of contain/not_contain lists.
+
+### Exit-code sentinel (canonical tape pattern)
+
+Wrap the final command in the tape so the sentinel lands in the recording:
+
+```vhs
+Type "hwledger plan --help; echo __EXIT_$?__"
+Enter
+Sleep 500ms
+```
+
+This produces a visible `__EXIT_0__` (or `__EXIT_N__`) in the last frame that
+`phenotype-journey assert` can OCR and gate on.
+
+### Usage
+
+```bash
+phenotype-journey assert apps/cli-journeys/manifests/plan-deepseek/manifest.json --strict
+```
+
+With `--strict`, exits non-zero when any assertion is violated. Without, the
+report prints but the process exits 0. Journeys with zero assertions print a
+loud warning so they cannot hide.
+
+## Repo layout
+
+```
+phenotype-journeys/
+  crates/phenotype-journey-core/   # Rust lib: types, schema, verify loop
+  bin/phenotype-journey/           # Rust CLI
+  npm/journey-viewer/              # Vue 3 components
+  npm/journey-playwright/          # Playwright -> manifest bridge
+  schema/manifest.schema.json      # Canonical JSONSchema
+```
+
+## License
+
+Apache-2.0.

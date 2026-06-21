@@ -1,0 +1,247 @@
+name: Coverage Gates CI/CD
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Runner type'
+        required: false
+        default: 'self-hosted'
+        type: choice
+        options:
+          - self-hosted
+          - ubuntu-latest
+
+jobs:
+  # ============================================================================
+  # Backend Coverage Tests - Comprehensive Gates
+  # ============================================================================
+  backend-coverage:
+    name: Backend Tests & Coverage
+    runs-on: ${{ github.event.inputs.runner || 'self-hosted' }}
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_4sgm
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@c8813ba1bc76ebf779b911ad8ffccbf2e449cb48 # v-latest
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Lint with Ruff
+        run: uv run ruff check 4sgm/backend/
+
+      - name: Type check with mypy
+        run: uv run mypy 4sgm/backend/ "|| true"
+
+      - name: Format check with Black
+        run: uv run black --check 4sgm/backend/ "|| true"
+
+      - name: Run unit tests with coverage
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_4sgm
+          PYTHONPATH: ${{ github.workspace }}/4sgm
+        run: |
+          uv run pytest 4sgm/backend/tests/unit/ \
+            --cov=4sgm.backend \
+            --cov-report=term-missing \
+            --cov-report=html \
+            --cov-report=json \
+            --cov-report=lcov \
+            --cov-fail-under=80 \
+            -v
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_4sgm
+          PYTHONPATH: ${{ github.workspace }}/4sgm
+        run: |
+          uv run pytest 4sgm/backend/tests/integration/ \
+            --cov=4sgm.backend \
+            --cov-report=term-missing \
+            --cov-fail-under=70 \
+            -v || true
+
+      - name: Upload coverage to artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v-latest@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: backend-coverage
+          path: |
+            htmlcov/
+            coverage.json
+            coverage.lcov
+          retention-days: 30
+
+      - name: Fail if critical coverage gates failed
+        if: failure()
+        run: |
+          echo "One or more coverage gates failed!"
+          exit 1
+
+  # ============================================================================
+  # Security & Quality Gates
+  # ============================================================================
+  security-gates:
+    name: Security & Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@c8813ba1bc76ebf779b911ad8ffccbf2e449cb48 # v-latest
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run Bandit security scan
+        run: uv run bandit -r 4sgm/backend/ -f json -o bandit-report.json || true
+
+      - name: Run Safety dependency check
+        run: uv run safety check --json --output safety-report.json || true
+
+      - name: Run semgrep static analysis
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v-latest@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+          retention-days: 30
+
+  # ============================================================================
+  # Documentation Quality Gates
+  # ============================================================================
+  docs-quality:
+    name: Docs Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Check docs structure
+        run: |
+          set -euo pipefail
+          test -d docs
+          test -f docs/index.md
+          echo "Docs structure validated"
+
+      - name: Check for broken internal links
+        run: |
+          set -euo pipefail
+          grep -r "TODO\|FIXME\|FIX_ME" docs/ || echo "No TODO/FIXME found in docs"
+
+      - name: Validate documentation files exist
+        run: |
+          set -euo pipefail
+          test -f ADR.md
+          test -f PRD.md
+          test -f PLAN.md
+          test -f FUNCTIONAL_REQUIREMENTS.md
+          echo "All required spec docs present"
+
+  # ============================================================================
+  # Governance & Traceability Gates
+  # ============================================================================
+  governance-gates:
+    name: Governance & Traceability
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Validate quality.json schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "aW1wb3J0IGpzb24KaW1wb3J0IHN5cwoKZGF0YSA9IGpzb24ubG9hZChvcGVuKCIuY2xhdWRlL3F1YWxpdHkuanNvbiIpKQpyZXF1aXJlZCA9IHsidmVyc2lvbiIsICJwcm9qZWN0IiwgInN0YWNrcyIsICJjb3ZlcmFnZV90aHJlc2hvbGQiLCAibGluZV9sZW5ndGgiLCAidGVzdF9weXJhbWlkIiwgInRyYWNlYWJpbGl0eSIsICJjcml0aWNhbGl0eV90aWVyIiwgImdvdmVybmFuY2UiXQptaXNzaW5nID0gc29ydGVkKHJlcXVpcmVkIC0gc2V0KGRhdGEua2V5cygpKSkKaWYgbWlzc2luZzoKICAgIHByaW50KGYiRkFJTDogbWlzc2luZyB7bWlzc2luZ30iKQogICAgc3lzLmV4aXQoMikKcHJpbnQoIlBBU1M6IHF1YWxpdHkuanNvbiB2YWxpZCIpCg==" | base64 -d > /tmp/validate_quality.py
+          python3 /tmp/validate_quality.py
+
+      - name: Validate fr-source-contract.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "aW1wb3J0IGpzb24KCmltcG9ydCBzeXMKCmRhdGEgPSBqc29uLmxvYWQob3BlbigiLmNsYXVkZS9mci1zb3VyY2UtY29udHJhY3QuanNvbiIpKQpyZXF1aXJlZCA9IHsicHJvamVjdCIsICJzdGF0ZSIsICJlbmZvcmNlbWVudF9yZWNvbW1lbmRhdGlvbiJ9Cm1pc3NpbmcgPSBzb3J0ZWQocmVxdWlyZWQgLSBzZXQoZGF0YS5rZXlzKCkpKQppZiBtaXNzaW5nOgogICAgcHJpbnQoZiJGQUlMOiBtaXNzaW5nIHttaXNzaW5nfSIpCiAgICBzeXMuZXhpdCgyKQpwdHJpbnQoIlBBU1M6IGZyLXNvdXJjZS1jb250cmFjdC5qc29uIHZhbGlkIikK" | base64 -d > /tmp/validate_contract.py
+          python3 /tmp/validate_contract.py
+
+      - name: Check FR traceability
+        run: |
+          set -euo pipefail
+          if [[ -f "FUNCTIONAL_REQUIREMENTS.md" ]]; then
+            fr_count=$(grep -c "^## " FUNCTIONAL_REQUIREMENTS.md || echo 0)
+            echo "Found $fr_count FR sections in FUNCTIONAL_REQUIREMENTS.md"
+          fi
+
+  # ============================================================================
+  # Summary
+  # ============================================================================
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [backend-coverage, security-gates, docs-quality, governance-gates]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# CI Gate Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Gate | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Coverage | ${{ needs.backend-coverage.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security & Quality | ${{ needs.security-gates.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docs Quality | ${{ needs.docs-quality.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Governance & Traceability | ${{ needs.governance-gates.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any gate failed
+        if: failure()
+        run: |
+          echo "One or more CI gates failed!"
+          exit 1
+permissions:
+  contents: read
+

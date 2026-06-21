@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AGENTS.md",
+  "type": "object",
+  "required": ["headings"],
+  "properties": {
+    "headings": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "type": "string" }
+    },
+    "purpose": { "type": "string", "minLength": 50 },
+    "stack": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

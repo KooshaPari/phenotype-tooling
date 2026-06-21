@@ -1,0 +1,124 @@
+# Prek hooks for 4sgm - Comprehensive quality gates
+# Install: prek install
+# Run: prek run --all-files
+
+repos:
+  # Built-in hooks (fast, no deps)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+
+  # Python hooks
+  - repo: https://github.com/psf/black
+    rev: 25.9.0
+    hooks:
+      - id: black
+        args: ["--line-length=100"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.3
+    hooks:
+      - id: ruff
+        args: ["--fix", "--exit-non-zero-on-fix"]
+      - id: ruff-format
+
+  # Node/TypeScript hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-json
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  # Markdown quality
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.41.0
+    hooks:
+      - id: markdownlint
+        args: ["--config=.markdownlint.json"]
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        args: ["-r", "4sgm/backend/", "-f", "json"]
+
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+        args: ["--json"]
+
+  # Git secrets detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - "--baseline"
+          - ".secrets.baseline"
+          - "--exclude-files"
+          - ".*\\.lock$"
+          - "--exclude-files"
+          - "node_modules/.*"
+          - "--exclude-files"
+          - ".venv/.*"
+
+  # Complexity checks
+  - repo: local
+    hooks:
+      - id: complexity-check
+        name: Check cyclomatic complexity
+        entry: radon cc 4sgm/backend/ -nb -a -nb -aC -aA
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: maintainability-index
+        name: Check maintainability index
+        entry: radon mi 4sgm/backend/ -nb -a
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+
+  # Test verification
+  - repo: local
+    hooks:
+      - id: test-discovery
+        name: Verify test discovery
+        entry: python3 -c "import pytest; pytest.main(['--collect-only', '-q', '4sgm/backend/tests/'])"
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+        always_run: true
+
+# Local security and fast gate hooks for pre-commit and pre-push stages
+  - repo: local
+    hooks:
+      - id: security-guard-pre-commit-pre-push
+        name: security-guard pre-commit/pre-push
+        entry: .github/scripts/security-guard.sh
+        language: script
+        pass_filenames: false
+        stages: [pre-commit, pre-push]
+
+  - repo: local
+    hooks:
+      - id: quality-gate
+        name: quality-gate orchestrator
+        entry: scripts/quality-gate.sh
+        language: script
+        pass_filenames: false
+        stages: [pre-push]

@@ -1,0 +1,241 @@
+# Caddyfile - 4SGM Reverse Proxy Configuration
+# Start with: caddy run --config Caddyfile
+# Or: caddy start --config Caddyfile (background)
+
+# ============================================
+# Development Environment (Port 9000)
+# ============================================
+localhost:9000 {
+    # Logging
+    log {
+        output file logs/caddy.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        level info
+        format json
+    }
+
+    # Health check endpoint (proxy to FastAPI)
+    @health {
+        path /health
+    }
+    handle @health {
+        reverse_proxy localhost:8000 {
+            header_up X-Forwarded-For {http.request.remote}
+            header_up X-Forwarded-Proto {http.request.proto}
+            header_up X-Forwarded-Host {http.request.host}
+        }
+    }
+
+    # API routes (/api/*)
+    @api {
+        path /api/*
+    }
+    handle @api {
+        uri strip_prefix /api
+        reverse_proxy localhost:8000 {
+            header_up X-Forwarded-For {http.request.remote}
+            header_up X-Forwarded-Proto {http.request.proto}
+            header_up X-Forwarded-Host {http.request.host}
+            header_up X-Forwarded-Path /api
+        }
+    }
+
+    # Documentation routes
+    @docs {
+        path /docs /redoc /openapi.json
+    }
+    handle @docs {
+        reverse_proxy localhost:8000
+    }
+
+    # Chat streaming endpoint (specific handling)
+    @chat {
+        path /chat /chat/stream
+    }
+    handle @chat {
+        reverse_proxy localhost:8000 {
+            # Stream responses without buffering
+            flush_interval -1
+            header_up X-Forwarded-For {http.request.remote}
+            header_up X-Forwarded-Proto {http.request.proto}
+        }
+    }
+
+    # Frontend routes with fallback
+    @frontend {
+        # Match any path not already matched
+        path_regexp ^(?!/api)(?!/health)(?!/docs)(?!/redoc)(?!/openapi.json)(?!/chat).*
+    }
+    handle @frontend {
+        reverse_proxy localhost:3001 localhost:3002 {
+            policy round_robin
+            header_up X-Forwarded-For {http.request.remote}
+            header_up X-Forwarded-Proto {http.request.proto}
+        }
+    }
+
+    # Default error handling
+    handle_errors {
+        @404 {
+            expression {http.error.status_code} == 404
+        }
+        handle @404 {
+            respond "Not found" 404
+        }
+
+        @503 {
+            expression {http.error.status_code} == 503
+        }
+        handle @503 {
+            respond "Service unavailable" 503
+        }
+
+        respond "Internal Server Error: {http.error.status_code}" 500
+    }
+
+    # Security headers
+    header {
+        # HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # X-Frame-Options
+        X-Frame-Options "DENY"
+        # X-Content-Type
+        X-Content-Type-Options "nosniff"
+        # X-XSS-Protection
+        X-XSS-Protection "1; mode=block"
+        # Referrer-Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Permissions-Policy
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+
+    # CORS headers (for development)
+    header /api/* {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        Access-Control-Max-Age "86400"
+    }
+
+    # Handle OPTIONS requests
+    respond OPTIONS 200 {
+        -Vary "Origin"
+    }
+
+    # Compression
+    encode gzip
+
+    # Request timeout
+    timeout 30s
+
+    # Connection pooling
+    reverse_proxy localhost:8000 {
+        keepalive 32
+        keepalive_idle_conns 8
+    }
+}
+
+# ============================================
+# Production-like Environment (Port 9001)
+# ============================================
+localhost:9001 {
+    # Single API endpoint
+    reverse_proxy localhost:8000 {
+        header_up X-Forwarded-For {http.request.remote}
+        header_up X-Forwarded-Proto {http.request.proto}
+        header_up X-Forwarded-Host {http.request.host}
+    }
+
+    log {
+        output file logs/caddy-prod.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+        level warn
+        format json
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Compression
+    encode gzip
+
+    # Timeout
+    timeout 30s
+}
+
+# ============================================
+# Admin/Monitoring Environment (Port 9002)
+# ============================================
+localhost:9002 {
+    # pgAdmin4 (PostgreSQL Admin)
+    @pgadmin {
+        path /pgadmin/*
+    }
+    handle @pgadmin {
+        uri strip_prefix /pgadmin
+        reverse_proxy localhost:5050 {
+            header_up X-Forwarded-For {http.request.remote}
+            header_up X-Forwarded-Proto {http.request.proto}
+            header_up X-Script-Name /pgadmin
+        }
+    }
+
+    # Redis Commander
+    @redis {
+        path /redis/*
+    }
+    handle @redis {
+        uri strip_prefix /redis
+        reverse_proxy localhost:8081 {
+            header_up X-Forwarded-For {http.request.remote}
+            header_up X-Forwarded-Proto {http.request.proto}
+        }
+    }
+
+    # Default to status page
+    handle {
+        respond @text/plain `
+4SGM Admin Dashboard
+====================
+
+Services:
+  - FastAPI: http://localhost:8000
+  - PostgreSQL: localhost:5432
+  - Redis: localhost:6379
+
+Admin Tools:
+  - pgAdmin4: http://localhost:9002/pgadmin
+  - Redis Commander: http://localhost:9002/redis
+
+Main API:
+  - Dev: http://localhost:9000
+  - Prod: http://localhost:9001
+` 200
+    }
+
+    log {
+        output file logs/caddy-admin.log
+        level warn
+    }
+}
+
+# ============================================
+# Global Configuration
+# ============================================
+
+# Enable debug logging
+# debug
+
+# Define any shared matchers or patterns
+# ...

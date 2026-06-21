@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: HeliosCLI Discussions
+    url: https://github.com/KooshaPari/HeliosCLI/discussions
+    about: Ask questions, share ideas, or get help from the community.
+  - name: Security disclosures
+    url: https://github.com/KooshaPari/HeliosCLI/security/advisories/new
+    about: Privately report a security vulnerability. See SECURITY.md.
+  - name: Documentation
+    url: https://github.com/KooshaPari/HeliosCLI/tree/main/docs
+    about: Reference docs, ADRs, sessions, and functional requirements.

@@ -1,0 +1,35 @@
+[[modules]]
+path = "4sgm.mcp_server"
+depends_on = ["4sgm.backend"]
+
+[[modules]]
+path = "4sgm.mcp_server.models"
+depends_on = []
+
+[[modules]]
+path = "4sgm.mcp_server.repositories"
+depends_on = ["4sgm.mcp_server.models"]
+
+[[modules]]
+path = "4sgm.backend"
+depends_on = []
+
+[[modules]]
+path = "4sgm.backend.agents"
+depends_on = ["4sgm.backend.repositories"]
+
+[[modules]]
+path = "4sgm.backend.repositories"
+depends_on = []
+
+[[modules]]
+path = "4sgm.backend.alembic"
+depends_on = ["4sgm.backend.models"]
+
+[[modules]]
+path = "4sgm.backend.tests"
+depends_on = ["4sgm.backend", "4sgm.mcp_server"]
+
+[rules]
+forbid_circular_imports = true
+forbid_cross_module_imports = false

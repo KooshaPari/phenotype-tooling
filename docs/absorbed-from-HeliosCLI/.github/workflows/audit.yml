@@ -1,0 +1,155 @@
+name: security-audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly on Monday at 06:17 UTC — offset from other scheduled jobs.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Rust: cargo audit (RustSec Advisory Database)
+  # ---------------------------------------------------------------------------
+  cargo-audit:
+    name: cargo audit (codex-rs)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            codex-rs/.cargo/registry
+            codex-rs/.cargo/git
+            codex-rs/target
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('codex-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-audit-
+
+      - name: Run cargo audit (deny on warnings)
+        working-directory: codex-rs
+        run: |
+          set -euo pipefail
+          cargo install --locked cargo-audit --version '^0.21' || true
+          cargo audit --deny warnings --json
+
+      - name: Upload cargo audit JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-audit-report
+          path: codex-rs/target/audit-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Node: pnpm audit (codex-cli uses pnpm)
+  # ---------------------------------------------------------------------------
+  npm-audit:
+    name: pnpm audit (codex-cli)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        working-directory: codex-cli
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run pnpm audit (moderate+ fails)
+        working-directory: codex-cli
+        run: |
+          set -euo pipefail
+          # pnpm audit exits non-zero on vulnerabilities; --audit-level moderate
+          # treats moderate and above as failures, low/info as warnings only.
+          pnpm audit --prod --audit-level=moderate
+
+  # ---------------------------------------------------------------------------
+  # Python: pip audit (best-effort; skip if no manifest present)
+  # ---------------------------------------------------------------------------
+  pip-audit:
+    name: pip audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Detect Python dependency manifests
+        id: detect
+        run: |
+          set -euo pipefail
+          files=""
+          for f in requirements.txt requirements-dev.txt requirements-lint.txt dev-requirements.txt pyproject.toml; do
+            if [ -f "$f" ]; then
+              files="$files $f"
+            fi
+          done
+          if [ -d "python" ]; then
+            for f in python/requirements*.txt python/pyproject.toml; do
+              if [ -f "$f" ]; then
+                files="$files $f"
+              fi
+            done
+          fi
+          echo "manifests=${files}" >> "$GITHUB_OUTPUT"
+          if [ -z "${files// }" ]; then
+            echo "has_manifests=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_manifests=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pip-audit
+        if: steps.detect.outputs.has_manifests == 'true'
+        run: python -m pip install --upgrade pip pip-audit
+
+      - name: Run pip-audit
+        if: steps.detect.outputs.has_manifests == 'true'
+        run: |
+          set -euo pipefail
+          args=""
+          for f in ${{ steps.detect.outputs.manifests }}; do
+            args="$args -r $f"
+          done
+          pip-audit $args --strict --vulnerability-service osv
+
+      - name: Skip pip-audit
+        if: steps.detect.outputs.has_manifests != 'true'
+        run: |
+          echo "No Python dependency manifests found at repo root or python/. Skipping pip-audit."
+          echo "This is informational only — add requirements*.txt or pyproject.toml to enable."

@@ -1,0 +1,293 @@
+/**
+ * 4SGM Brand Theme
+ * Based on actual 4sgm.com website analysis
+ */
+
+:root {
+  /* Primary Brand Colors */
+  --4sgm-primary: #0066CC;       /* Blue (from logo) */
+  --4sgm-primary-dark: #004C99;
+  --4sgm-primary-light: #3385D6;
+
+  /* Secondary Colors */
+  --4sgm-secondary: #FF6B00;     /* Orange accent */
+  --4sgm-white: #FFFFFF;
+  --4sgm-gray-light: #F5F5F5;
+  --4sgm-gray: #E0E0E0;
+  --4sgm-gray-dark: #666666;
+  --4sgm-text: #333333;
+
+  /* Semantic Colors */
+  --4sgm-success: #28A745;
+  --4sgm-warning: #FFC107;
+  --4sgm-error: #DC3545;
+  --4sgm-info: #17A2B8;
+
+  /* Typography */
+  --4sgm-font-family: 'Arial', 'Helvetica Neue', sans-serif;
+  --4sgm-font-heading: 'Arial Black', 'Arial Bold', sans-serif;
+
+  /* Spacing */
+  --4sgm-spacing-xs: 0.25rem;
+  --4sgm-spacing-sm: 0.5rem;
+  --4sgm-spacing-md: 1rem;
+  --4sgm-spacing-lg: 1.5rem;
+  --4sgm-spacing-xl: 2rem;
+
+  /* Border Radius */
+  --4sgm-radius-sm: 4px;
+  --4sgm-radius-md: 8px;
+  --4sgm-radius-lg: 12px;
+
+  /* Shadows */
+  --4sgm-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --4sgm-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --4sgm-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Global Styles */
+body {
+  font-family: var(--4sgm-font-family);
+  color: var(--4sgm-text);
+  background-color: var(--4sgm-gray-light);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--4sgm-font-heading);
+  color: var(--4sgm-primary);
+}
+
+/* Button Styles */
+.btn-4sgm-primary {
+  background-color: var(--4sgm-primary);
+  color: var(--4sgm-white);
+  border: none;
+  padding: var(--4sgm-spacing-sm) var(--4sgm-spacing-lg);
+  border-radius: var(--4sgm-radius-md);
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-4sgm-primary:hover {
+  background-color: var(--4sgm-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--4sgm-shadow-md);
+}
+
+.btn-4sgm-secondary {
+  background-color: var(--4sgm-secondary);
+  color: var(--4sgm-white);
+  border: none;
+  padding: var(--4sgm-spacing-sm) var(--4sgm-spacing-lg);
+  border-radius: var(--4sgm-radius-md);
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-4sgm-secondary:hover {
+  background-color: #E55F00;
+  transform: translateY(-1px);
+  box-shadow: var(--4sgm-shadow-md);
+}
+
+/* Card Styles */
+.card-4sgm {
+  background: var(--4sgm-white);
+  border-radius: var(--4sgm-radius-md);
+  padding: var(--4sgm-spacing-lg);
+  box-shadow: var(--4sgm-shadow-sm);
+  transition: all 0.3s ease;
+}
+
+.card-4sgm:hover {
+  box-shadow: var(--4sgm-shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Header Styles */
+.header-4sgm {
+  background-color: var(--4sgm-primary);
+  color: var(--4sgm-white);
+  padding: var(--4sgm-spacing-md) var(--4sgm-spacing-xl);
+  box-shadow: var(--4sgm-shadow-md);
+}
+
+.logo-4sgm {
+  height: 40px;
+  width: auto;
+}
+
+/* Product Card */
+.product-card-4sgm {
+  background: var(--4sgm-white);
+  border: 1px solid var(--4sgm-gray);
+  border-radius: var(--4sgm-radius-md);
+  padding: var(--4sgm-spacing-md);
+  transition: all 0.3s ease;
+}
+
+.product-card-4sgm:hover {
+  border-color: var(--4sgm-primary);
+  box-shadow: var(--4sgm-shadow-lg);
+}
+
+.product-card-4sgm .price {
+  color: var(--4sgm-primary);
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.product-card-4sgm .badge {
+  background-color: var(--4sgm-secondary);
+  color: var(--4sgm-white);
+  padding: var(--4sgm-spacing-xs) var(--4sgm-spacing-sm);
+  border-radius: var(--4sgm-radius-sm);
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+/* Chat Widget Styles */
+.chat-widget-4sgm {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 400px;
+  max-width: calc(100vw - 40px);
+  background: var(--4sgm-white);
+  border-radius: var(--4sgm-radius-lg);
+  box-shadow: var(--4sgm-shadow-lg);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.chat-header-4sgm {
+  background: linear-gradient(135deg, var(--4sgm-primary) 0%, var(--4sgm-primary-dark) 100%);
+  color: var(--4sgm-white);
+  padding: var(--4sgm-spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--4sgm-spacing-sm);
+}
+
+.chat-header-4sgm .logo {
+  height: 30px;
+  width: auto;
+  background: var(--4sgm-white);
+  padding: 4px 8px;
+  border-radius: var(--4sgm-radius-sm);
+}
+
+.chat-messages-4sgm {
+  height: 400px;
+  overflow-y: auto;
+  padding: var(--4sgm-spacing-md);
+  background: var(--4sgm-gray-light);
+}
+
+.chat-message-user {
+  background: var(--4sgm-primary);
+  color: var(--4sgm-white);
+  padding: var(--4sgm-spacing-sm) var(--4sgm-spacing-md);
+  border-radius: var(--4sgm-radius-md) var(--4sgm-radius-md) 0 var(--4sgm-radius-md);
+  margin-bottom: var(--4sgm-spacing-sm);
+  margin-left: auto;
+  max-width: 80%;
+}
+
+.chat-message-assistant {
+  background: var(--4sgm-white);
+  color: var(--4sgm-text);
+  padding: var(--4sgm-spacing-sm) var(--4sgm-spacing-md);
+  border-radius: var(--4sgm-radius-md) var(--4sgm-radius-md) var(--4sgm-radius-md) 0;
+  margin-bottom: var(--4sgm-spacing-sm);
+  margin-right: auto;
+  max-width: 80%;
+  box-shadow: var(--4sgm-shadow-sm);
+}
+
+.chat-input-4sgm {
+  border-top: 1px solid var(--4sgm-gray);
+  padding: var(--4sgm-spacing-md);
+  background: var(--4sgm-white);
+  display: flex;
+  gap: var(--4sgm-spacing-sm);
+}
+
+.chat-input-4sgm input {
+  flex: 1;
+  border: 1px solid var(--4sgm-gray);
+  border-radius: var(--4sgm-radius-md);
+  padding: var(--4sgm-spacing-sm) var(--4sgm-spacing-md);
+  font-family: var(--4sgm-font-family);
+}
+
+.chat-input-4sgm input:focus {
+  outline: none;
+  border-color: var(--4sgm-primary);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.chat-input-4sgm button {
+  background: var(--4sgm-primary);
+  color: var(--4sgm-white);
+  border: none;
+  border-radius: var(--4sgm-radius-md);
+  padding: var(--4sgm-spacing-sm) var(--4sgm-spacing-lg);
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.chat-input-4sgm button:hover {
+  background: var(--4sgm-primary-dark);
+}
+
+.chat-input-4sgm button:disabled {
+  background: var(--4sgm-gray);
+  cursor: not-allowed;
+}
+
+/* Floating Action Button */
+.fab-4sgm {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--4sgm-primary) 0%, var(--4sgm-primary-dark) 100%);
+  color: var(--4sgm-white);
+  border-radius: 50%;
+  border: none;
+  box-shadow: var(--4sgm-shadow-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: all 0.3s ease;
+  z-index: 999;
+}
+
+.fab-4sgm:hover {
+  transform: scale(1.1);
+  box-shadow: 0 15px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Utility Classes */
+.text-4sgm-primary {
+  color: var(--4sgm-primary);
+}
+
+.bg-4sgm-primary {
+  background-color: var(--4sgm-primary);
+}
+
+.text-4sgm-secondary {
+  color: var(--4sgm-secondary);
+}
+
+.bg-4sgm-secondary {
+  background-color: var(--4sgm-secondary);
+}

@@ -1,0 +1,224 @@
+{
+  "projectName": "4sgm-ai-chatbot",
+  "projectType": "ai-chatbot",
+  "primaryLanguages": ["python", "typescript"],
+  "framework": "fastapi+nextjs",
+
+  "model": "claude-4.5-sonnet",
+  "autonomyLevel": "auto-high",
+
+  "enableHooks": true,
+  "enableCustomDroids": true,
+  "enableReadinessReport": true,
+
+  "commandAllowlist": [
+    "uvicorn main:app --reload",
+    "python -m uvicorn backend.main:app --reload",
+    "pytest backend/tests/",
+    "pytest --cov=backend",
+    "mypy backend/",
+    "ruff check backend/",
+    "ruff format backend/",
+    "npm run dev",
+    "npm run build",
+    "npm run lint",
+    "npm run type-check",
+    "npm run test",
+    "npm run test:e2e",
+    "python scripts/mock_sql_server.py",
+    "python scripts/ingest_to_supabase.py",
+    "psql $SUPABASE_URL",
+    "sst deploy",
+    "sst dev",
+    "sst secret set",
+    "railway up",
+    "fly deploy"
+  ],
+
+  "commandDenylist": [
+    "rm -rf backend/",
+    "rm -rf frontend/",
+    "rm -rf .venv",
+    "git push --force",
+    "git push -f",
+    "git reset --hard",
+    "pip uninstall -y",
+    "npm uninstall",
+    "DROP TABLE documents",
+    "DELETE FROM documents"
+  ],
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/scan-secrets.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/check-api-keys.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Execute",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/validate-command.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/auto-format.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/run-tests.sh",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/check-coverage.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/session-logger.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/check-env.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/session-logger.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$FACTORY_PROJECT_DIR\"/.factory/hooks/final-coverage-check.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  },
+
+  "customCommands": {
+    "/quick-check": {
+      "description": "Quick quality checks (type-check, lint, unit tests)",
+      "command": "cd backend && mypy backend/ && ruff check backend/ && pytest tests/ --tb=short && cd ../frontend && npm run lint && npm run type-check && npm run test"
+    },
+    "/full-check": {
+      "description": "Comprehensive pre-commit validation",
+      "command": "cd backend && pytest --cov=backend --cov-fail-under=90 && cd ../frontend && npm run test:all"
+    },
+    "/ingest": {
+      "description": "Generate mock data and ingest to Supabase",
+      "command": "python scripts/mock_sql_server.py && python scripts/ingest_to_supabase.py"
+    },
+    "/deploy-prod": {
+      "description": "Deploy to production (SST)",
+      "command": "sst deploy --stage production"
+    },
+    "/test-rag": {
+      "description": "Test RAG pipeline end-to-end",
+      "command": "pytest backend/tests/test_rag.py -v"
+    }
+  },
+
+  "fileIgnorePatterns": [
+    "**/__pycache__/**",
+    "**/.venv/**",
+    "**/.next/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.pytest_cache/**",
+    "**/.mypy_cache/**",
+    "**/.ruff_cache/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/*.log",
+    ".env",
+    ".env.local",
+    "*.db",
+    "*.sqlite",
+    "*.sqlite3",
+    "coverage/**",
+    "htmlcov/**",
+    "test-results/**",
+    "playwright-report/**"
+  ],
+
+  "projectRules": [
+    "⚠️ NO hardcoded API keys in code (use environment variables)",
+    "✅ MCP-first architecture for all integrations",
+    "✅ Forward-only development (no git reversions)",
+    "✅ Full-grade implementation (no MVP mindset)",
+    "✅ >90% test coverage (100% for changed files)",
+    "✅ Type safety: TypeScript strict + Pydantic",
+    "✅ RAG pipeline: embeddings -> vector search -> LLM",
+    "✅ Cost optimization: <$200/month target",
+    "✅ Response time: <2s p95 target"
+  ],
+
+  "testingConfig": {
+    "backendTestPattern": "backend/tests/**/*.py",
+    "frontendTestPattern": "frontend/tests/**/*.{ts,tsx}",
+    "e2eTestPattern": "frontend/tests/e2e/**/*.spec.ts",
+    "coverageThreshold": 90,
+    "runTestsOnFileChange": true
+  },
+
+  "ragConfig": {
+    "embeddingModel": "text-embedding-3-small",
+    "embeddingDimension": 1536,
+    "vectorSearchThreshold": 0.7,
+    "vectorSearchLimit": 5,
+    "confidenceThreshold": 0.6,
+    "llmModel": "claude-3-5-sonnet-20241022",
+    "llmMaxTokens": 1024
+  },
+
+  "costLimits": {
+    "monthlyBudget": 200,
+    "alertThreshold": 150,
+    "llmTokensPerDay": 100000,
+    "embeddingsPerMonth": 1000000
+  }
+}

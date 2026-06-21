@@ -1,0 +1,307 @@
+# PhenoSpecs Registry Index
+# Central registry linking specifications to implementations
+# Format: YAML 1.2
+
+registry_version: "1.0.0"
+last_updated: "2026-04-04"
+
+# PhenoSpecs System Entry
+system:
+  id: phenospecs-001
+  title: "PhenoSpecs — Unified Specification Registry"
+  spec: "SPEC.md"
+  research: "RESEARCH.md"
+  status: specified
+
+# --- DOMAIN CLASSIFICATIONS ---
+domains:
+  phenokit:
+    name: "Core Infrastructure & Foundation"
+    owner: "team-platform"
+    workspaces: ["PhenoKit"]
+    repos: 
+      - "PhenoKit/rust/PhenotypeCore"
+      - "PhenoKit/rust/PhenotypeValidation"
+      - "PhenoKit/python/pheno-core"
+      - "PhenoKit/python/pheno-validation"
+      - "PhenoKit/go/phenotype-go-kit"
+    specs: [SPEC-CORE-001, SPEC-VALIDATION-001]
+  
+  authkit:
+    name: "Authentication & Security"
+    owner: "team-security"
+    workspaces: ["AuthKit"]
+    repos:
+      - "AuthKit/rust/PhenotypeCipher"
+      - "AuthKit/rust/PhenotypePolicyEngine"
+      - "AuthKit/python/pheno-credentials"
+      - "AuthKit/python/pheno-auth"
+      - "AuthKit/go/phenotype-oauth2"
+    specs: [SPEC-AUTH-001, SPEC-AUTH-002, SPEC-CRYPTO-001, SPEC-CRYPTO-002]
+  
+  datakit:
+    name: "Data Storage & Event Sourcing"
+    owner: "team-platform"
+    workspaces: ["DataKit"]
+    repos:
+      - "DataKit/rust/PhenotypeEventSourcing"
+      - "DataKit/rust/PhenotypeInMemoryStore"
+      - "DataKit/python/pheno-events"
+      - "DataKit/python/pheno-storage"
+    specs: [SPEC-DATA-001, SPEC-CACHE-001]
+  
+  observabilitykit:
+    name: "Observability & Monitoring"
+    owner: "team-platform"
+    workspaces: ["ObservabilityKit"]
+    repos:
+      - "ObservabilityKit/rust/PhenotypeLogging"
+      - "ObservabilityKit/rust/PhenotypeTelemetry"
+      - "ObservabilityKit/rust/PhenotypeMetrics"
+      - "ObservabilityKit/python/pheno-observability"
+    specs: [SPEC-OBS-001]
+  
+  resiliencekit:
+    name: "Resilience & Reliability"
+    owner: "team-platform"
+    workspaces: ["ResilienceKit"]
+    repos:
+      - "ResilienceKit/rust/PhenotypeRetry"
+      - "ResilienceKit/rust/PhenotypeStateMachine"
+      - "ResilienceKit/python/pheno-resilience"
+    specs: [SPEC-RESILIENCE-001]
+  
+  testingkit:
+    name: "Testing & Quality Assurance"
+    owner: "team-quality"
+    workspaces: ["TestingKit"]
+    repos:
+      - "TestingKit/rust/PhenotypeTesting"
+      - "TestingKit/rust/PhenotypeBdd"
+      - "TestingKit/python/pheno-testing"
+    specs: [SPEC-TEST-001]
+  
+  mcpkit:
+    name: "Model Context Protocol"
+    owner: "team-agents"
+    workspaces: ["McpKit"]
+    repos:
+      - "McpKit/rust/PhenotypeMcpFramework"
+      - "McpKit/python/pheno-mcp"
+    specs: [SPEC-MCP-001]
+  
+  # Legacy domains (being migrated to kit structure)
+  auth:
+    name: "Authentication & Authorization (Legacy)"
+    owner: "team-security"
+    status: deprecated
+    migrated_to: authkit
+    repos: ["phenotype-auth-ts", "phenotype-cipher", "Authvault"]
+    migration_status: "In progress - see PHENOSDK_DECOMPOSITION_PLAN.md"
+  
+  crypto:
+    name: "Cryptography (Legacy)"
+    owner: "team-security"
+    status: deprecated
+    migrated_to: authkit
+    repos: ["phenotype-cipher", "phenoSDK"]
+  
+  caching:
+    name: "Caching & Storage (Legacy)"
+    owner: "team-platform"
+    status: deprecated
+    migrated_to: datakit
+    repos: ["Stashly", "phenotype-cache-adapter"]
+  
+  observability:
+    name: "Observability (Legacy)"
+    owner: "team-platform"
+    status: deprecated
+    migrated_to: observabilitykit
+    repos: ["Tracely", "tracely-sentinel"]
+  
+  cli:
+    name: "CLI Tools"
+    owner: "team-devtools"
+    repos: ["pheno", "heliosCLI", "AgilePlus"]
+  
+  agents:
+    name: "Agent Framework"
+    owner: "team-agents"
+    repos: ["thegent", "AgentMCP", "heliosApp"]
+  
+  storage:
+    name: "Data Storage (Legacy)"
+    owner: "team-platform"
+    status: deprecated
+    migrated_to: datakit
+    repos: ["PhenoVCS", "Stashly"]
+  
+  testing:
+    name: "Testing & Quality (Legacy)"
+    owner: "team-quality"
+    status: deprecated
+    migrated_to: testingkit
+    repos: ["phenotype-bdd", "phenotype-test-infra"]
+
+# --- SPECIFICATIONS INDEX ---
+specs:
+  # Authentication Domain
+  SPEC-AUTH-001:
+    title: "OAuth 2.0 + PKCE Implementation"
+    path: "specs/auth/oauth-pkce/spec.md"
+    domain: auth
+    status: implemented
+    implements: [SPEC-AUTH-002, SPEC-CRYPTO-001]
+    repos: ["phenotype-auth-ts"]
+    frd: "specs/auth/oauth-pkce/frd.md"
+    openapi: "openapi/auth-oauth.yaml"
+  
+  SPEC-AUTH-002:
+    title: "JWT Token Management"
+    path: "specs/auth/jwt-management/spec.md"
+    domain: auth
+    status: implemented
+    repos: ["phenotype-auth-ts"]
+    frd: "specs/auth/jwt-management/frd.md"
+  
+  # Cryptography Domain
+  SPEC-CRYPTO-001:
+    title: "Symmetric Encryption (AES-GCM)"
+    path: "specs/crypto/aes-gcm/spec.md"
+    domain: crypto
+    status: implemented
+    repos: ["phenotype-cipher"]
+    frd: "specs/crypto/aes-gcm/frd.md"
+  
+  SPEC-CRYPTO-002:
+    title: "Asymmetric Encryption (RSA/ECDH)"
+    path: "specs/crypto/rsa-ecdh/spec.md"
+    domain: crypto
+    status: specified
+    repos: ["phenotype-cipher"]
+    frd: "specs/crypto/rsa-ecdh/frd.md"
+  
+  # Caching Domain
+  SPEC-CACHE-001:
+    title: "Multi-Tier Cache Architecture"
+    path: "specs/caching/multi-tier/spec.md"
+    domain: caching
+    status: implemented
+    repos: ["Stashly"]
+    frd: "specs/caching/multi-tier/frd.md"
+  
+  # Observability Domain
+  SPEC-OBS-001:
+    title: "Distributed Tracing with OpenTelemetry"
+    path: "specs/observability/distributed-tracing/spec.md"
+    domain: observability
+    status: implemented
+    repos: ["Tracely"]
+    frd: "specs/observability/distributed-tracing/frd.md"
+  
+  # CLI Domain
+  SPEC-CLI-001:
+    title: "Unified CLI Interface"
+    path: "specs/cli/unified-interface/spec.md"
+    domain: cli
+    status: implemented
+    repos: ["pheno", "AgilePlus"]
+    frd: "specs/cli/unified-interface/frd.md"
+  
+  # Agents Domain
+  SPEC-AGENT-001:
+    title: "Agent Orchestration Protocol"
+    path: "specs/agents/orchestration-protocol/spec.md"
+    domain: agents
+    status: implementing
+    repos: ["thegent"]
+    frd: "specs/agents/orchestration-protocol/frd.md"
+
+# --- ADRs INDEX ---
+adrs:
+  ADR-001:
+    title: "Hexagonal Architecture Adoption"
+    path: "adrs/001-hexagonal-architecture.md"
+    status: accepted
+    date: "2024-01-15"
+    tags: [architecture, patterns]
+  
+  ADR-002:
+    title: "Rust as Primary Systems Language"
+    path: "adrs/002-rust-primary-language.md"
+    status: accepted
+    date: "2024-02-01"
+    tags: [languages, rust]
+  
+  ADR-003:
+    title: "Spec-Driven Development via AgilePlus"
+    path: "adrs/003-spec-driven-development.md"
+    status: accepted
+    date: "2024-03-01"
+    tags: [process, agileplus]
+  
+  ADR-004:
+    title: "Unified Specification Registry"
+    path: "adrs/004-unified-specification-registry.md"
+    status: accepted
+    date: "2026-04-04"
+    tags: [architecture, registry, phenospecs]
+    affected_specs: [phenospecs-001]
+  
+  ADR-005:
+    title: "Multi-Format Documentation Strategy"
+    path: "adrs/005-multi-format-documentation.md"
+    status: accepted
+    date: "2026-04-04"
+    tags: [documentation, process]
+    relates_to: [ADR-004]
+  
+  ADR-006:
+    title: "Traceability-First Development"
+    path: "adrs/006-traceability-first-development.md"
+    status: accepted
+    date: "2026-04-04"
+    tags: [process, traceability, quality]
+    relates_to: [ADR-004, ADR-005]
+
+# --- OPENAPI SPECS INDEX ---
+openapi:
+  auth-api-v1:
+    title: "Authentication API v1"
+    path: "openapi/auth-api-v1.yaml"
+    version: "1.0.0"
+    implements: [SPEC-AUTH-001, SPEC-AUTH-002]
+    repos: ["phenotype-auth-ts"]
+  
+  cache-api-v1:
+    title: "Caching API v1"
+    path: "openapi/cache-api-v1.yaml"
+    version: "1.0.0"
+    implements: [SPEC-CACHE-001]
+    repos: ["Stashly"]
+
+# --- INTEGRATION SPECS INDEX ---
+integrations:
+  INT-001:
+    title: "AgilePlus ↔ GitHub Integration"
+    path: "integrations/agileplus-github.md"
+    systems: ["AgilePlus", "GitHub"]
+    protocol: "webhook + api"
+  
+  INT-002:
+    title: "Tracely ↔ NATS Integration"
+    path: "integrations/tracely-nats.md"
+    systems: ["Tracely", "NATS"]
+    protocol: "jetstream"
+
+# --- CROSS-CUTTING CONCERNS ---
+cross_cutting:
+  security:
+    refs: [SPEC-AUTH-001, SPEC-CRYPTO-001, SPEC-CRYPTO-002]
+  
+  performance:
+    refs: [SPEC-CACHE-001, SPEC-OBS-001]
+  
+  observability:
+    refs: [SPEC-OBS-001]

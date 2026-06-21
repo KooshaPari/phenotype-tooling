@@ -1,0 +1,129 @@
+# Copyright 2026 Phenotype Org
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# cargo-deny configuration for the nvms-sdk Rust crate (sdk/rust).
+# Schema: cargo-deny 0.19 (https://embarkstudios.github.io/cargo-deny/).
+#
+# Notes:
+#  * cargo-deny does NOT accept `--workspace`; it checks the workspace
+#    rooted at the manifest found in CWD (or via --manifest-path). Run from
+#    sdk/rust/ so this deny.toml is the one in effect.
+#  * sdk/rust/Cargo.toml declares an empty [workspace] table, making the SDK
+#    itself a virtual workspace root. Adding a real member here will require
+#    updating the [graph] section.
+#  * To regenerate from the upstream template: `cd sdk/rust && cargo deny init`.
+
+# ============================================================================
+# Root options
+# ============================================================================
+
+[graph]
+# Build the dep graph with every feature enabled so checks cover the full
+# optional surface (rest + grpc + dev-deps). CI can override per-invocation.
+all-features = true
+# Pruned crate IDs (Package ID Spec). Leave empty unless we need to drop
+# something heavy from the audit (e.g. an unused platform-specific crate).
+exclude = []
+
+[output]
+# Depth at which feature edges are drawn in inclusion graphs.
+feature-depth = 1
+
+# ============================================================================
+# Advisories — vulnerability / unmaintained / yanked crates
+# ============================================================================
+# Docs: https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
+
+[advisories]
+# Local cache for the advisory database checkout.
+db-path = "~/.cargo/advisory-db"
+# Upstream advisory DBs.
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# IDs listed here are silenced with a NOTE (still tracked). Keep empty in
+# committed config; add entries only with a linked tracking issue + reason.
+ignore = []
+# Use the system `git` binary to fetch the advisory DB (helpful for
+# authenticated proxies); keep false by default.
+git-fetch-with-cli = false
+
+# ============================================================================
+# Licenses — SPDX allow-list
+# ============================================================================
+# Docs: https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
+
+[licenses]
+# Permitted SPDX identifiers. Adjust as new deps are added; do NOT add
+# custom / LicenseRef-* identifiers here — use `exceptions` instead.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+    "OpenSSL",
+    "MPL-2.0",
+    "0BSD",
+    "Unlicense",
+]
+# Confidence floor for license detection (0.0–1.0). 0.8 matches upstream
+# template and avoids false positives on noisy license texts.
+confidence-threshold = 0.8
+# Per-crate license overrides (use sparingly, with a reason).
+exceptions = []
+
+[licenses.private]
+# Don't lint licenses for crates we publish only to private registries.
+ignore = true
+registries = []
+
+# ============================================================================
+# Bans — duplicate versions / wildcards / explicit deny
+# ============================================================================
+# Docs: https://embarkstudios.github.io/cargo-deny/checks/bans/cfg.html
+
+[bans]
+# Multiple versions of the same crate in the graph. Warn (not deny) so CI
+# catches drift without breaking the build on common dep churn.
+multiple-versions = "warn"
+# Forbid `*` / version-less requirements in Cargo.toml.
+wildcards = "deny"
+# Graph highlighting style for duplicate-version dot graphs.
+highlight = "all"
+# Default features lint levels (workspace vs external crates).
+workspace-default-features = "allow"
+external-default-features = "allow"
+# Don't accidentally ban our own workspace members under a deny-by-default
+# configuration.
+allow-workspace = true
+# Explicit deny list (empty by default; populate per code review).
+deny = []
+# Crates to skip when detecting duplicate versions.
+skip = []
+# Subtrees to skip recursively during duplicate detection.
+skip-tree = []
+
+# ============================================================================
+# Sources — registry / git controls
+# ============================================================================
+# Docs: https://embarkstudios.github.io/cargo-deny/checks/sources/cfg.html
+
+[sources]
+# Fail on crates pulled from registries outside the allow list.
+unknown-registry = "deny"
+# Fail on crates from git repos outside the allow list.
+unknown-git = "deny"
+# Allowed crate registries (defaults to crates.io when omitted).
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# Allowed git repositories (URLs).
+allow-git = []
+
+# Allow specific git-host orgs to be referenced without listing every repo.
+[sources.allow-org]
+github = ["rust-lang", "EmbarkStudios", "tokio-rs"]
+gitlab = []
+bitbucket = []

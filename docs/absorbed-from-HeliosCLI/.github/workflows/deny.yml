@@ -1,0 +1,126 @@
+name: deny
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    # Weekly on Tuesday at 06:42 UTC — offset from security-audit.
+    - cron: '42 6 * * 2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Rust: cargo-deny against codex-rs/deny.toml
+  #   - advisories: known security advisories
+  #   - bans:      crate restrictions
+  #   - licenses:  SPDX license allow/deny
+  #   - sources:   registry source restrictions
+  # ---------------------------------------------------------------------------
+  cargo-deny:
+    name: cargo-deny (codex-rs)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            codex-rs/.cargo/registry
+            codex-rs/.cargo/git
+            codex-rs/target
+          key: ${{ runner.os }}-cargo-deny-${{ hashFiles('codex-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-deny-
+
+      - name: Run cargo-deny check
+        uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v6
+        with:
+          rust-version: stable
+          manifest-path: codex-rs/Cargo.toml
+          command: check
+          arguments: --manifest-path codex-rs/Cargo.toml
+
+      - name: Upload cargo-deny JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-deny-report
+          path: codex-rs/target/cargo-deny.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Go: gomod check (license + vulnerability + module hygiene)
+  #   Skipped if no go.mod present in the repo (HeliosCLI is currently
+  #   Rust + Node + Python; this is forward-compatible for any future
+  #   Go workspace under go.mod or */go.mod).
+  # ---------------------------------------------------------------------------
+  gomod-check:
+    name: go mod check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Detect go.mod
+        id: detect
+        run: |
+          set -euo pipefail
+          mods=$(find . -name 'go.mod' -not -path './.worktrees/*' -not -path './target/*' -not -path './node_modules/*' 2>/dev/null | head -20)
+          if [ -z "$mods" ]; then
+            echo "has_gomod=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod files found in repository." >&2
+          else
+            echo "has_gomod=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "modules<<EOF"
+              printf '%s\n' "$mods"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Go
+        if: steps.detect.outputs.has_gomod == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run go mod verify + go vet
+        if: steps.detect.outputs.has_gomod == 'true'
+        run: |
+          set -euo pipefail
+          while IFS= read -r mod; do
+            [ -z "$mod" ] && continue
+            dir=$(dirname "$mod")
+            echo "::group::go mod verify ($dir)"
+            (cd "$dir" && go mod verify)
+            echo "::endgroup::"
+            echo "::group::go vet ($dir)"
+            (cd "$dir" && go vet ./... || true)
+            echo "::endgroup::"
+            echo "::group::govulncheck ($dir)"
+            (cd "$dir" && go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./... || true)
+            echo "::endgroup::"
+          done <<< "${{ steps.detect.outputs.modules }}"
+
+      - name: Skip gomod check
+        if: steps.detect.outputs.has_gomod != 'true'
+        run: |
+          echo "No go.mod present in the repository; skipping gomod-check."
+          echo "When a Go workspace is added, this job will activate automatically."

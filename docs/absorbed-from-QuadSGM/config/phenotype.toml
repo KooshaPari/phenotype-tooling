@@ -1,0 +1,8 @@
+[phenotype]
+repo = "4sgm"
+
+[flags]
+# Default feature flags - all disabled initially
+
+[config]
+# Default config values

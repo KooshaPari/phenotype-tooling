@@ -1,0 +1,39 @@
+# Self-Hosted Runners Configuration for 4sgm
+# This enables CI to run on your own machines instead of GitHub-hosted runners
+
+name: Self-Hosted Runners
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # Register a self-hosted runner
+  register-runner:
+    name: Register Self-Hosted Runner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download runner
+        run: |
+          mkdir -p actions-runner && cd actions-runner
+          curl -o runner.tar.gz -L https://github.com/actions/runner/releases/download/v2.321.0/actions-runner-osx-arm64-2.321.0.tar.gz
+          tar xzf runner.tar.gz
+
+      - name: Configure runner
+        run: |
+          cd actions-runner
+          ./config.sh --url https://github.com/kooshapari/4sgm --token ${{ secrets.GH_RUNNER_TOKEN }} --name "4sgm-runner" --labels "self-hosted"
+
+      - name: Run runner
+        run: |
+          cd actions-runner
+          ./run.sh
+
+# Alternative: Use GitHub's self-hosted runner scale-set
+# See: https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/autoscaling-with-self-hosted-runners
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+

@@ -1,0 +1,226 @@
+version: "3.0"
+
+# Global configuration
+environment:
+  - LOG_DIR=logs
+  - PYTHONUNBUFFERED=1
+  - PYTHONPATH=/Users/kooshapari/temp-PRODVERCEL/485/kush/4sgm
+  - PG_DATA_DIR=${HOME}/Library/PostgreSQL/15/data
+
+log_configuration:
+  location: logs/orchestrator.log
+  level: info
+  format: json
+
+processes:
+  # ============================================
+  # PHASE 1: Infrastructure (No Dependencies)
+  # ============================================
+
+  postgres:
+    description: "PostgreSQL 15 Database"
+    command: "pg_ctl -D ${HOME}/Library/PostgreSQL/15/data start -w"
+    working_dir: "."
+    is_daemon: false
+
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=4sgm
+
+    env_file: ".env"
+
+    startup:
+      type: notify
+      action: wait
+      timeout: 10s
+
+    shutdown:
+      timeout: 5s
+      signal: TERM
+
+    restart_policy:
+      backoff: exponential
+      max_restarts: 3
+      wait_period: 2s
+
+    health:
+      exec:
+        command: "pg_isready -U user -d 4sgm"
+      initial_delay: 2s
+      period: 5s
+      timeout: 3s
+      success_threshold: 1
+      failure_threshold: 3
+
+    log_configuration:
+      no_colors: false
+      mode: mixed
+      location: logs/postgres.log
+
+  redis:
+    description: "Redis Cache Server"
+    command: "redis-server --port 6379 --loglevel notice"
+    working_dir: "."
+
+    startup:
+      type: notify
+      action: wait
+      timeout: 5s
+
+    shutdown:
+      timeout: 3s
+      signal: TERM
+
+    restart_policy:
+      backoff: exponential
+      max_restarts: 3
+      wait_period: 1s
+
+    health:
+      exec:
+        command: "redis-cli ping"
+      initial_delay: 1s
+      period: 5s
+      timeout: 2s
+      success_threshold: 1
+      failure_threshold: 3
+
+    log_configuration:
+      no_colors: false
+      mode: mixed
+      location: logs/redis.log
+
+  # ============================================
+  # PHASE 2: MCP Server (Depends on Infra)
+  # ============================================
+
+  mcp_server:
+    description: "FastMCP Server with 25+ Tools"
+    command: "python -m fastmcp run mcp_server.server:mcp"
+    working_dir: "/Users/kooshapari/temp-PRODVERCEL/485/kush/4sgm/4sgm"
+
+    environment:
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/Users/kooshapari/temp-PRODVERCEL/485/kush/4sgm
+
+    env_file: "../.env"
+
+    depends_on:
+      postgres:
+        condition: process_healthy
+      redis:
+        condition: process_healthy
+
+    startup:
+      type: notify
+      action: wait
+      timeout: 10s
+
+    shutdown:
+      timeout: 3s
+      signal: TERM
+
+    restart_policy:
+      backoff: exponential
+      max_restarts: 5
+      wait_period: 2s
+
+    log_configuration:
+      no_colors: false
+      mode: mixed
+      location: ../logs/mcp_server.log
+
+  # ============================================
+  # PHASE 3: FastAPI Backend (Depends on MCP)
+  # ============================================
+
+  fastapi:
+    description: "FastAPI Backend with LangGraph Agent"
+    command: "python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000 --reload"
+    working_dir: "/Users/kooshapari/temp-PRODVERCEL/485/kush/4sgm/4sgm"
+
+    environment:
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/Users/kooshapari/temp-PRODVERCEL/485/kush/4sgm
+
+    env_file: "../.env"
+
+    depends_on:
+      mcp_server:
+        condition: process_healthy
+      postgres:
+        condition: process_healthy
+      redis:
+        condition: process_healthy
+
+    startup:
+      type: notify
+      action: wait
+      timeout: 15s
+
+    shutdown:
+      timeout: 5s
+      signal: TERM
+
+    restart_policy:
+      backoff: exponential
+      max_restarts: 5
+      wait_period: 2s
+
+    health:
+      exec:
+        command: "curl -f http://localhost:8000/health || exit 1"
+      initial_delay: 3s
+      period: 10s
+      timeout: 5s
+      success_threshold: 1
+      failure_threshold: 3
+
+    log_configuration:
+      no_colors: false
+      mode: mixed
+      location: ../logs/fastapi.log
+
+# ============================================
+# Optional: Development Tools (commented out)
+# ============================================
+
+#  caddy:
+#    description: "Caddy Reverse Proxy"
+#    command: "caddy run --config Caddyfile"
+#    working_dir: "."
+#
+#    depends_on:
+#      fastapi:
+#        condition: process_healthy
+#
+#    startup:
+#      type: notify
+#      action: wait
+#      timeout: 5s
+#
+#    shutdown:
+#      timeout: 3s
+#      signal: TERM
+#
+#    health:
+#      exec:
+#        command: "curl -f http://localhost:9000/health || exit 1"
+#      initial_delay: 2s
+#      period: 10s
+#      timeout: 3s
+#
+#    log_configuration:
+#      no_colors: false
+#      mode: mixed
+#      location: logs/caddy.log
+
+# ============================================
+# Configuration
+# ============================================
+
+is_mutually_exclusive: false
+log_level: info

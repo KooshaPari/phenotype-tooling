@@ -1,0 +1,57 @@
+[collection]
+name = "Paginary"
+version = "0.0.1"
+repo = "https://github.com/KooshaPari/paginary"
+description = "Federated documentation hub — handbooks, specs, X-driven dev, user journeys"
+authors = ["Phenotype Team"]
+license = "MIT"
+theme = "documentation"
+
+[[package]]
+name = "@paginary/handbook"
+version = "0.0.1"
+status = "alpha"
+stability = "0.x"
+publish_target = "npm"
+description = "Playbooks and governance guides for Phenotype ecosystem"
+type = "vitepress-app"
+source = "PhenoHandbook"
+
+[[package]]
+name = "@paginary/specs"
+version = "0.0.1"
+status = "alpha"
+stability = "0.x"
+publish_target = "npm"
+description = "Feature specs, ADRs, and design documentation"
+type = "vitepress-app"
+source = "PhenoSpecs"
+
+[[package]]
+name = "@paginary/xdd"
+version = "0.0.1"
+status = "stub"
+stability = "0.x"
+publish_target = "npm"
+description = "Test-driven development, BDD, and QA governance"
+type = "vitepress-app"
+source = "phenotype-xdd"
+
+[[package]]
+name = "@paginary/journeys"
+version = "0.0.1"
+status = "alpha"
+stability = "0.x"
+publish_target = "npm"
+description = "User flows, personas, and customer journeys"
+type = "vitepress-app"
+source = "phenotype-journeys"
+
+[[package]]
+name = "@paginary/theme"
+version = "0.0.1"
+status = "beta"
+stability = "0.x"
+publish_target = "npm"
+description = "Shared VitePress theme + impeccable CSS baseline"
+type = "npm-package"

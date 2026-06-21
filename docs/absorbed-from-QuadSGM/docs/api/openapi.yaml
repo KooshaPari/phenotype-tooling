@@ -1,0 +1,393 @@
+openapi: 3.0.0
+info:
+  title: 4SGM API
+  description: LangGraph + MCP Server for 4SGM Wholesale Chatbot
+  version: 1.0.0
+  contact:
+    name: 4SGM Support
+    url: https://4sgm.com/support
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.4sgm.com
+    description: Production server
+
+tags:
+  - name: Health & Status
+    description: Server health and status endpoints
+  - name: Tools
+    description: Available MCP tools listing
+  - name: Chat
+    description: Chat and conversation endpoints
+  - name: Sessions
+    description: Chat session management
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns server health status and MCP connection state
+      tags:
+        - Health & Status
+      operationId: health_check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, degraded]
+                    example: ok
+                  mcp:
+                    type: boolean
+                    description: Whether MCP server is connected
+                    example: true
+                  tools:
+                    type: integer
+                    description: Number of available MCP tools
+                    example: 25
+
+  /tools:
+    get:
+      summary: List available MCP tools
+      description: Returns list of all 25 available MCP tools with descriptions
+      tags:
+        - Tools
+      operationId: list_tools
+      responses:
+        '200':
+          description: List of MCP tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 25
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: get_product
+                        description:
+                          type: string
+                          example: Get detailed product information
+        '503':
+          description: Tools not loaded - MCP server not available
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Tools not loaded
+
+  /api/session:
+    post:
+      summary: Create new chat session
+      description: Creates a new chat session and returns session ID
+      tags:
+        - Sessions
+      operationId: create_session
+      responses:
+        '200':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSession'
+
+  /api/session/{session_id}:
+    get:
+      summary: Get chat session
+      description: Retrieves an existing chat session by ID
+      tags:
+        - Sessions
+      operationId: get_session
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          description: Session ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSession'
+        '404':
+          description: Session not found
+
+  /chat:
+    post:
+      summary: Send chat message to agent
+      description: Sends a message to the LangGraph agent and receives response
+      tags:
+        - Chat
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessage'
+      responses:
+        '200':
+          description: Chat response received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '503':
+          description: Tools not loaded - MCP server unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+  /chat/stream:
+    post:
+      summary: Stream chat response
+      description: Sends a message and streams the response in real-time using Server-Sent Events
+      tags:
+        - Chat
+      operationId: chat_stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessage'
+      responses:
+        '200':
+          description: Streaming response (Server-Sent Events)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: event-stream
+        '503':
+          description: Tools not loaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+components:
+  schemas:
+    ChatMessage:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Chat message content
+          example: "What's the price for 100 units of product PROD-001?"
+        session_id:
+          type: string
+          format: uuid
+          description: Optional session ID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    ChatResponse:
+      type: object
+      required:
+        - text
+        - session_id
+      properties:
+        text:
+          type: string
+          description: Agent response
+          example: "The bulk price for 100 units of PROD-001 is $89.99 per unit, totaling $8,999.00 with a 10% discount."
+        session_id:
+          type: string
+          format: uuid
+          description: Session ID for this conversation
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    ChatSession:
+      type: object
+      required:
+        - sessionId
+        - createdAt
+        - messages
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: Unique session identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        createdAt:
+          type: string
+          format: date-time
+          description: Session creation timestamp
+          example: "2025-01-15T10:30:00Z"
+        messages:
+          type: array
+          description: Chat messages in session
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          example: PROD-001
+        sku:
+          type: string
+          example: SKU-PROD-001
+        name:
+          type: string
+          example: Premium Widget
+        description:
+          type: string
+          example: High-quality product
+        price:
+          type: number
+          format: float
+          example: 99.99
+        category:
+          type: string
+          example: Electronics
+        rating:
+          type: number
+          format: float
+          example: 4.5
+        reviews:
+          type: integer
+          example: 128
+
+    Order:
+      type: object
+      properties:
+        order_id:
+          type: string
+          example: ORD-X1Y2Z3W4
+        user_id:
+          type: string
+          example: USER-001
+        status:
+          type: string
+          enum: [confirmed, processing, shipped, delivered]
+          example: confirmed
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+        shipping_address:
+          type: string
+          example: "123 Main St, New York, NY 10001"
+        tracking_number:
+          type: string
+          example: TRK-A1B2C3D4
+        total:
+          type: number
+          format: float
+          example: 1234.56
+
+    Cart:
+      type: object
+      properties:
+        cart_id:
+          type: string
+          example: CART-A1B2C3D4
+        user_id:
+          type: string
+          example: USER-001
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id:
+                type: string
+              quantity:
+                type: integer
+              unit_price:
+                type: number
+                format: float
+              line_total:
+                type: number
+                format: float
+        total:
+          type: number
+          format: float
+
+    ShippingOption:
+      type: object
+      properties:
+        id:
+          type: string
+          example: standard
+        name:
+          type: string
+          example: Standard
+        days:
+          type: integer
+          example: 5
+        cost:
+          type: number
+          format: float
+          example: 50.00
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+x-swagger-router-config:
+  strict: true
+  unknown: forbid
