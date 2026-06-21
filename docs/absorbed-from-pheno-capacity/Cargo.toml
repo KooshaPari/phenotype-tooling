@@ -1,0 +1,41 @@
+[package]
+name = "pheno-capacity"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Pure-math library for VRAM estimation, model-fit scoring, and hardware capacity planning. Extracted from HwLedger per ADR-035A. no_std compatible; zero dependencies."
+repository = "https://github.com/KooshaPari/pheno-capacity"
+keywords = ["vram", "llm", "capacity", "phenotype", "pheno-capacity", "model-fit", "inference", "attention", "kv-cache", "moe"]
+categories = ["no-std", "science", "data-structures"]
+publish = true
+rust-version = "1.75"
+readme = "README.md"
+
+[features]
+# Optional `alloc` support: enables `warning_labels`, which returns a
+# `Vec<&'static str>`. Core math functions remain `no_std`-compatible
+# with no allocations.
+default = []
+alloc = []
+
+# Empty [workspace] table declares this crate as a standalone package,
+# intentionally NOT a member of the root monorepo workspace (which contains
+# 3000+ files including submodules, worktrees, and 50+ sub-repos).
+# Consumers add it to their own workspace or depend on it via path/git dep.
+# This mirrors the standalone pattern used by pheno-config, pheno-errors,
+# pheno-context, pheno-port-adapter.
+[workspace]
+
+[lib]
+name = "pheno_capacity"
+path = "src/lib.rs"
+
+# ADR-035A: pheno-capacity is pure math. No deps, no_std compatible,
+# deterministic. All test coverage targets 80%+ (lib tier per ADR-023).
+[dependencies]
+
+[dev-dependencies]
+
+[[package.metadata.docs.rs]]
+# Enable docs.rs build on publish.
+targets = ["x86_64-unknown-linux-gnu"]

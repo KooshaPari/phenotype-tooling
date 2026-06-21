@@ -1,0 +1,10 @@
+# Concurrency: cancel-in-progress on PRs, queue on main
+
+# Drop this block at the top of any consumer workflow (replaces
+# the empty `on:` workflow_call result with a concurrency group).
+# Cancel-in-progress keeps PR feedback fast; queue on main keeps
+# main-branch runs deterministic.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}

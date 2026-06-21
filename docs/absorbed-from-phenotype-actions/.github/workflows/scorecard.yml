@@ -1,0 +1,46 @@
+name: OSSF Scorecard
+
+# Reusable OpenSSF Scorecard workflow. Produces a SARIF report
+# and uploads it to the code-scanning dashboard. Designed to run
+# weekly and on branch-protection-rule events. Pins to the
+# latest OSSF action SHA at release time.
+
+on:
+  workflow_call:
+    inputs:
+      results-format:
+        description: "Scorecard output format (sarif or json)."
+        type: string
+        default: "sarif"
+      results-file:
+        description: "Output filename for the results file."
+        type: string
+        default: "scorecard-results.sarif"
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+jobs:
+  scorecard:
+    name: OSSF Scorecard
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Run OSSF Scorecard
+        uses: ossf/scorecard-action@0864cf19026789058feabb7e87baa5f140aac736
+        with:
+          results_file: ${{ inputs.results-file }}
+          results_format: ${{ inputs.results-format }}
+          publish_results: true
+
+      - name: Upload SARIF
+        if: ${{ inputs.results-format == 'sarif' }}
+        uses: github/codeql-action/upload-sarif@3c3b3a67d02e4e81b2ec508d9db3689e2e5e455c
+        with:
+          sarif_file: ${{ inputs.results-file }}

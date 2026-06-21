@@ -1,0 +1,86 @@
+name: Cargo Deny
+
+# Reusable cargo-deny gate. Enforces license policy, advisory DB
+# freshness, duplicate-version warnings, banned-crate list, and
+# source registry restrictions. Reads `deny.toml` at the
+# configured manifest path. Designed to run on PRs touching
+# `Cargo.toml` / `Cargo.lock` / `deny.toml` plus a weekly schedule.
+
+on:
+  workflow_call:
+    inputs:
+      toolchain:
+        description: "Rust toolchain channel."
+        type: string
+        default: "stable"
+      manifest-path:
+        description: "Path to the Cargo.toml to operate on."
+        type: string
+        default: "."
+      working-directory:
+        description: "Working directory to cd into before running cargo deny."
+        type: string
+        default: "."
+      deny-args:
+        description: "Extra arguments passed to cargo deny check."
+        type: string
+        default: ""
+      cache-key-prefix:
+        description: "Prefix for the Swatinem/rust-cache key."
+        type: string
+        default: "phenotype-deny"
+    secrets:
+      cargo-registry-token:
+        description: "Optional CARGO_REGISTRY_TOKEN for private registries."
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-deny:
+    name: cargo-deny check
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        with:
+          toolchain: ${{ inputs.toolchain }}
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@9e47d9b5827e31b32b0484a89be05b309643038b
+        with:
+          cache-on-failure: true
+          key: ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-
+            ${{ inputs.cache-key-prefix }}-
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@7ab0d5fba0c0bcf5a8c9f2d1c1470e7a21d8ed63
+        with:
+          tool: cargo-deny
+
+      - name: Run cargo-deny
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.cargo-registry-token }}
+        run: |
+          cargo deny --manifest-path ${{ inputs.manifest-path }} --locked check ${{ inputs.deny-args }}
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## cargo-deny summary"
+            echo ""
+            echo "cargo-deny enforces license policy, advisories, bans, sources, and duplicates."
+            echo "Configure in \`deny.toml\`. Result: **${{ job.status }}**"
+          } >> "$GITHUB_STEP_SUMMARY"

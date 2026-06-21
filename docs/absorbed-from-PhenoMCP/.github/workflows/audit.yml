@@ -1,0 +1,111 @@
+name: Dependency & Secrets Audit
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly Monday 06:00 UTC — pick up newly published advisories
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Rust — cargo audit against the RustSec advisory database
+  # ---------------------------------------------------------------------------
+  cargo-audit:
+    name: cargo audit (RustSec)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo-audit advisory DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/advisory-db
+          key: ${{ runner.os }}-cargo-audit-advisory-db
+          restore-keys: |
+            ${{ runner.os }}-cargo-audit-advisory-db-
+
+      - name: Install cargo-audit
+        run: cargo install --locked cargo-audit --version ^0.21
+
+      - name: Run cargo audit
+        run: cargo audit --deny warnings --deny unmaintained --deny unsound --deny notice
+
+  # ---------------------------------------------------------------------------
+  # Node / TypeScript — npm audit against the npm registry advisory feed
+  # ---------------------------------------------------------------------------
+  npm-audit:
+    name: npm audit (Node)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3eb9dcf8a4ab64a0c2a852d559 # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (devDeps included)
+        run: npm install --no-audit --no-fund --ignore-scripts
+
+      - name: Run npm audit (moderate+)
+        # Only fail on moderate or higher severity; low/info still surfaced in log
+        run: npm audit --audit-level=moderate
+
+  # ---------------------------------------------------------------------------
+  # Python — pip audit against the PyPI advisory feed
+  # ---------------------------------------------------------------------------
+  pip-audit:
+    name: pip audit (Python)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69b951aaceb520aed535bc410edebf00828 # v5.6.0
+        with:
+          python-version: '3.14'
+
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip pip-audit
+
+      - name: Audit dependency manifests
+        run: |
+          pip-audit \
+            --requirement pyproject.toml \
+            --requirement uv.lock \
+            --strict \
+            --vulnerability-service osv \
+            --no-deps
+
+  # ---------------------------------------------------------------------------
+  # Secrets — Trufflehog verified-secrets scan (best-effort)
+  # ---------------------------------------------------------------------------
+  trufflehog:
+    name: Trufflehog secrets scan
+    runs-on: ubuntu-24.04
+    continue-on-error: true # informational only; rotated secrets don't fail the build
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - uses: trufflesecurity/trufflehog@f0739f1cb54b8f079723abb60e79a23e5c1c275a # v-latest: @main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          extra_args: --only-verified --fail

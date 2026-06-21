@@ -1,0 +1,103 @@
+name: Cargo Audit
+
+# Reusable cargo-audit gate. Cross-checks Cargo.lock against the
+# RustSec advisory database. Use a weekly schedule so the DB is
+# refreshed even when no PR is open. Always run on PRs that
+# modify `Cargo.lock`.
+
+on:
+  workflow_call:
+    inputs:
+      toolchain:
+        description: "Rust toolchain channel."
+        type: string
+        default: "stable"
+      manifest-path:
+        description: "Path to the Cargo.toml to operate on."
+        type: string
+        default: "."
+      working-directory:
+        description: "Working directory to cd into before running cargo audit."
+        type: string
+        default: "."
+      audit-args:
+        description: "Extra arguments passed to cargo audit (e.g. '--ignore RUSTSEC-2024-0001')."
+        type: string
+        default: ""
+      cache-key-prefix:
+        description: "Prefix for the Swatinem/rust-cache key."
+        type: string
+        default: "phenotype-audit"
+      fail-on-warnings:
+        description: "Fail the job on audit warnings (not just errors)."
+        type: boolean
+        default: false
+    secrets:
+      cargo-registry-token:
+        description: "Optional CARGO_REGISTRY_TOKEN for private registries."
+        required: false
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  cargo-audit:
+    name: cargo-audit (RustSec)
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        with:
+          toolchain: ${{ inputs.toolchain }}
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@9e47d9b5827e31b32b0484a89be05b309643038b
+        with:
+          cache-on-failure: true
+          key: ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-
+            ${{ inputs.cache-key-prefix }}-
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@7ab0d5fba0c0bcf5a8c9f2d1c1470e7a21d8ed63
+        with:
+          tool: cargo-audit
+
+      - name: Run cargo-audit
+        id: audit
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.cargo-registry-token }}
+        run: |
+          set +e
+          OUTPUT=$(cargo audit --json --deny=${{ inputs.fail-on-warnings && 'warnings' || 'unmaintained' }} ${{ inputs.audit-args }} 2>&1)
+          RC=$?
+          echo "$OUTPUT" | tail -50
+          exit $RC
+
+      - name: Upload SARIF (when vulnerabilities found)
+        if: failure() && hashFiles('audit.json') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@3c3b3a67d02e4e81b2ec508d9db3689e2e5e455c
+        with:
+          sarif_file: audit.json
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## cargo-audit summary"
+            echo ""
+            echo "Result: **${{ steps.audit.outcome }}**"
+            echo ""
+            echo "Configure advisories to ignore in \`.cargo/audit.toml\` or via \`audit-args\` input."
+          } >> "$GITHUB_STEP_SUMMARY"

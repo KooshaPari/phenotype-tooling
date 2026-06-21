@@ -1,0 +1,45 @@
+version: "2"
+
+linters:
+  enable:
+    - dogsled
+    - errcheck
+    - exhaustive
+    - gocritic
+    - gosec
+    - misspell
+    - noctx
+    - nolintlint
+    - staticcheck
+    - unused
+  settings:
+    errcheck:
+      check-type-assertions: true
+      exclude-functions:
+        - (*os.File).Close
+        - io.ReadAll
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocritic:
+      disabled-checks:
+        - unnamedResult
+    gosec:
+      excludes:
+        - G104
+    misspell:
+      locale: US
+    nolintlint:
+      require-explanation: true
+    staticcheck:
+      checks:
+        - all
+        - -SA1012
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/KooshaPari

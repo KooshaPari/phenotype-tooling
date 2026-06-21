@@ -1,0 +1,46 @@
+# How to consume a reusable workflow from phenotype-actions
+
+# In a consumer repo's `.github/workflows/ci.yml`:
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# --- Concurrency hardening: cancel superseded PR runs, queue main runs ---
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# --- Minimal token permissions ---
+permissions:
+  contents: read
+
+jobs:
+  # Pin all calls to a specific ref/SHA of phenotype-actions to avoid
+  # supply-chain surprises. Update the SHA on a deliberate release.
+  rust-ci:
+    uses: kooshapari/phenotype-actions/.github/workflows/rust-ci.yml@v0.1.0
+    with:
+      toolchain: "stable"
+      cache-key-prefix: "myrepo-rust"
+
+  cargo-deny:
+    uses: kooshapari/phenotype-actions/.github/workflows/cargo-deny.yml@v0.1.0
+
+  cargo-audit:
+    uses: kooshapari/phenotype-actions/.github/workflows/cargo-audit.yml@v0.1.0
+
+  coverage:
+    uses: kooshapari/phenotype-actions/.github/workflows/coverage.yml@v0.1.0
+    with:
+      min-coverage: 70
+    secrets:
+      codecov-token: ${{ secrets.CODECOV_TOKEN }}
+
+  scorecard:
+    uses: kooshapari/phenotype-actions/.github/workflows/scorecard.yml@v0.1.0

@@ -1,0 +1,146 @@
+name: Coverage Gate
+
+# Reusable coverage workflow. Runs cargo-tarpaulin to produce a
+# Cobertura XML report, uploads to Codecov (if configured), and
+# fails the build when the line coverage percentage falls below
+# the configured threshold. Threshold defaults to 70% — bump
+# per-repo as appropriate.
+
+on:
+  workflow_call:
+    inputs:
+      toolchain:
+        description: "Rust toolchain channel."
+        type: string
+        default: "stable"
+      manifest-path:
+        description: "Path to the Cargo.toml to operate on."
+        type: string
+        default: "."
+      working-directory:
+        description: "Working directory to cd into before running cargo."
+        type: string
+        default: "."
+      min-coverage:
+        description: "Minimum line coverage percentage required to pass (0-100)."
+        type: number
+        default: 70
+      fail-on-drop:
+        description: "Fail the job if coverage dropped vs. the cached baseline."
+        type: boolean
+        default: false
+      tarpaulin-args:
+        description: "Extra arguments passed to cargo tarpaulin."
+        type: string
+        default: ""
+      cache-key-prefix:
+        description: "Prefix for the Swatinem/rust-cache key."
+        type: string
+        default: "phenotype-coverage"
+    secrets:
+      codecov-token:
+        description: "Codecov upload token (optional; skip if not using Codecov)."
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: tarpaulin coverage (>= ${{ inputs.min-coverage }}%)
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        with:
+          toolchain: ${{ inputs.toolchain }}
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@9e47d9b5827e31b32b0484a89be05b309643038b
+        with:
+          cache-on-failure: true
+          key: ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-
+            ${{ inputs.cache-key-prefix }}-
+
+      - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@7ab0d5fba0c0bcf5a8c9f2d1c1470e7a21d8ed63
+        with:
+          tool: cargo-tarpaulin
+
+      - name: Generate coverage report
+        id: tarpaulin
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -o pipefail
+          cargo tarpaulin \
+            --manifest-path ${{ inputs.manifest-path }} \
+            --locked \
+            --workspace \
+            --timeout 600 \
+            --out Xml \
+            --output-dir ./coverage \
+            ${{ inputs.tarpaulin-args }}
+
+      - name: Enforce minimum coverage
+        id: gate
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          MIN: ${{ inputs.min-coverage }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f coverage/cobertura.xml ]]; then
+            echo "::error::coverage/cobertura.xml not produced"
+            exit 1
+          fi
+          PCT=$(grep -E 'line-rate="([0-9.]+)"' coverage/cobertura.xml \
+            | head -n1 \
+            | sed -E 's/.*line-rate="([0-9.]+)".*/\1/')
+          if [[ -z "$PCT" ]]; then
+            echo "::error::Could not extract line-rate from cobertura.xml"
+            exit 1
+          fi
+          # line-rate is 0-1; convert to percent
+          PCT_INT=$(awk -v r="$PCT" 'BEGIN { printf("%d", r*100) }')
+          echo "Coverage: ${PCT_INT}% (threshold: ${MIN}%)"
+          if (( PCT_INT < MIN )); then
+            echo "::error::Coverage ${PCT_INT}% is below threshold ${MIN}%"
+            exit 1
+          fi
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
+        with:
+          name: coverage-report
+          path: ${{ inputs.working-directory }}/coverage/
+          retention-days: 14
+
+      - name: Upload to Codecov
+        if: success() && hashFiles('codecov.yml') != ''
+        continue-on-error: true
+        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574
+        with:
+          files: ${{ inputs.working-directory }}/coverage/cobertura.xml
+          token: ${{ secrets.codecov-token }}
+          fail_ci_if_error: false
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Coverage summary"
+            echo ""
+            echo "Threshold: **${{ inputs.min-coverage }}%**"
+            echo "Result: **${{ steps.gate.outcome }}**"
+            echo ""
+            echo "Configure in \`tarpaulin.toml\` (workspace root)."
+          } >> "$GITHUB_STEP_SUMMARY"

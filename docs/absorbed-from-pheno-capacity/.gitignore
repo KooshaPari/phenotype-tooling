@@ -1,0 +1,29 @@
+# .gitignore — pheno-capacity
+
+# Rust / Cargo
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+# Keep Cargo.lock for binary crates; for libraries it's optional
+# (per https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html).
+# We do commit it for reproducibility of the published crate.
+
+# Coverage
+lcov.info
+*.lcov
+target/llvm-cov-html/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.a
+*.lib

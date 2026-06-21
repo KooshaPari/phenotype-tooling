@@ -1,0 +1,39 @@
+name: "Pinned SHA"
+description: "Echoes the canonical pinned SHA for a list of well-known third-party GitHub Actions. Centralises supply-chain hygiene so every consumer repo can reference the same trusted commit."
+author: "Phenotype"
+
+inputs:
+  action:
+    description: "Logical name of the action to look up (e.g. 'checkout', 'rust-toolchain', 'rust-cache', 'install-action', 'upload-artifact', 'codeql-upload', 'scorecard', 'codecov')."
+    type: string
+    required: true
+
+outputs:
+  sha:
+    description: "Pinned commit SHA for the requested action."
+    value: ${{ steps.lookup.outputs.sha }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: lookup
+      shell: bash
+      run: |
+        declare -A SHAS=(
+          ["checkout"]="34e114876b0b11c390a56381ad16ebd13914f8d5"
+          ["rust-toolchain"]="b3b07ba8b418998c39fb20f53e8b695cdcc8de1b"
+          ["rust-cache"]="9e47d9b5827e31b32b0484a89be05b309643038b"
+          ["install-action"]="7ab0d5fba0c0bcf5a8c9f2d1c1470e7a21d8ed63"
+          ["upload-artifact"]="50769540e7f4bd5e21e526ee35c689e35e0d6874"
+          ["download-artifact"]="37930b7e2987e7a3a05c25fee1e5fc7c2db45d8f"
+          ["codeql-upload"]="3c3b3a67d02e4e81b2ec508d9db3689e2e5e455c"
+          ["scorecard"]="0864cf19026789058feabb7e87baa5f140aac736"
+          ["codecov"]="0565863a31f2c772f9f0395002a31e3f06189574"
+        )
+        SHA="${SHAS[${{ inputs.action }}]}"
+        if [[ -z "$SHA" ]]; then
+          echo "::error::Unknown action: ${{ inputs.action }}"
+          exit 1
+        fi
+        echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+        echo "Pinned ${{ inputs.action }} -> $SHA" >> "$GITHUB_STEP_SUMMARY"

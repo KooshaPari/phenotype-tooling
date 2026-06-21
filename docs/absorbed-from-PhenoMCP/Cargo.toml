@@ -1,0 +1,41 @@
+[package]
+name = "pheno-mcp"
+version = "0.1.0"
+edition = "2024"
+description = "PhenoMCP - Model Context Protocol"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "pheno-mcp"
+path = "src/main.rs"
+
+[dependencies]
+pheno-mcp-providers = { path = "crates/pheno-mcp-providers" }
+tokio = { version = "1.44", features = ["macros", "rt-multi-thread"] }
+
+[workspace]
+members = [
+  "crates/pheno-ports",
+  "crates/pheno-meilisearch",
+  "crates/pheno-qdrant",
+  "crates/pheno-mcp-providers",
+  "crates/phenotype-surrealdb"
+]
+resolver = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+opt-level = 3
+
+[workspace.dependencies]
+clap-ext = { git = "https://github.com/KooshaPari/clap-ext", tag = "v0.1.0" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+async-trait = "0.1"
+tokio = { version = "1.44" }
+tracing = "0.1"
+tokio-test = "0.4"
+reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "charset", "http2"] }

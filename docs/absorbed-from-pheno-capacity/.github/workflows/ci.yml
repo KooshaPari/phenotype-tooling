@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: test (stable, 1.75 MSRV)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.75
+        with:
+          components: rustfmt, clippy
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+      - name: cargo clippy (all targets, -D warnings)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: cargo test --all-features
+        run: cargo test --all-features --no-fail-fast -- --nocapture
+      - name: cargo test --doc
+        run: cargo test --doc --all-features
+
+  coverage:
+    name: coverage (llvm-cov, lib tier ≥ 80%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: generate lcov
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
+      - name: enforce 80% lib coverage
+        run: |
+          COVERAGE=$(cargo llvm-cov --all-features --no-fail-fast --summary-only 2>&1 | grep -E "^Filename|Total" | tail -1 | awk '{print $NF}' | tr -d '%')
+          echo "lib coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "::error::lib coverage $COVERAGE% is below 80% (ADR-023 Rule 3.1)"
+            exit 1
+          fi
+      - uses: codecov/codecov-action@v4
+        with:
+          files: lcov.info
+
+  no_std:
+    name: build (no_std, no test harness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: build no_std
+        # Verify the crate compiles under `#![no_std]` by building a
+        # tiny consumer that does no allocation. This is a structural
+        # check only; the real test is in `cargo test --all-features`.
+        run: |
+          mkdir -p target/no_std_check && cd target/no_std_check
+          cargo init --lib --name no_std_check 2>/dev/null || true
+          cat > src/lib.rs <<'EOF'
+            #![no_std]
+            extern crate pheno_capacity;
+            #[no_mangle]
+            pub extern "C" fn _vram(p: u64) -> u64 {
+                use pheno_capacity::{vram_estimate, Dtype};
+                vram_estimate(p, Dtype::F16)
+            }
+          EOF
+          cat > Cargo.toml <<'EOF'
+            [package]
+            name = "no_std_check"
+            version = "0.0.0"
+            edition = "2021"
+            [dependencies]
+            pheno-capacity = { path = "../.." }
+            [lib]
+            crate-type = ["staticlib"]
+          EOF
+          cargo +stable build --release

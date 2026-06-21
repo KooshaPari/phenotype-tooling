@@ -1,0 +1,47 @@
+# Reusable Rust audit workflow (weekly security audit + cargo deny)
+#
+# Usage:
+#   jobs:
+#     rust-audit:
+#       uses: KooshaPari/pheno-ci-templates/.github/workflows/rust-audit.yml@main
+#       secrets: inherit
+#
+name: Reusable Rust Audit
+
+on:
+  workflow_call:
+    inputs:
+      schedule:
+        description: "Cron schedule for scheduled runs"
+        required: false
+        type: string
+        default: "0 6 * * 1"
+      os:
+        description: "Runner OS"
+        required: false
+        type: string
+        default: ubuntu-latest
+      msrv:
+        description: "MSRV"
+        required: false
+        type: string
+        default: stable
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Security audit
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.msrv }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-audit
+        run: cargo install --locked cargo-audit
+      - name: cargo audit
+        run: cargo audit --deny warnings

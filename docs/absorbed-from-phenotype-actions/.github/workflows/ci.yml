@@ -1,0 +1,30 @@
+name: Validate reusable workflows
+
+# Smoke-test the reusable workflows in this repo. Each workflow
+# is invoked via `workflow_call` against a tiny throwaway fixture
+# crate to confirm it parses and reaches the cargo step without
+# error. This is *not* a coverage gate — it is a syntax + wiring
+# test that runs in <2 minutes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint-workflows:
+    name: actionlint all workflows
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color

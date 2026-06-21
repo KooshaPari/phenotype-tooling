@@ -1,0 +1,71 @@
+# justfile — pheno-capacity
+#
+# Pheno-wide standard task runner (ADR-023 / ADR-035A).
+# `just` is the canonical entry point for: build, test, lint, format, coverage.
+#
+# Usage:
+#   just                 # show this help
+#   just build           # cargo build --release
+#   just test            # cargo test (60 unit + 6 doc = 66 tests)
+#   just test-alloc      # cargo test --features alloc (61 unit tests)
+#   just test-nostd      # cargo test --no-default-features
+#   just doc             # cargo test --doc
+#   just check           # cargo check (fast type-check)
+#   just fmt             # cargo fmt --all
+#   just fmt-check       # cargo fmt --all -- --check
+#   just clippy          # cargo clippy --all-targets -- -D warnings
+#   just cov             # cargo llvm-cov (lcov.info)
+#   just clean           # cargo clean
+
+set shell := ["bash", "-uc"]
+
+# Default recipe: list available recipes.
+default:
+    @just --list
+
+# Build release artifacts.
+build:
+    cargo build --release
+
+# Type-check only (fast; no codegen).
+check:
+    cargo check --all-targets
+
+# Run unit tests (default features).
+test:
+    cargo test
+
+# Run unit tests with alloc feature (enables warning_labels).
+test-alloc:
+    cargo test --features alloc
+
+# Run unit tests on the no_std build (no alloc).
+test-nostd:
+    cargo test --no-default-features
+
+# Run doc tests only.
+doc:
+    cargo test --doc
+
+# Run the full test matrix (default + alloc + no_std + doc).
+test-all: test test-alloc test-nostd doc
+
+# Format all code.
+fmt:
+    cargo fmt --all
+
+# Check formatting without rewriting.
+fmt-check:
+    cargo fmt --all -- --check
+
+# Lint with clippy, deny warnings.
+clippy:
+    cargo clippy --all-targets --all-features -- -D warnings
+
+# Generate coverage report (lcov.info via cargo-llvm-cov).
+cov:
+    cargo llvm-cov --all-features --lcov --output-path lcov.info
+
+# Remove build artifacts.
+clean:
+    cargo clean

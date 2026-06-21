@@ -1,0 +1,19 @@
+[package]
+name = "pheno-qdrant"
+version = "0.1.0"
+edition = "2024"
+description = "Qdrant SearchPort adapter for PhenoMCP"
+
+[dependencies]
+pheno-ports = { path = "../pheno-ports" }
+async-trait.workspace = true
+tokio = { workspace = true, features = ["full"] }
+# native-tls (SChannel/OpenSSL) avoids aws-lc-rs C/NASM build-toolchain requirement; see stabilize branch
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio-test.workspace = true

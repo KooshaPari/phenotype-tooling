@@ -1,0 +1,161 @@
+# Reusable Rust CI workflow
+# Usage:
+#   jobs:
+#     rust-ci:
+#       uses: KooshaPari/pheno-ci-templates/.github/workflows/rust-ci.yml@main
+#       with:
+#         os: ubuntu-latest
+#         msrv: "1.75"
+#       secrets: inherit
+#
+name: Reusable Rust CI
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: "Runner OS (ubuntu-latest, macos-latest, windows-latest)"
+        required: false
+        type: string
+        default: ubuntu-latest
+      msrv:
+        description: "Minimum Supported Rust Version (or 'stable')"
+        required: false
+        type: string
+        default: stable
+      timeout-check:
+        description: "Timeout for cargo check job (minutes)"
+        required: false
+        type: number
+        default: 15
+      timeout-test:
+        description: "Timeout for cargo test job (minutes)"
+        required: false
+        type: number
+        default: 30
+      timeout-lint:
+        description: "Timeout for cargo clippy job (minutes)"
+        required: false
+        type: number
+        default: 15
+      timeout-deny:
+        description: "Timeout for cargo deny job (minutes)"
+        required: false
+        type: number
+        default: 10
+      extra-workspaces:
+        description: "Extra workspace dirs for cache (JSON array string)"
+        required: false
+        type: string
+        default: "[]"
+      locked:
+        description: "Pass --locked to cargo commands"
+        required: false
+        type: boolean
+        default: true
+      deny-check:
+        description: "Run cargo deny check"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  fmt:
+    name: Format (cargo fmt --check)
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ inputs.timeout-check }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.msrv }}
+          components: rustfmt
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            ${{ inputs.extra-workspaces }}
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Lint (cargo clippy)
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ inputs.timeout-lint }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.msrv }}
+          components: clippy
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            ${{ inputs.extra-workspaces }}
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets ${{ inputs.locked && '--locked' || '' }} -- -D warnings
+
+  build:
+    name: Build (cargo build)
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ inputs.timeout-check }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.msrv }}
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            ${{ inputs.extra-workspaces }}
+      - name: cargo build
+        run: cargo build --workspace ${{ inputs.locked && '--locked' || '' }} --all-targets
+
+  test:
+    name: Test (cargo test)
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ inputs.timeout-test }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.msrv }}
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            ${{ inputs.extra-workspaces }}
+      - name: cargo test
+        run: cargo test --workspace ${{ inputs.locked && '--locked' || '' }} --all-targets
+
+  deny:
+    if: ${{ inputs.deny-check }}
+    name: Lint (cargo deny)
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ inputs.timeout-deny }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.msrv }}
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            ${{ inputs.extra-workspaces }}
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny
+      - name: cargo deny check
+        run: cargo deny check

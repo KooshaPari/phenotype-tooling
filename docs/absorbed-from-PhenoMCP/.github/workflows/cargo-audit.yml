@@ -1,0 +1,36 @@
+name: cargo-audit
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+on:
+  push:
+    branches: [main]
+    paths: ['Cargo.lock', 'Cargo.toml']
+  pull_request:
+    paths: ['Cargo.lock', 'Cargo.toml']
+  schedule:
+    - cron: '37 5 * * 3'  # weekly Wednesday
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Unfixable transitive advisories pulled in via `surrealdb` (PR #144).
+          # - RUSTSEC-2023-0071 (`rsa` Marvin Attack): no upstream patch;
+          #   workaround is "don't expose rsa over a network-observable channel",
+          #   which we don't.  Surrealdb uses it via sqlx for internal JWT auth.
+          # - RUSTSEC-2023-0089 (`atomic-polyfill` unmaintained): no security
+          #   impact (purely an "unmaintained" warning); pulled in via
+          #   `heapless` -> `rstar` -> `geo-types` -> `surrealdb-core`.
+          # Both will be re-evaluated the next time `surrealdb` upstream
+          # changes its dep tree.
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2023-0089

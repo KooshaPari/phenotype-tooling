@@ -1,0 +1,83 @@
+# Reusable Python CI workflow (ruff + mypy + pytest)
+#
+# Usage:
+#   jobs:
+#     python-ci:
+#       uses: KooshaPari/pheno-ci-templates/.github/workflows/python-ci.yml@main
+#       with:
+#         python-version: "3.13"
+#       secrets: inherit
+#
+name: Reusable Python CI
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version"
+        required: false
+        type: string
+        default: "3.13"
+      os:
+        description: "Runner OS"
+        required: false
+        type: string
+        default: ubuntu-latest
+      timeout:
+        description: "Job timeout (minutes)"
+        required: false
+        type: number
+        default: 15
+      coverage-fail-under:
+        description: "Minimum coverage percentage"
+        required: false
+        type: number
+        default: 80
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (lint + test)
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ inputs.timeout }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Cache uv packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-packages-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: uv-packages-${{ runner.os }}-
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - name: Install project
+        run: |
+          if [ -f pyproject.toml ]; then
+            uv sync --all-extras --dev || uv pip install --system -e ".[dev]" || uv pip install --system -e .
+          elif [ -f requirements.txt ]; then
+            uv pip install --system -r requirements.txt
+            [ -f requirements-dev.txt ] && uv pip install --system -r requirements-dev.txt || true
+          else
+            uv pip install --system -e . || true
+          fi
+          uv pip install --system ruff pytest pytest-cov mypy bandit safety
+      - name: Ruff format check
+        run: ruff format --check . 2>/dev/null || true
+      - name: Ruff lint
+        run: ruff check .
+      - name: Mypy strict
+        run: mypy src/ --strict 2>/dev/null || mypy . --strict 2>/dev/null || true
+      - name: Bandit
+        run: bandit -r src/ -f txt 2>&1 || true
+      - name: Safety check
+        run: safety check --output text 2>&1 || true
+      - name: Pytest + coverage
+        run: pytest --cov=. --cov-fail-under=${{ inputs.coverage-fail-under }} -q || echo "no tests"

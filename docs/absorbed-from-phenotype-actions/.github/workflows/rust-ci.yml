@@ -1,0 +1,152 @@
+name: Rust CI
+
+# Reusable Rust CI workflow. Runs the standard battery of cargo
+# quality gates (fmt, clippy, check, test) on a pinned stable
+# toolchain, with concurrency-cancelling enabled at the consumer
+# level. Consumers should call this via `uses:` from their own
+# workflow file and set `with:` to override defaults as needed.
+
+on:
+  workflow_call:
+    inputs:
+      toolchain:
+        description: "Rust toolchain channel (e.g. stable, 1.88.0, nightly-2025-01-01)."
+        type: string
+        default: "stable"
+      command-prefix:
+        description: "Optional prefix inserted before every cargo invocation (e.g. 'cargo +nightly')."
+        type: string
+        default: ""
+      manifest-path:
+        description: "Path to the Cargo.toml to operate on (defaults to repo root)."
+        type: string
+        default: "."
+      working-directory:
+        description: "Working directory to cd into before running cargo."
+        type: string
+        default: "."
+      enable-fmt:
+        description: "Run cargo fmt --check."
+        type: boolean
+        default: true
+      enable-clippy:
+        description: "Run cargo clippy with -D warnings."
+        type: boolean
+        default: true
+      enable-check:
+        description: "Run cargo check --workspace --all-targets."
+        type: boolean
+        default: true
+      enable-test:
+        description: "Run cargo test --workspace."
+        type: boolean
+        default: true
+      clippy-extra-args:
+        description: "Extra arguments appended to cargo clippy."
+        type: string
+        default: ""
+      cache-key-prefix:
+        description: "Prefix for the Swatinem/rust-cache key (allows splitting caches per repo)."
+        type: string
+        default: "phenotype-rust"
+    outputs:
+      rustfmt-passed:
+        description: "Whether cargo fmt --check passed."
+        value: ${{ jobs.ci.outputs.rustfmt_passed }}
+      clippy-passed:
+        description: "Whether cargo clippy -- -D warnings passed."
+        value: ${{ jobs.ci.outputs.clippy_passed }}
+      check-passed:
+        description: "Whether cargo check passed."
+        value: ${{ jobs.ci.outputs.check_passed }}
+      test-passed:
+        description: "Whether cargo test passed."
+        value: ${{ jobs.ci.outputs.test_passed }}
+    secrets:
+      cargo-registry-token:
+        description: "Optional CARGO_REGISTRY_TOKEN for private registries."
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: rust-ci (${{ inputs.toolchain }})
+    runs-on: ubuntu-24.04
+    outputs:
+      rustfmt_passed: ${{ steps.fmt.outcome == 'success' }}
+      clippy_passed: ${{ steps.clippy.outcome == 'success' }}
+      check_passed: ${{ steps.check.outcome == 'success' }}
+      test_passed: ${{ steps.test.outcome == 'success' }}
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_NET_RETRY: 10
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        with:
+          toolchain: ${{ inputs.toolchain }}
+          components: rustfmt,clippy
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@9e47d9b5827e31b32b0484a89be05b309643038b
+        with:
+          cache-on-failure: true
+          key: ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ inputs.cache-key-prefix }}-${{ inputs.toolchain }}-
+            ${{ inputs.cache-key-prefix }}-
+
+      - name: Show toolchain info
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          ${{ inputs.command-prefix }} rustc --version
+          ${{ inputs.command-prefix }} cargo --version
+
+      - name: cargo fmt --check
+        id: fmt
+        if: ${{ inputs.enable-fmt }}
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.command-prefix }} cargo fmt --all --manifest-path ${{ inputs.manifest-path }} -- --check
+
+      - name: cargo check (workspace, all targets)
+        id: check
+        if: ${{ inputs.enable-check }}
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.command-prefix }} cargo check --workspace --all-targets --locked --manifest-path ${{ inputs.manifest-path }}
+
+      - name: cargo clippy (deny warnings)
+        id: clippy
+        if: ${{ inputs.enable-clippy }}
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          ${{ inputs.command-prefix }} cargo clippy --workspace --all-targets --locked --manifest-path ${{ inputs.manifest-path }} -- -D warnings ${{ inputs.clippy-extra-args }}
+
+      - name: cargo test (workspace)
+        id: test
+        if: ${{ inputs.enable-test }}
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.cargo-registry-token }}
+        run: ${{ inputs.command-prefix }} cargo test --workspace --locked --manifest-path ${{ inputs.manifest-path }} -- --nocapture
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Rust CI summary"
+            echo ""
+            echo "| Gate | Result |"
+            echo "|------|--------|"
+            echo "| cargo fmt | ${{ steps.fmt.outcome || 'skipped' }} |"
+            echo "| cargo check | ${{ steps.check.outcome || 'skipped' }} |"
+            echo "| cargo clippy | ${{ steps.clippy.outcome || 'skipped' }} |"
+            echo "| cargo test | ${{ steps.test.outcome || 'skipped' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

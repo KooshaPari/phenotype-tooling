@@ -1,0 +1,25 @@
+[package]
+name = "phenotype-surrealdb"
+version = "0.1.0"
+edition = "2024"
+description = "Fork of surrealdb/surrealdb with Pheno extensions"
+license = "Apache-2.0"
+repository = "https://github.com/surrealdb/surrealdb"
+
+[dependencies]
+pheno-ports = { path = "../pheno-ports" }
+async-trait.workspace = true
+# TODO(surreal): swap to a real surrealdb driver when a persistent backend is
+# required.  For now PhenoSurreal delegates to the in-memory SkillStoragePort
+# double so the workspace compiles and tests pass without a running SurrealDB
+# instance.  Keep this dep pinned for future integration work.
+surrealdb = { version = "=3.1.5", default-features = false, features = ["protocol-ws"] }
+tokio = { workspace = true, features = ["full"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow = "1.0"
+tracing.workspace = true
+
+[dev-dependencies]
+tokio-test.workspace = true

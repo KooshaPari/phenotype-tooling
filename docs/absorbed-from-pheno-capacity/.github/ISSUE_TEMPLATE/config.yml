@@ -1,0 +1,16 @@
+# .github/ISSUE_TEMPLATE/config.yml — pheno-capacity
+#
+# Pheno-wide standard issue template chooser (ADR-023 / governance).
+# Limits blank issues; routes users to the right template.
+
+blank_issues_enabled: false
+contact_links:
+  - name: pheno-capacity documentation
+    url: https://github.com/KooshaPari/pheno-capacity#readme
+    about: README, SPEC, methodology, CHANGELOG, and llms.txt
+  - name: ADR / governance
+    url: https://github.com/KooshaPari/phenotype-org-governance
+    about: Architecture Decision Records (ADR-023, ADR-035A, etc.)
+  - name: Discussions
+    url: https://github.com/KooshaPari/pheno-capacity/discussions
+    about: Questions, design proposals, and capacity-math Q&A

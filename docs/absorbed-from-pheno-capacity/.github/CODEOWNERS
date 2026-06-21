@@ -1,0 +1,9 @@
+# CODEOWNERS — pheno-capacity
+#
+# Per ADR-023: pheno-* lib crates are owned by the worklog-schema
+# circle (which also owns pheno-worklog-schema, pheno-config,
+# pheno-context, pheno-errors, pheno-port-adapter, pheno-cli-base).
+#
+# Last updated: 2026-06-18 (ADR-035A extraction)
+
+* @KooshaPari

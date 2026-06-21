@@ -1,0 +1,16 @@
+[package]
+name = "pheno-ports"
+version = "0.1.0"
+edition = "2024"
+description = "Hexagonal port traits for PhenoMCP infrastructure"
+
+[dependencies]
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
+tokio-test.workspace = true
