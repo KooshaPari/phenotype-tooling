@@ -1,0 +1,16 @@
+{
+  "name": "phenoPatch",
+  "languages": [
+    "rust"
+  ],
+  "primary_language": "rust",
+  "status": "archived",
+  "has_readme": true,
+  "has_spec": true,
+  "has_plan": true,
+  "type": "core",
+  "path": "repos/phenoPatch",
+  "absorbed_into": "KooshaPari/phenotype-tooling crates/phenotype-diff",
+  "archived_at": "2026-06-16",
+  "deprecation_note": "Absorbed into phenotype-diff; source repo cleared for deletion."
+}
