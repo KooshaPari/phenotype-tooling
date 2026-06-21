@@ -1,0 +1,67 @@
+# apikit — llms.txt
+
+> Concise machine-readable index of `apikit` (https://github.com/KooshaPari/apikit),
+> the direct continuation of the now-archived Apisync project
+> (https://github.com/KooshaPari/Apisync).
+
+## Project
+
+- Name: apikit
+- Type: Rust library crate (HTTP toolkit — REST, GraphQL, WebSocket adapters)
+- Edition: 2021
+- License: MIT OR Apache-2.0
+- Source repo: https://github.com/KooshaPari/apikit
+- Source-of-truth repo (archived): https://github.com/KooshaPari/Apisync
+- Migration date: 2026-06-20
+- Source archive (audit trail): /tmp/apisync-final
+
+## Layout
+
+- src/ — library source (REST / GraphQL / WebSocket adapters, application layer, domain, infrastructure)
+- benches/ — Criterion benchmarks
+- fuzz/ — fuzz targets
+- tests/ — unit + integration tests
+- .github/workflows/ — 12 CI workflows absorbed from Apisync (ci, release, audit, cargo-deny, coverage, quality-gate, sast, scorecard, security-deep-scan, security-guard, trufflehog, pages-deploy)
+- docs/ — apikit specs (SPEC.md, FUNCTIONAL_REQUIREMENTS.md, TEST_COVERAGE_MATRIX.md)
+- docs/governance/ — absorbed Apisync governance: AGENTS.md, CLAUDE.md, ADR.md, README.apisync.md, STATUS.apisync.md, PLAN.apisync.md, PRD.apisync.md, SPEC.apisync.md, FUNCTIONAL_REQUIREMENTS.apisync.md, TEST_COVERAGE_MATRIX.apisync.md, CHANGELOG.apisync.md, adr/ (5 ADRs), .vitepress/config.mts
+- docs/sessions/ — absorbed Apisync journeys/, stories/, traceability/
+- docs/research/ — absorbed Apisync research (SOTA.md)
+- config/ — reserved for runtime configuration
+- CHANGELOG.md — apikit's own changelog (dated 2026-06-20 migration entry)
+
+## Public API surface (top-level)
+
+- apikit::adapters::rest — typed REST client
+- apikit::adapters::graphql — async GraphQL client
+- apikit::adapters::websocket — WebSocket send/receive
+- apikit::application::router — request routing
+- apikit::application::handler — handler dispatch
+- apikit::application::middleware — composable middleware pipeline
+- apikit::domain — domain types
+- apikit::infrastructure — logging, config adapters
+
+## Spec / requirements (apikit)
+
+- docs/SPEC.md
+- docs/FUNCTIONAL_REQUIREMENTS.md
+- docs/TEST_COVERAGE_MATRIX.md
+
+## Spec / requirements (Apisync provenance)
+
+- docs/governance/SPEC.apisync.md
+- docs/governance/FUNCTIONAL_REQUIREMENTS.apisync.md
+- docs/governance/TEST_COVERAGE_MATRIX.apisync.md
+
+## Architecture Decision Records
+
+- docs/governance/adr/001-hexagonal-architecture.md
+- docs/governance/adr/002-hyper-over-axum.md
+- docs/governance/adr/003-async-graphql.md
+- docs/governance/adr/004-tokio-tungstenite.md
+- docs/governance/adr/005-criterion.md
+
+## Provenance / migration record
+
+- CHANGELOG.md — dated 2026-06-20 entry: "Absorbed governance, docs, CI, and tooling from archived Apisync repo"
+- README.md — Provenance section
+- docs/governance/CHANGELOG.apisync.md — original Apisync changelog (preserved verbatim)

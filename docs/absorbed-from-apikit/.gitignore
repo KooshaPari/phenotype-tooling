@@ -1,0 +1,27 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Python (fuzz tooling, scripts)
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Testing / fuzzing artifacts
+**/mutants.out/
+debug
+*.pdb

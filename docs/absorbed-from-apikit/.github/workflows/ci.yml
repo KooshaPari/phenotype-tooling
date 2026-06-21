@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Rust CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@9b8cccef289f0b43e9bafd4af825251398900941 # v2
+
+      - name: Check
+        run: cargo check --all-targets
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Audit
+        run: |
+          cargo install cargo-audit --locked
+          git clone https://github.com/RustSec/advisory-db.git /tmp/advisory-db
+          cd /tmp/advisory-db && git checkout a406e06cdd5e1809872e188112c63c5fc9a6634d
+          cd ${{ github.workspace }}
+          cargo audit --db /tmp/advisory-db
+
+      - name: Format
+        run: cargo fmt -- --check
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@9b8cccef289f0b43e9bafd4af825251398900941 # v2
+
+      - name: Audit
+        run: |
+          cargo install cargo-audit --locked
+          git clone https://github.com/RustSec/advisory-db.git /tmp/advisory-db
+          cd /tmp/advisory-db && git checkout a406e06cdd5e1809872e188112c63c5fc9a6634d
+          cd ${{ github.workspace }}
+          cargo audit --db /tmp/advisory-db
+
+  phenotype-validate:
+    name: Governance Validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Check governance files exist
+        run: |
+          set -euo pipefail
+          for f in AGENTS.md CODEOWNERS CONTRIBUTING.md LICENSE SECURITY.md; do
+            if [ -f "$f" ]; then echo "  ✓ $f"; else echo "  ✗ MISSING: $f"; exit 1; fi
+          done

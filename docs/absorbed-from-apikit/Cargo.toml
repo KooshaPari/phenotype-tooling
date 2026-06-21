@@ -1,0 +1,51 @@
+[package]
+name = "apikit"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP toolkit — REST, GraphQL, and WebSocket adapters (migrated from Apisync, https://github.com/KooshaPari/Apisync)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/apikit"
+# Source-of-truth repo (now archived): https://github.com/KooshaPari/Apisync
+# Migration date: 2026-06-20 — see CHANGELOG.md
+# Provenance map and absorbed content: see README.md and docs/governance/
+
+[lib]
+name = "apikit"
+path = "src/lib.rs"
+
+[dependencies]
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hyper = { version = "1.0", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio", "server", "http1"] }
+http = "1.0"
+http-body-util = "0.1"
+bytes = "1"
+tokio = { version = "1", features = ["net", "rt", "rt-multi-thread", "macros", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+log = "0.4"
+async-graphql = "7"
+tokio-tungstenite = "0.24"
+futures = "0.3"
+
+[dev-dependencies]
+clap = { version = "4.0", features = ["derive"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+reqwest = { version = "0.12", features = ["json"] }
+proptest = "1.5"
+
+[profile.release]
+opt-level = 3
+
+[[bench]]
+name = "perf"
+harness = false
+
+[[bench]]
+name = "graphql_benchmark"
+harness = false
+
+[workspace]
+members = ["."]
