@@ -67,7 +67,7 @@ dependencies = [
     "uvicorn>=0.23.0",
     # python-multipart is needed by audio_routes.py (File/Form uploads), which
     # server.py unconditionally imports regardless of the [audio] extra.
-    "python-multipart>=0.0.5",
+    "python-multipart>=0.0.31",
     # JSON Schema validation for structured output
     "jsonschema>=4.0.0",
     # Harmony format parser for gpt-oss models
