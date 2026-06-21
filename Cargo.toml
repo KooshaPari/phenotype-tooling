@@ -24,6 +24,7 @@ members = [
     "crates/phenotype-config",
     "crates/phenotype-diff",
     "crates/worktree-manager",
+    "crates/phenotype-tooling-observability",
     "bin/hook-entry",
 ]
 

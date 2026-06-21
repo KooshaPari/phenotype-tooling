@@ -1,6 +1,7 @@
 //! Claude Code PreToolUse hook.
 //! Reads the hook event from stdin, writes a budget+quota annotation to stdout.
 use anyhow::Result;
+use phenotype_tooling_observability::prelude::{init_tracing, info, instrument};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::Read;
@@ -18,7 +19,12 @@ struct HookOutput {
     budget_line: String,
 }
 
+#[instrument(skip_all, fields(component = "hook-entry"))]
 fn main() -> Result<()> {
+    let otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+        .unwrap_or_else(|_| "http://localhost:4317".to_string());
+    init_tracing("hook-entry", &otlp_endpoint).ok();
+    info!(version = env!("CARGO_PKG_VERSION"), "hook-entry starting");
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
 
