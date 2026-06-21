@@ -1,0 +1,126 @@
+# justfile — thegent-sharecli
+# Command runner (https://github.com/casey/just). Mirrors the CI matrix so
+# "just ci" reproduces exactly what GitHub Actions will run.
+#
+# Install:
+#   brew install just
+#
+# Quickstart:
+#   just --list
+#   just ci          # full local CI gate (lint + type + test + audit)
+#   just grade       # audit_scorecard.json roll-up
+
+set shell := ["bash", "-uc"]
+set dotenv-load := true
+
+# ---------- knobs ---------------------------------------------------------
+
+py            := env_var_or_default("PY", "python3")
+venv          := env_var_or_default("VENV", ".venv")
+pyright_ver   := env_var_or_default("PYRIGHT_VER", "1.1.390")
+ruff_ver      := env_var_or_default("RUFF_VER", "0.6.0")
+pytest_args   := env_var_or_default("PYTEST_ARGS", "-q --maxfail=1 --disable-warnings")
+cov_threshold := env_var_or_default("COV_THRESHOLD", "70")
+
+# ---------- default -------------------------------------------------------
+
+default: help
+
+# Show the recipe list with descriptions
+help:
+    @just --list --unsorted
+
+# ---------- env -----------------------------------------------------------
+
+# Create or refresh the local venv and install the project + dev extras
+bootstrap:
+    @test -d {{ venv }} || {{ py }} -m venv {{ venv }}
+    {{ venv }}/bin/python -m pip install --upgrade pip wheel
+    {{ venv }}/bin/python -m pip install -e ".[dev]"
+    {{ venv }}/bin/python -m pip install "pyright>={{ pyright_ver }}" "ruff>={{ ruff_ver }}" pip-audit
+
+# Remove the local venv and caches
+clean:
+    rm -rf {{ venv }} .pytest_cache .ruff_cache .pyright_cache build dist *.egg-info
+
+# ---------- build ---------------------------------------------------------
+
+# Build sdist + wheel into dist/
+build:
+    {{ venv }}/bin/python -m pip install --upgrade build
+    {{ venv }}/bin/python -m build
+
+# ---------- test ----------------------------------------------------------
+
+# Run the test suite
+test:
+    {{ venv }}/bin/python -m pytest {{ pytest_args }} tests
+
+# Run the test suite with coverage; fails under COV_THRESHOLD%
+cover:
+    {{ venv }}/bin/python -m pytest --cov=thegent_cli_share --cov-report=term-missing --cov-fail-under={{ cov_threshold }} tests
+
+# ---------- lint / type / format -----------------------------------------
+
+# Ruff lint (no fixes)
+lint:
+    {{ venv }}/bin/ruff check .
+
+# Ruff lint with autofix
+lint-fix:
+    {{ venv }}/bin/ruff check --fix .
+
+# Strict type-check the whole package
+typecheck:
+    {{ venv }}/bin/python -m pyright
+
+# Ruff format (apply)
+fmt:
+    {{ venv }}/bin/ruff format .
+
+# Check formatting (CI mode; no writes)
+fmt-check:
+    {{ venv }}/bin/ruff format --check .
+
+# Aggregate lint + type + format-check (mirrors the CI "lint" job)
+preflight: lint fmt-check typecheck
+    @echo "✓ preflight OK"
+
+# ---------- audit / deny / score -----------------------------------------
+
+# Scan installed deps for known vulnerabilities (pip-audit)
+audit:
+    {{ venv }}/bin/pip-audit --strict
+
+# cargo-deny gate (no-op today; activates automatically when Cargo.toml appears)
+deny:
+    @if [ -f Cargo.toml ]; then \
+        echo "→ cargo-deny"; \
+        cargo deny check 2>/dev/null || cargo install --locked cargo-deny && cargo deny check; \
+    else \
+        echo "skip deny: no Cargo.toml in this repo"; \
+    fi
+
+# OpenSSF Scorecard — local score via scorecard-action outputs
+grade:
+    @test -f audit_scorecard.json && jq '.date, .score' audit_scorecard.json || echo "no audit_scorecard.json"
+
+# ---------- ci (everything GitHub Actions will run) -----------------------
+
+# Full local CI gate
+ci: bootstrap preflight test cover audit deny
+    @echo "✓ local CI gate passed"
+
+# ---------- release -------------------------------------------------------
+
+# Bump version in pyproject.toml (use: just bump 0.2.0)
+bump version:
+    {{ venv }}/bin/python - <<'PY'
+import re, sys, pathlib
+v = "{{ version }}"
+p = pathlib.Path("pyproject.toml")
+src = p.read_text()
+out = re.sub(r'version = "[^"]+"', f'version = "{v}"', src)
+p.write_text(out)
+print(f"→ pyproject.toml version = {v}")
+PY

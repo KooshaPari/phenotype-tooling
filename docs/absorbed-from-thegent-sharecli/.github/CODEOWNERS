@@ -1,0 +1,27 @@
+# CODEOWNERS — GitHub auto-assigns reviewers from these rules.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Order matters: the LAST matching rule wins. Default sponsor first,
+# then targeted owners for high-blast-radius paths.
+
+# ---- default sponsor (everything not otherwise matched) -----------------
+*                          @kooshapari
+
+# ---- release / supply-chain surfaces -----------------------------------
+/.github/workflows/        @kooshapari
+/.github/CODEOWNERS        @kooshapari
+/deny.toml                 @kooshapari
+/justfile                  @kooshapari
+/pyproject.toml            @kooshapari
+
+# ---- public API + CLI entry points -------------------------------------
+/src/thegent_cli_share/cli/          @kooshapari
+/src/thegent_cli_share/application/  @kooshapari
+/src/thegent_cli_share/domain/       @kooshapari
+
+# ---- docs / governance -------------------------------------------------
+/docs/                            @kooshapari
+/CHANGELOG.md                     @kooshapari
+/SECURITY.md                      @kooshapari
+/CODE_OF_CONDUCT.md               @kooshapari
+/CONTRIBUTING.md                  @kooshapari

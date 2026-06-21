@@ -1,0 +1,52 @@
+name: cargo-deny
+
+# cargo-deny advisory / license / source gate.
+#
+# NOTE: This repository is currently Python (pyproject.toml). This workflow
+# is a no-op until a Cargo.toml lands at the repo root — once it does, the
+# `if: hashFiles('Cargo.toml') != ''` guard below flips on and the gate
+# activates automatically using deny.toml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    name: cargo-deny check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Skip when no Cargo.toml exists yet
+    if: hashFiles('Cargo.toml') != ''
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Install Rust toolchain
+        # TODO(security): pin to a commit SHA. Track dtolnay/rust-toolchain releases.
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        # TODO(security): pin to a commit SHA. Track Swatinem/rust-cache releases.
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          cache-on-failure: true
+
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny
+
+      - name: cargo deny check (advisories, licenses, bans, sources)
+        run: cargo deny check

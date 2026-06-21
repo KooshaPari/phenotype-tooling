@@ -1,0 +1,53 @@
+name: OpenSSF Scorecard
+
+# OpenSSF Scorecard (https://scorecard.dev) — measures the project's
+# security posture against a published checklist (branch-protection,
+# dependency-update-tool, code-review, SAST, …).
+#
+# Runs weekly + on every push to main; uploads SARIF to the Code Scanning
+# dashboard so the trend is visible in the Security tab.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "21 5 * * 1"  # Mondays 05:21 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # SARIF upload
+  security-events: write
+  # Required for private repos; ignored for public
+  id-token: write
+
+jobs:
+  scorecard:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@62b66e5e6308318e0c3e7d75d54c0c4e9b3b5c33 # v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@4dd16135b69a43b6c8efb853346f8387d74d5d3d # v3.27.0
+        with:
+          sarif_file: results.sarif

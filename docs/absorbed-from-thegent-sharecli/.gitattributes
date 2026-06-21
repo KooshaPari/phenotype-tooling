@@ -1,0 +1,53 @@
+# .gitattributes — normalize line endings + drive linguist/diff stats.
+# See https://git-scm.com/docs/gitattributes
+
+# Default: LF on checkout, no CRLF conversion
+*                 text=auto eol=lf
+
+# Scripts / configs: keep line endings as-is, mark as text
+*.sh              text eol=lf
+*.py              text eol=lf
+*.toml            text eol=lf
+*.yml             text eol=lf
+*.yaml            text eol=lf
+*.json            text eol=lf
+*.md              text eol=lf
+justfile          text eol=lf
+Makefile          text eol=lf
+.gitattributes    text eol=lf
+
+# Binary — never diff
+*.png             binary
+*.jpg             binary
+*.jpeg            binary
+*.gif             binary
+*.ico             binary
+*.webp            binary
+*.pdf             binary
+*.zip             binary
+*.gz              binary
+*.tgz             binary
+*.whl             binary
+*.tar             binary
+*.lock            -diff
+
+# Vendored license metadata (collapse huge license blocks in diffs)
+**/LICENSE        -diff
+**/NOTICE         -diff
+
+# GitHub linguist — declare what to count and what to ignore
+.github/          linguist-documentation
+docs/             linguist-documentation
+*.md              linguist-documentation
+*.yml             linguist-vendored
+.gitattributes    linguist-vendored
+audit_scorecard.json linguist-vendored
+
+# Exclude generated/build artefacts from blame + archive
+.venv/            export-ignore
+build/            export-ignore
+dist/             export-ignore
+.pytest_cache/    export-ignore
+.ruff_cache/      export-ignore
+.pyright_cache/   export-ignore
+*.egg-info/       export-ignore
