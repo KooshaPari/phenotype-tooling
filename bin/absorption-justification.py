@@ -27,24 +27,51 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
-from typing import Any
+from pathlib import Path
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
+
+def today_iso() -> str:
+    """Return today's date in YYYY-MM-DD format."""
+    return dt.date.today().isoformat()
 
 
 def gh_api(path: str, paginate: bool = True) -> Any:
     cmd = ["gh", "api", path]
     if paginate:
         cmd.append("--paginate")
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if proc.returncode != 0:
-        sys.stderr.write(f"[absorption-justification][ERROR] gh api {path} failed: {proc.stderr.strip()}\n")
+    # gh api writes JSON to stdout, but may interleave progress messages on stderr.
+    # We only care about stdout for JSON parsing.
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
+    except subprocess.TimeoutExpired:
+        sys.stderr.write(f"[absorption-justification][ERROR] gh api {path} timed out\n")
         return None
-    return json.loads(proc.stdout) if proc.stdout.strip() else []
-
-
-def today_iso() -> str:
-    return dt.datetime.utcnow().strftime("%Y-%m-%d")
+    except FileNotFoundError:
+        sys.stderr.write(f"[absorption-justification][ERROR] gh CLI not found in PATH\n")
+        return None
+    if proc.returncode != 0:
+        # 404 means the repo doesn't exist (tombstone / never existed) — treat as empty
+        if proc.returncode == 1 and "Not Found" in proc.stderr:
+            return []
+        sys.stderr.write(f"[absorption-justification][ERROR] gh api {path} failed: {proc.stderr.strip()[:200]}\n")
+        return None
+    cleaned = _strip_ansi(proc.stdout).strip()
+    if not cleaned:
+        return []  # empty response, not an error
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        sys.stderr.write(f"[absorption-justification][ERROR] gh api {path} returned non-JSON: {exc.msg} (first 200 chars: {cleaned[:200]!r})\n")
+        return None
 
 
 def collect_metadata(repo: str) -> dict | None:
@@ -77,12 +104,12 @@ def load_template(template_path: str) -> str:
         return fh.read()
 
 
-def render_audit(template: str, meta: dict, branches: list[str], date: str) -> str:
+def render_audit(template: str, meta: dict, branches: list[str], date: str, repo: str) -> str:
+    repo_name = repo.split("/")[-1]
     branch_table = "\n".join(f"| {b} | remote | n/a | verified {date} |" for b in branches) or "| (no remote branches) | n/a | n/a | n/a |"
     if not meta:
         head = f"# Absorption-Justification Audit: {date} — {repo_name}\n\n> Source repo was unreachable via `gh api` on {date}. Audit is provisional.\n\n"
         return head + template
-
     src = meta["full_name"]
     body = template
     body = body.replace("{{SOURCE}}", src)
@@ -109,8 +136,15 @@ def write_audit(audits_dir: str, repo: str, date: str, body: str) -> str:
 
 
 def grade_audit(registry_root: str, audit_path: str) -> dict | None:
-    grader = os.path.join(registry_root, "registry", "audit-absorption-justification", "grade.sh")
-    if not os.path.exists(grader):
+    """Locate grade.sh relative to the registry root (preferred) and fall back
+    to the orchestrator's own directory (this script lives in
+    phenotype-tooling/bin, but the registry grader is the canonical location)."""
+    candidates = [
+        os.path.join(registry_root, "registry", "audit-absorption-justification", "grade.sh"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "grade.sh"),
+    ]
+    grader = next((c for c in candidates if os.path.exists(c)), None)
+    if not grader:
         return None
     proc = subprocess.run(["bash", grader, audit_path], capture_output=True, text=True)
     if proc.returncode != 0:
@@ -161,8 +195,16 @@ def main() -> int:
     args = p.parse_args()
 
     date = today_iso()
+    # Resolve all paths against the orchestrator's own directory first (this
+    # script lives in phenotype-tooling/bin), then fall back to user-supplied
+    # locations. This way the tool is self-contained and works regardless of
+    # how phenotype-registry and phenotype-tooling are laid out on disk.
+    orchestrator_dir = os.path.dirname(os.path.abspath(__file__))
     audits_dir = args.audits_dir or os.path.join(args.registry_root, "audits", "absorption-justifications")
-    template_path = args.template or os.path.join(args.registry_root, "..", "phenotype-tooling", "bin", "ABSORPTION_TEMPLATE.md")
+    template_path = (
+        args.template
+        or os.path.join(orchestrator_dir, "ABSORPTION_TEMPLATE.md")
+    )
     disposition_path = args.disposition or os.path.join(args.registry_root, "registry", "disposition-index.json")
 
     template = load_template(template_path)
@@ -175,7 +217,7 @@ def main() -> int:
             sys.stderr.write(f"[absorption-justification] {repo}: collecting metadata\n")
         meta = collect_metadata(repo)
         branches = collect_branches(repo)
-        body = render_audit(template, meta, branches, date)
+        body = render_audit(template, meta, branches, date, repo)
         audit_path = os.path.join(audits_dir, f"{repo.split('/')[-1]}-{date}.md")
 
         if args.dry_run:

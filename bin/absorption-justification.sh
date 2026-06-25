@@ -52,11 +52,17 @@ if [[ -z "$AUDITS_DIR" ]]; then
   AUDITS_DIR="${REGISTRY_ROOT}/audits/absorption-justifications"
 fi
 if [[ -z "$TEMPLATE" ]]; then
-  # Prefer sibling phenotype-tooling checkout; fall back to bin/ABSORPTION_TEMPLATE.md
+  # Search order:
+  #   1. Orchestrator's own bin/ (canonical location on this machine)
+  #   2. Sibling phenotype-tooling checkout next to the registry root
+  #   3. Direct bin/ under the registry root
+  #   4. Explicit env override $ABSORPTION_TEMPLATE
   for cand in \
+      "$(dirname "$0")/ABSORPTION_TEMPLATE.md" \
+      "${ABSORPTION_TEMPLATE:-}" \
       "${REGISTRY_ROOT}/../phenotype-tooling/bin/ABSORPTION_TEMPLATE.md" \
       "${REGISTRY_ROOT}/bin/ABSORPTION_TEMPLATE.md"; do
-    if [[ -f "$cand" ]]; then
+    if [[ -n "$cand" && -f "$cand" ]]; then
       TEMPLATE="$cand"; break
     fi
   done
