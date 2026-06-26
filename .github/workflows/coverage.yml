@@ -16,21 +16,21 @@ env:
 
 jobs:
   lint:
-    if: ${{ !contains(env.SKIP, 'lint') }}
+    if: ${{ !contains(vars.SKIP || '', 'lint') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - name: Run lint
         run: echo "Running language-specific lint"
   test:
-    if: ${{ !contains(env.SKIP, 'test') }}
+    if: ${{ !contains(vars.SKIP || '', 'test') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - name: Run tests
         run: echo "Running language-specific tests"
   coverage:
-    if: ${{ !contains(env.SKIP, 'coverage') }}
+    if: ${{ !contains(vars.SKIP || '', 'coverage') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
