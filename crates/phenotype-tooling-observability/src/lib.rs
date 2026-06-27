@@ -1,23 +1,38 @@
-//! Phenotype-tooling observability — thin re-export of `pheno-tracing`.
+//! Phenotype-tooling observability — OTLP tracing + Prometheus metrics
+//! + HTTP `/health` + SLOs.
 //!
 //! pheno-tracing is the fleet-canonical OTLP tracer (ADR-012). This crate
 //! exists so the rest of the workspace depends on a local crate name
 //! (`phenotype-tooling-observability`) instead of a git tag, which makes
 //! version bumps a single PR.
 //!
+//! ## Modules
+//!
+//! - [`metrics`] — Prometheus registry, default counters/histograms,
+//!   axum `/metrics` router (behind `server` feature).
+//! - [`health`] — `/health` endpoint reporting process uptime.
+//! - [`slo`] — declarative [`slo::Slo`] type and [`slo::default_slos`].
+//!
 //! ## Quickstart
 //!
 //! ```rust,no_run
-//! use phenotype_tooling_observability::prelude::*;
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     init_tracing("hook-entry", "http://localhost:4317")?;
-//!     info!(component = "hook-entry", "starting");
-//!     Ok(())
-//! }
+//! # #[cfg(feature = "server")]
+//! # async fn ex() -> Result<(), Box<dyn std::error::Error>> {
+//! use phenotype_tooling_observability::{metrics, health};
+//! metrics::init();
+//! metrics::inc_invocation();
+//! let _ = health::HealthReport::current();
+//! metrics::serve("0.0.0.0:9090".parse()?).await?;
+//! # Ok(()) }
 //! ```
 
 pub use pheno_tracing::*;
+
+pub mod slo;
+#[cfg(feature = "server")]
+pub mod health;
+#[cfg(feature = "server")]
+pub mod metrics;
 
 /// Convenience prelude — everything you need for OTLP-observed apps.
 pub mod prelude {
@@ -38,6 +53,17 @@ pub mod prelude {
     }
 }
 
+/// Error type for HTTP server failures (only constructed when the
+/// `server` feature is enabled).
+#[cfg(feature = "server")]
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("server error: {0}")]
+    Server(#[from] Box<dyn std::error::Error + Send + Sync>),
+}
+
 #[cfg(test)]
 mod tests {
     use super::prelude::*;
@@ -54,12 +80,14 @@ mod tests {
 
     #[test]
     fn request_metrics_construct() {
-        let metrics = RequestMetrics::new("hook-entry");
+        let mut metrics = RequestMetrics::new("hook-entry");
         let counter = metrics.requests_total();
-        let histogram = metrics.request_duration_seconds();
         counter.inc();
+        let counter_value = counter.value();
+        drop(counter);
+        let histogram = metrics.request_duration_seconds();
         histogram.observe(0.123);
-        assert_eq!(counter.value(), 1);
+        assert_eq!(counter_value, 1);
     }
 
     #[test]
