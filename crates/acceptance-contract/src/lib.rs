@@ -185,7 +185,15 @@ fn file_sha(path: &Path) -> Result<String> {
     let bytes = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
-    Ok(format!("{:x}", hasher.finalize()))
+    // sha2 v0.11 returns a GenericArray, which doesn't implement LowerHex directly.
+    // Format the digest as a hex string manually from the byte slice.
+    let digest = hasher.finalize();
+    let mut hex_str = String::with_capacity(digest.len() * 2);
+    for byte in digest.iter() {
+        use std::fmt::Write;
+        let _ = write!(&mut hex_str, "{byte:02x}");
+    }
+    Ok(hex_str)
 }
 
 fn file_size(path: &Path) -> Result<u64> {

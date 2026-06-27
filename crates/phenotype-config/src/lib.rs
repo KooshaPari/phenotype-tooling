@@ -18,6 +18,7 @@ use figment::{
     providers::{Env, Format, Json, Serialized, Toml, Yaml},
     Figment,
 };
+use uncased::Uncased;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -258,14 +259,31 @@ impl PhenotypeConfig {
             }
         }
 
-        // Environment variables (PHENOTYPE_ prefix, __ as nested separator)
+        // Environment variables (PHENOTYPE_ prefix, __ as nested separator).
+        //
+        // Two-tier mapping:
+        // 1. `PHENOTYPE_FOO__BAR` (double underscore) → `foo.bar` via `.split("__")`
+        // 2. `PHENOTYPE_FOO_BAR` (single underscore)   → `foo.bar` via `.map(...)`
+        //
+        // Single-underscore keys get rewritten so the simple `PHENOTYPE_SERVICE_HOST`
+        // form maps to `service.host` (matching the struct field).
         figment = figment.merge(
             Env::prefixed("PHENOTYPE_")
                 .split("__")
                 .map(|k| {
-                    // Convert snake_case to camelCase for figment keys
-                    // figment's Env provider handles this automatically
-                    k.as_str()
+                    let raw = k.as_str();
+                    let lowered = raw.to_ascii_lowercase();
+                    // Only convert the FIRST `_` to `.` when the key isn't
+                    // already dotted (i.e., it wasn't produced by `.split("__")`).
+                    // Otherwise, a key like `circuit_breaker_recovery_secs` from
+                    // `PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS` would
+                    // get corrupted to `circuit.breaker_recovery_secs`.
+                    let dotted = if lowered.contains('.') {
+                        lowered
+                    } else {
+                        lowered.replacen('_', ".", 1)
+                    };
+                    Uncased::new(dotted)
                 }),
         );
 
@@ -336,9 +354,23 @@ pub enum ConfigError {
 mod tests {
     use super::*;
     use std::fs;
+    // Tests below mutate process-global env vars (`PHENOTYPE_*`, `HOME`).
+    // Cargo runs tests in parallel by default, so we serialize them through
+    // this mutex to keep the assertions deterministic.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_default_config_loads() {
+        let _g = ENV_LOCK.lock().unwrap();
+        // Make sure no PHENOTYPE_* leftovers from other tests influence the defaults.
+        for var in [
+            "PHENOTYPE_SERVICE_HOST",
+            "PHENOTYPE_SERVICE_PORT",
+            "PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS",
+            "PHENOTYPE_RESILIENCE__BULKHEAD_DEFAULT_SLEEP_MS",
+        ] {
+            std::env::remove_var(var);
+        }
         // Load from just defaults (no config file, no env overrides)
         let config = PhenotypeConfig::load().expect("default config should load");
         assert_eq!(config.service.host, "127.0.0.1");
@@ -357,6 +389,15 @@ mod tests {
 
     #[test]
     fn test_config_from_toml_file() {
+        let _g = ENV_LOCK.lock().unwrap();
+        for var in [
+            "PHENOTYPE_SERVICE_HOST",
+            "PHENOTYPE_SERVICE_PORT",
+            "PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS",
+            "PHENOTYPE_RESILIENCE__BULKHEAD_DEFAULT_SLEEP_MS",
+        ] {
+            std::env::remove_var(var);
+        }
         let dir = std::env::temp_dir();
         let config_path = dir.join("test_phenotype_config.toml");
         let toml_content = r#"
@@ -394,6 +435,15 @@ discord_webhook_url = "https://discord.com/api/webhooks/test"
 
     #[test]
     fn test_convenience_paths() {
+        let _g = ENV_LOCK.lock().unwrap();
+        for var in [
+            "PHENOTYPE_SERVICE_HOST",
+            "PHENOTYPE_SERVICE_PORT",
+            "PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS",
+            "PHENOTYPE_RESILIENCE__BULKHEAD_DEFAULT_SLEEP_MS",
+        ] {
+            std::env::remove_var(var);
+        }
         // Temporarily set HOME for testing
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", "/tmp/test-user");
@@ -419,6 +469,14 @@ discord_webhook_url = "https://discord.com/api/webhooks/test"
 
     #[test]
     fn test_env_overrides_service_host() {
+        let _g = ENV_LOCK.lock().unwrap();
+        for var in [
+            "PHENOTYPE_SERVICE_PORT",
+            "PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS",
+            "PHENOTYPE_RESILIENCE__BULKHEAD_DEFAULT_SLEEP_MS",
+        ] {
+            std::env::remove_var(var);
+        }
         // Temporarily set env var and verify it overrides defaults
         std::env::set_var("PHENOTYPE_SERVICE_HOST", "10.0.0.1");
         let config = PhenotypeConfig::load().expect("should load with env override");
@@ -430,6 +488,10 @@ discord_webhook_url = "https://discord.com/api/webhooks/test"
 
     #[test]
     fn test_nested_env_overrides() {
+        let _g = ENV_LOCK.lock().unwrap();
+        for var in ["PHENOTYPE_SERVICE_HOST"] {
+            std::env::remove_var(var);
+        }
         std::env::set_var("PHENOTYPE_SERVICE_PORT", "3000");
         std::env::set_var("PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS", "300");
         let config = PhenotypeConfig::load().expect("should handle nested env");
