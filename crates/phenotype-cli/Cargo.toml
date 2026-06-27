@@ -24,6 +24,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, features = ["server"], optional = true }
 
 [dev-dependencies]
 assert_cmd = "2.0"
@@ -39,6 +40,8 @@ async = ["dep:tokio", "dep:tracing-subscriber"]
 telemetry = ["dep:tracing-subscriber"]
 # JSON output for scripting/CI.
 json = ["dep:serde", "dep:serde_json"]
+# Observability subcommand — exposes /metrics, /health, /slo endpoints via axum.
+observability = ["dep:phenotype-tooling-observability", "async"]
 # Absorbed sub-crate gates — one per absorbed tool. All-off by default.
 absorbed-byteport = []
 absorbed-heliosapp = []
