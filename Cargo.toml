@@ -54,7 +54,7 @@ serde_yaml = "0.9"
 reqwest = { version = "0.13", features = ["blocking", "json"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.23", features = ["v4", "serde"] }
-tracing = "0.1"
+# tracing pulled transitively via [patch.crates-io] redirect below
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Patch: pheno-tracing (ADR-012 fleet-canonical OTLP tracer) is a private
