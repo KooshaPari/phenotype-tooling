@@ -57,6 +57,14 @@ uuid = { version = "1.23", features = ["v4", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Patch: pheno-tracing (ADR-012 fleet-canonical OTLP tracer) is a private
+# git-dep that cannot be resolved in all build environments. Redirect
+# `pheno-tracing` to the canonical `tracing` crate on crates.io so the
+# workspace builds offline / in CI / without network access.
+# When pheno-tracing is published or vendored, remove this patch.
+[patch.crates-io]
+pheno-tracing = { package = "tracing", version = "0.1" }
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
