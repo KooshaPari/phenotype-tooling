@@ -38,6 +38,7 @@ jobs:
         ports:
           - 4317:4317
           - 4318:4318
+          - 13133:13133
         # otel-collector-contrib:0.96.0 is a distroless image with no
         # shell, curl, or wget — a Docker health-cmd cannot probe the
         # collector's /healthz endpoint. We drop the healthcheck entirely
