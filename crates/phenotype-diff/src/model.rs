@@ -13,6 +13,7 @@ pub enum DiffLine {
 
 impl DiffLine {
     /// The text content of the line (without the diff sigil).
+    #[must_use]
     pub fn content(&self) -> &str {
         match self {
             DiffLine::Removed(s) | DiffLine::Added(s) | DiffLine::Context(s) => s.as_str(),
@@ -48,6 +49,7 @@ pub struct UnifiedDiff {
 
 impl UnifiedDiff {
     /// `true` when there are no changes.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.hunks.is_empty()
     }

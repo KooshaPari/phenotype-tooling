@@ -25,6 +25,7 @@ members = [
     "crates/phenotype-diff",
     "crates/worktree-manager",
     "crates/phenotype-tooling-observability",
+    "crates/phenotype-cli",
     "bin/hook-entry",
 ]
 
@@ -55,6 +56,15 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.23", features = ["v4", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[patch.crates-io]
+# pheno-tracing v0.4.0 (ADR-012) is a private git-dep that cannot be
+# resolved in offline / CI environments. Redirect to a local stub
+# crate in `bin/pheno-tracing-stub/` that re-exports the canonical
+# `tracing` crate on crates.io. When pheno-tracing is published or
+# vendored, remove this patch and the stub crate.
+pheno-tracing = { path = "bin/pheno-tracing-stub" }
 
 [profile.release]
 lto = "thin"

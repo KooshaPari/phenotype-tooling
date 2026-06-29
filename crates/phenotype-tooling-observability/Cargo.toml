@@ -4,11 +4,24 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "OTel/OTLP observability for the phenotype-tooling workspace (re-exports pheno-tracing)"
+description = "OTel/OTLP observability for the phenotype-tooling workspace — Prometheus metrics, /health endpoint, SLOs"
 
 [dependencies]
-# pheno-tracing is the fleet-canonical OTLP tracer (ADR-012)
-pheno-tracing = { git = "https://github.com/KooshaPari/pheno-tracing", tag = "v0.4.0" }
+pheno-tracing = { version = "0.4", default-features = false }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+once_cell = "1"
+prometheus = { version = "0.13", optional = true }
+axum = { version = "0.7", optional = true }
+tokio = { version = "1.40", features = ["macros", "rt-multi-thread", "net", "signal"], optional = true }
+
+[features]
+default = []
+# Prometheus exporter + axum HTTP server for /metrics and /health
+server = ["dep:prometheus", "dep:axum", "dep:tokio"]
 
 [lib]
 path = "src/lib.rs"

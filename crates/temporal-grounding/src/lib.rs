@@ -8,13 +8,14 @@ pub struct AgentEntry {
     pub label: Option<String>,
 }
 
+#[must_use]
 pub fn claude_dir() -> PathBuf {
     std::env::var("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."))
+        .map_or_else(|_| PathBuf::from("."), PathBuf::from)
         .join(".claude")
 }
 
+#[must_use]
 pub fn active_agents_path() -> PathBuf {
     claude_dir().join("active-agents.json")
 }

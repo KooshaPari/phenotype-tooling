@@ -14,5 +14,6 @@ figment = { version = "0.10", features = ["toml", "env", "json", "yaml"] }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+uncased = "0.9"
 
 [dev-dependencies]

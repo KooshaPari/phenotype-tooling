@@ -3,22 +3,48 @@
   "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers/features/common-utils:2": { "installZsh": true }
+    "ghcr.io/devcontainers/features/common-utils:2": { "installZsh": true },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/git:1": { "configureGitConfig": true }
   },
-  "postCreateCommand": "rustup component add rustfmt clippy && cargo install --locked cargo-deny cargo-audit cargo-machete",
+  "postCreateCommand": "rustup component add rustfmt clippy rust-src && cargo install --locked cargo-deny cargo-audit cargo-machete cargo-nextest",
+  "runServices": [],
+  "containerUser": "vscode",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "mounts": [
+    "source=${localWorkspaceFolderBasename}-cargo,target=/usr/local/cargo,type=volume",
+    "source=${localWorkspaceFolderBasename}-rustup,target=/home/vscode/.rustup,type=volume",
+    "source=${localWorkspaceFolderBasename}-target,target=${containerWorkspaceFolder}/target,type=volume"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
         "rust-lang.rust-analyzer",
         "tamasfe.even-better-toml",
         "vadimcn.vscode-lldb",
-        "usernamehw.errorlens"
+        "usernamehw.errorlens",
+        "serayuzgur.crates",
+        "fill-labs.dependi"
       ],
       "settings": {
-        "[rust]": { "editor.formatOnSave": true },
-        "rust-analyzer.check.command": "clippy"
+        "[rust]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.cargo.features": "all",
+        "rust-analyzer.procMacro.enable": true
       }
     }
   },
-  "remoteUser": "vscode"
+  "forwardPorts": [3000, 8080, 9090, 4317, 4318],
+  "portsAttributes": {
+    "3000": { "label": "Quality Gate UI" },
+    "8080": { "label": "Service default" },
+    "9090": { "label": "Alternative service" },
+    "4317": { "label": "OTLP gRPC" },
+    "4318": { "label": "OTLP HTTP" }
+  },
+  "onCreateCommand": ".devcontainer/setup.sh"
 }

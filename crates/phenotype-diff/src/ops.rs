@@ -12,6 +12,7 @@ const CONTEXT_LINES: usize = 3;
 /// Compute a [`UnifiedDiff`] between `old` and `new` text.
 ///
 /// Both inputs are split on line boundaries (preserving `\n` endings).
+#[must_use]
 pub fn diff(old: &str, new: &str) -> UnifiedDiff {
     let text_diff = TextDiff::from_lines(old, new);
     let mut hunks = Vec::new();

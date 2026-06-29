@@ -1,0 +1,82 @@
+# docker-compose.yml — local development stack for phenotype-tooling.
+#
+# Brings up:
+#   * the workspace CLI (`pt`) on a TTY
+#   * an OpenTelemetry collector that the CLI exports traces to
+#   * a Prometheus instance scraping the CLI's `/metrics` endpoint
+#   * Grafana pre-wired to Prometheus + Tempo
+#
+# Usage:
+#   docker compose up otel-collector prometheus grafana   # observability only
+#   docker compose run --rm pt --help                    # one-off CLI invocation
+#   docker compose run --rm pt observability serve --addr 0.0.0.0:9090
+#
+# All data is ephemeral; volumes are created on first run and pruned with
+# `docker compose down -v`.
+
+services:
+  pt:
+    build:
+      context: .
+      target: ci
+    image: phenotype-tooling:ci
+    profiles: ["cli"]
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - cargo-cache:/usr/local/cargo
+      - target-cache:/workspace/target
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      PHENOTYPE_LOG: info
+    depends_on:
+      otel-collector:
+        condition: service_started
+    command: ["bash", "-lc", "cargo build --workspace && cargo test --workspace"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    profiles: ["observability", "default"]
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./.docker/otel-collector.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    profiles: ["observability", "default"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=24h
+    volumes:
+      - ./.docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9091:9090"  # host-port 9091 to avoid clashing with the CLI's 9090
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: dev
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./.docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+
+volumes:
+  cargo-cache:
+  target-cache:
