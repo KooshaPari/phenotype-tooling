@@ -28,11 +28,11 @@
 
 pub use pheno_tracing::*;
 
-pub mod slo;
 #[cfg(feature = "server")]
 pub mod health;
 #[cfg(feature = "server")]
 pub mod metrics;
+pub mod slo;
 
 /// Convenience prelude — everything you need for OTLP-observed apps.
 pub mod prelude {

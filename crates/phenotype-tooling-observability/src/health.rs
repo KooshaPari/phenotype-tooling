@@ -17,7 +17,10 @@ pub fn mark_start() {
 /// Current process uptime in seconds, or `0.0` if [`mark_start`] was
 /// never called.
 pub fn uptime_seconds() -> f64 {
-    START.get().map(|s| s.elapsed().as_secs_f64()).unwrap_or(0.0)
+    START
+        .get()
+        .map(|s| s.elapsed().as_secs_f64())
+        .unwrap_or(0.0)
 }
 
 /// JSON body returned by `/health`.

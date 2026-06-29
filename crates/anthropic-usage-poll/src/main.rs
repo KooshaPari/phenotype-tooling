@@ -132,7 +132,8 @@ mod tests {
 
     #[test]
     fn concurrent_arg_parses() {
-        let cli = Cli::try_parse_from(["anthropic-usage-poll", "--once", "--concurrent", "16"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["anthropic-usage-poll", "--once", "--concurrent", "16"]).unwrap();
         assert_eq!(cli.concurrent, 16);
         assert!(cli.once);
     }

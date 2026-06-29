@@ -13,7 +13,11 @@ fn make_input(lines: usize, change_pct: usize) -> (String, String) {
         .map(|i| format!("line {i:06} payload\n"))
         .collect();
     let mut new = old.clone();
-    let step = if change_pct == 0 { usize::MAX } else { 100 / change_pct };
+    let step = if change_pct == 0 {
+        usize::MAX
+    } else {
+        100 / change_pct
+    };
     for (i, line) in new.iter_mut().enumerate() {
         if i % step == 0 {
             *line = format!("line {i:06} MODIFIED payload\n");
@@ -27,12 +31,16 @@ fn bench_diff_apply(c: &mut Criterion) {
     for &lines in &[1_000usize, 10_000, 100_000] {
         let (old, new) = make_input(lines, 1);
         let patch = diff(&old, &new);
-        group.bench_with_input(BenchmarkId::from_parameter(lines), &(&old, &patch), |b, (o, p)| {
-            b.iter(|| {
-                let out = apply(black_box(o), black_box(p)).unwrap();
-                black_box(out);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(lines),
+            &(&old, &patch),
+            |b, (o, p)| {
+                b.iter(|| {
+                    let out = apply(black_box(o), black_box(p)).unwrap();
+                    black_box(out);
+                });
+            },
+        );
     }
     group.finish();
 }

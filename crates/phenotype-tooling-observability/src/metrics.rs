@@ -40,12 +40,8 @@ pub static INVOCATIONS: Lazy<IntCounter> = Lazy::new(|| {
 
 /// `cli_errors_total{cmd}` — number of times each CLI subcommand errored.
 pub static ERRORS: Lazy<IntCounter> = Lazy::new(|| {
-    register_int_counter_with_registry!(
-        "cli_errors_total",
-        "Total number of CLI errors",
-        REGISTRY
-    )
-    .expect("register cli_errors_total")
+    register_int_counter_with_registry!("cli_errors_total", "Total number of CLI errors", REGISTRY)
+        .expect("register cli_errors_total")
 });
 
 /// `cli_duration_seconds` — histogram of CLI invocation latency.

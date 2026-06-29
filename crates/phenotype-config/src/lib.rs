@@ -18,9 +18,9 @@ use figment::{
     providers::{Env, Format, Json, Serialized, Toml, Yaml},
     Figment,
 };
-use uncased::Uncased;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use uncased::Uncased;
 
 // ──── Top-level config ────────────────────────────────────────────────────────
 
@@ -176,9 +176,7 @@ impl Default for QualityGateConfig {
     fn default() -> Self {
         Self {
             deny_toml: PathBuf::from("deny.toml"),
-            fr_coverage_bin: PathBuf::from(
-                "tooling/fr-coverage/target/release/fr-coverage",
-            ),
+            fr_coverage_bin: PathBuf::from("tooling/fr-coverage/target/release/fr-coverage"),
             doc_link_check_bin: PathBuf::from(
                 "tooling/doc-link-check/target/release/doc-link-check",
             ),
@@ -224,10 +222,7 @@ impl PhenotypeConfig {
         // Config file (if provided or if default files exist)
         if let Some(path) = config_path {
             if path.exists() {
-                let ext = path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("");
+                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
                 figment = match ext {
                     "toml" => figment.merge(Toml::file(path)),
                     "json" => figment.merge(Json::file(path)),
@@ -267,25 +262,21 @@ impl PhenotypeConfig {
         //
         // Single-underscore keys get rewritten so the simple `PHENOTYPE_SERVICE_HOST`
         // form maps to `service.host` (matching the struct field).
-        figment = figment.merge(
-            Env::prefixed("PHENOTYPE_")
-                .split("__")
-                .map(|k| {
-                    let raw = k.as_str();
-                    let lowered = raw.to_ascii_lowercase();
-                    // Only convert the FIRST `_` to `.` when the key isn't
-                    // already dotted (i.e., it wasn't produced by `.split("__")`).
-                    // Otherwise, a key like `circuit_breaker_recovery_secs` from
-                    // `PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS` would
-                    // get corrupted to `circuit.breaker_recovery_secs`.
-                    let dotted = if lowered.contains('.') {
-                        lowered
-                    } else {
-                        lowered.replacen('_', ".", 1)
-                    };
-                    Uncased::new(dotted)
-                }),
-        );
+        figment = figment.merge(Env::prefixed("PHENOTYPE_").split("__").map(|k| {
+            let raw = k.as_str();
+            let lowered = raw.to_ascii_lowercase();
+            // Only convert the FIRST `_` to `.` when the key isn't
+            // already dotted (i.e., it wasn't produced by `.split("__")`).
+            // Otherwise, a key like `circuit_breaker_recovery_secs` from
+            // `PHENOTYPE_RESILIENCE__CIRCUIT_BREAKER_RECOVERY_SECS` would
+            // get corrupted to `circuit.breaker_recovery_secs`.
+            let dotted = if lowered.contains('.') {
+                lowered
+            } else {
+                lowered.replacen('_', ".", 1)
+            };
+            Uncased::new(dotted)
+        }));
 
         let config: PhenotypeConfig = figment
             .extract()
@@ -380,10 +371,7 @@ mod tests {
             config.paths.sbom_output,
             PathBuf::from("docs/security/sbom.json")
         );
-        assert_eq!(
-            config.resilience.circuit_breaker_recovery_secs,
-            60
-        );
+        assert_eq!(config.resilience.circuit_breaker_recovery_secs, 60);
         assert_eq!(config.resilience.bulkhead_default_sleep_ms, 50);
     }
 
@@ -417,8 +405,7 @@ discord_webhook_url = "https://discord.com/api/webhooks/test"
 "#;
         fs::write(&config_path, toml_content).expect("should write test config");
 
-        let config =
-            PhenotypeConfig::load_from(Some(&config_path)).expect("should load from file");
+        let config = PhenotypeConfig::load_from(Some(&config_path)).expect("should load from file");
         assert_eq!(config.service.host, "0.0.0.0");
         assert_eq!(config.service.port, 9090);
         assert_eq!(config.paths.docs_root, PathBuf::from("custom-docs"));

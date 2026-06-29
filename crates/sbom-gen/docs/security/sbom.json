@@ -2937,7 +2937,7 @@
       "type": "application",
       "version": "0.0.1"
     },
-    "timestamp": "2026-06-28T11:29:34.518740600-07:00",
+    "timestamp": "2026-06-28T21:33:36.657200800-07:00",
     "tools": [
       {
         "name": "sbom-gen",

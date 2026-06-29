@@ -1,7 +1,7 @@
 //! Claude Code PreToolUse hook.
 //! Reads the hook event from stdin, writes a budget+quota annotation to stdout.
 use anyhow::Result;
-use phenotype_tooling_observability::prelude::{init_tracing, info, instrument};
+use phenotype_tooling_observability::prelude::{info, init_tracing, instrument};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::Read;

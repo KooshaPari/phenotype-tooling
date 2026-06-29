@@ -56,5 +56,9 @@ fn bench_elapsed_subtraction_scaled(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_elapsed_subtraction, bench_elapsed_subtraction_scaled);
+criterion_group!(
+    benches,
+    bench_elapsed_subtraction,
+    bench_elapsed_subtraction_scaled
+);
 criterion_main!(benches);

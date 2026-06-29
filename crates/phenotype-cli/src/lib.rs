@@ -270,8 +270,8 @@ pub mod obs_cmd {
                 super::exit_code::SOFTWARE
             }
         }
-        }
     }
+}
 
 #[cfg(test)]
 mod tests {
@@ -327,8 +327,7 @@ mod tests {
 
     #[test]
     fn parses_release_cut_with_dry_run() {
-        let cli =
-            Cli::try_parse_from(["pt", "release-cut", "0.2.0", "--dry-run"]).unwrap();
+        let cli = Cli::try_parse_from(["pt", "release-cut", "0.2.0", "--dry-run"]).unwrap();
         match cli.command {
             Command::ReleaseCut(args) => {
                 assert_eq!(args.version, "0.2.0");
@@ -378,13 +377,7 @@ mod tests {
     #[test]
     #[cfg(feature = "observability")]
     fn parses_observability_subcommand() {
-        let cli = Cli::try_parse_from([
-            "pt",
-            "observability",
-            "--bind",
-            "127.0.0.1:9091",
-        ])
-        .unwrap();
+        let cli = Cli::try_parse_from(["pt", "observability", "--bind", "127.0.0.1:9091"]).unwrap();
         match cli.command {
             Command::Observability(args) => assert_eq!(args.bind, "127.0.0.1:9091"),
             _ => panic!("expected Observability"),
@@ -394,8 +387,7 @@ mod tests {
     #[test]
     #[cfg(feature = "observability")]
     fn observability_invalid_bind_returns_config_error() {
-        let cli =
-            Cli::try_parse_from(["pt", "observability", "--bind", "not-an-addr"]).unwrap();
+        let cli = Cli::try_parse_from(["pt", "observability", "--bind", "not-an-addr"]).unwrap();
         // Non-runnable: don't actually bind, just verify the parser accepts it.
         // Real exit code is exercised by integration tests with a mock runtime.
         match cli.command {
