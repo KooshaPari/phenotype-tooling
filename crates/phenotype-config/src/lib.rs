@@ -25,10 +25,9 @@ use uncased::Uncased;
 // ──── Top-level config ────────────────────────────────────────────────────────
 
 /// All configurable Phenotype values.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PhenotypeConfig {
-    /// Environment label (development, staging, production, etc.)
     pub environment: Option<String>,
 
     /// Service registry defaults
@@ -79,7 +78,7 @@ pub struct PathsConfig {
 }
 
 /// Webhook / notification configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WebhooksConfig {
     /// Discord webhook URL for release announcements
     pub discord_webhook_url: String,
@@ -110,27 +109,13 @@ pub struct QualityGateConfig {
 }
 
 /// API keys sourced from environment or config file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ApiKeysConfig {
     /// Anthropic admin API key
     pub anthropic_admin_key: Option<String>,
 }
 
 // ──── Defaults matching existing hardcoded values ─────────────────────────────
-
-impl Default for PhenotypeConfig {
-    fn default() -> Self {
-        Self {
-            environment: None,
-            service: ServiceConfig::default(),
-            paths: PathsConfig::default(),
-            webhooks: WebhooksConfig::default(),
-            resilience: ResilienceConfig::default(),
-            quality_gate: QualityGateConfig::default(),
-            api_keys: ApiKeysConfig::default(),
-        }
-    }
-}
 
 impl Default for ServiceConfig {
     fn default() -> Self {
@@ -154,14 +139,6 @@ impl Default for PathsConfig {
     }
 }
 
-impl Default for WebhooksConfig {
-    fn default() -> Self {
-        Self {
-            discord_webhook_url: String::new(),
-        }
-    }
-}
-
 impl Default for ResilienceConfig {
     fn default() -> Self {
         Self {
@@ -181,14 +158,6 @@ impl Default for QualityGateConfig {
                 "tooling/doc-link-check/target/release/doc-link-check",
             ),
             bun_lockb: PathBuf::from("apps/builder/bun.lockb"),
-        }
-    }
-}
-
-impl Default for ApiKeysConfig {
-    fn default() -> Self {
-        Self {
-            anthropic_admin_key: None,
         }
     }
 }

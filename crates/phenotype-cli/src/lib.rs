@@ -111,6 +111,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 /// Dispatch a parsed [`Cli`] to its handler.
 ///
 /// Returns the process exit code.  Never panics.
+#[must_use]
 pub fn run_cli(cli: Cli) -> i32 {
     match cli.command {
         Command::DocsHealth(args) => docs_health::run(args, cli.verbose),
@@ -144,6 +145,7 @@ pub mod docs_health {
         #[arg(default_value = ".")]
         pub path: String,
     }
+    #[must_use]
     pub fn run(_args: Args, _verbosity: u8) -> i32 {
         super::exit_code::OK
     }
@@ -160,6 +162,7 @@ pub mod quality_gate {
         #[arg(long)]
         pub skip_clippy: bool,
     }
+    #[must_use]
     pub fn run(_args: Args, _verbosity: u8) -> i32 {
         super::exit_code::OK
     }
@@ -172,6 +175,7 @@ pub mod fr_trace {
         /// FR identifier (e.g. FR-001).
         pub fr_id: String,
     }
+    #[must_use]
     pub fn run(_args: Args, _verbosity: u8) -> i32 {
         super::exit_code::OK
     }
@@ -187,6 +191,7 @@ pub mod release_cut {
         #[arg(long)]
         pub dry_run: bool,
     }
+    #[must_use]
     pub fn run(_args: Args, _verbosity: u8) -> i32 {
         super::exit_code::OK
     }
@@ -203,12 +208,14 @@ pub mod sbom_gen {
         #[arg(long)]
         pub output: Option<String>,
     }
+    #[must_use]
     pub fn run(_args: Args, _verbosity: u8) -> i32 {
         super::exit_code::OK
     }
 }
 
 pub mod workspace {
+    #[must_use]
     pub fn run(_verbosity: u8) -> i32 {
         println!("phenotype-tooling v{}", super::VERSION);
         println!("26 workspace crates registered");
