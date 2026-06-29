@@ -47,7 +47,7 @@ jobs:
         # retry loop. The collector is ready within ~1 second of startup
         # in practice (see logs: "Everything is ready" prints immediately).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo
