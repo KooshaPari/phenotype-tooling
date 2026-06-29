@@ -38,11 +38,13 @@ jobs:
         ports:
           - 4317:4317
           - 4318:4318
-        options: >-
-          --health-cmd "curl -fsS http://localhost:13133/ || exit 1"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+        # otel-collector-contrib:0.96.0 is a distroless image with no
+        # shell, curl, or wget — a Docker health-cmd cannot probe the
+        # collector's /healthz endpoint. We drop the healthcheck entirely
+        # (no --health-cmd) and rely on the explicit smoke step below to
+        # wait for the OTLP gRPC port to be reachable with a 60-second
+        # retry loop. The collector is ready within ~1 second of startup
+        # in practice (see logs: "Everything is ready" prints immediately).
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust toolchain
@@ -61,7 +63,21 @@ jobs:
           OTEL_SERVICE_NAME: hook-entry-smoke
         run: |
           set -e
-          curl -sf http://localhost:13133/ > /dev/null && echo "OTEL_COLLECTOR_HEALTH_OK"
+          # Wait up to 60s for the otel-collector to become healthy.
+          # The collector container is started as a service and runs as a
+          # distroless image with no healthcheck (see service comment),
+          # so this loop is the only readiness gate we have.
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:13133/ > /dev/null; then
+              echo "OTEL_COLLECTOR_HEALTH_OK"
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -sf http://localhost:13133/ > /dev/null; then
+            echo "::error::otel-collector did not become healthy within 60s"
+            exit 1
+          fi
           python3 - <<'PY'
           import socket
           s = socket.socket()
