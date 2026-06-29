@@ -371,6 +371,19 @@ def main() -> int:
             continue
 
         grade = grade_audit(args.registry_root, audit_path)
+        # P6: write project card alongside the audit markdown. The grader strips
+        # the date from the audit filename and looks for `projects/{name}.json`
+        # with `status`, `audit_artifact`, and either `disposition` non-empty
+        # or `absorbed_into` non-empty. Without this call, P6 always fails.
+        if meta and grade:
+            audit_basename = f"{repo.split('/')[-1]}-{date}"
+            card = derive_p6_card(repo, meta, audit_basename)
+            try:
+                card_path = write_p6_card(audits_dir, audit_basename, card)
+                if args.verbose:
+                    sys.stderr.write(f"[absorption-justification] {repo}: wrote project card {card_path}\n")
+            except Exception as exc:
+                sys.stderr.write(f"[absorption-justification][WARN] failed to write project card for {repo}: {exc}\n")
         append_disposition(disposition_path, repo, meta, branches, grade)
         if args.verbose:
             sys.stderr.write(f"[absorption-justification] {repo}: wrote {audit_path} grade={grade.get('percentage') if grade else 'n/a'}\n")
