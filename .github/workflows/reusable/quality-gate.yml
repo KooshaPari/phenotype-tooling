@@ -1,0 +1,238 @@
+# Reusable quality gate workflow — powered by qgate.
+#
+# Callers (any KooshaPari repo) invoke this with:
+#
+#   jobs:
+#     quality:
+#       uses: KooshaPari/phenotype-tooling/.github/workflows/reusable/quality-gate.yml@main
+#       with:
+#         coverage-report: coverage/lcov.info
+#         coverage-format: lcov
+#         threshold: 85
+#         not-applicable: "chaos,a11y"
+#       secrets: inherit
+#
+# Runs on Linux standard runner only (no macOS/Windows — billing constraint).
+# SHA-pinned actions for supply-chain integrity.
+
+name: quality-gate (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      # Path to the coverage report produced by the calling workflow's test step.
+      coverage-report:
+        description: "Path to coverage report (lcov, cobertura XML, or JSON)"
+        type: string
+        default: "coverage/lcov.info"
+      # Format of the coverage report.
+      coverage-format:
+        description: "Coverage format: lcov | cobertura | json"
+        type: string
+        default: "lcov"
+      # Minimum coverage % per module (granular-recursive, default 85).
+      threshold:
+        description: "Coverage threshold 0–100 (applied to every module recursively)"
+        type: number
+        default: 85
+      # Comma-separated list of check categories to mark N/A for this repo.
+      not-applicable:
+        description: "Comma-separated check categories to mark N/A (e.g. 'chaos,a11y')"
+        type: string
+        default: ""
+      # qgate version/ref to install from phenotype-tooling.
+      qgate-ref:
+        description: "Git ref of phenotype-tooling to build qgate from (default: main)"
+        type: string
+        default: "main"
+      # Working directory within the calling repo.
+      working-directory:
+        description: "Working directory for qgate (default: repo root)"
+        type: string
+        default: "."
+    outputs:
+      # 'pass' or 'fail' — callers can gate merges on this.
+      gate-status:
+        description: "PASS or FAIL"
+        value: ${{ jobs.gate.outputs.gate-status }}
+      # JSON report as a string (useful for downstream reporting).
+      report-json:
+        description: "Full qgate JSON report"
+        value: ${{ jobs.gate.outputs.report-json }}
+
+jobs:
+  gate:
+    name: qgate — granular-recursive quality gate
+    runs-on: ubuntu-latest  # Linux standard only — no billed macOS/Windows
+    outputs:
+      gate-status: ${{ steps.run-gate.outputs.gate-status }}
+      report-json: ${{ steps.run-gate.outputs.report-json }}
+
+    steps:
+      # ── Install Rust toolchain ─────────────────────────────────────────
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@4305c38b25d97ef04a54b3a52498a5f41e40895c  # stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      # ── Cache Rust build artifacts ─────────────────────────────────────
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea00a3571f6e0  # v2.7.8
+        with:
+          shared-key: "qgate-${{ inputs.qgate-ref }}"
+
+      # ── Checkout phenotype-tooling to build qgate ──────────────────────
+      - name: Checkout phenotype-tooling (qgate source)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: KooshaPari/phenotype-tooling
+          # inputs.qgate-ref is safe here: actions/checkout consumes it as a
+          # git ref argument (not a shell argument), and workflow_call callers
+          # must have write permission to the calling repo to set inputs at all.
+          ref: ${{ inputs.qgate-ref }}
+          path: _phenotype-tooling
+
+      # ── Build qgate binary ─────────────────────────────────────────────
+      - name: Build qgate
+        run: |
+          cd _phenotype-tooling
+          cargo build --release -p qgate 2>&1
+          echo "QGATE_BIN=$(pwd)/target/release/qgate" >> "$GITHUB_ENV"
+
+      # ── Checkout calling repo ──────────────────────────────────────────
+      - name: Checkout calling repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          path: _repo
+
+      # ── Validate and stage inputs safely ──────────────────────────────
+      # All ${{ inputs.* }} values are moved into env vars here and never
+      # interpolated directly into run: shell commands (prevents injection).
+      - name: Validate inputs
+        env:
+          INPUT_THRESHOLD: ${{ inputs.threshold }}
+          INPUT_COVERAGE_REPORT: ${{ inputs.coverage-report }}
+          INPUT_COVERAGE_FORMAT: ${{ inputs.coverage-format }}
+          INPUT_NOT_APPLICABLE: ${{ inputs.not-applicable }}
+          INPUT_WORKING_DIR: ${{ inputs.working-directory }}
+        run: |
+          # threshold must be a number 0–100
+          if ! echo "$INPUT_THRESHOLD" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
+            echo "::error::threshold must be a number, got: $INPUT_THRESHOLD"
+            exit 1
+          fi
+          pct=$(echo "$INPUT_THRESHOLD" | awk '{if($1<0||$1>100) exit 1}')
+          if [ $? -ne 0 ]; then
+            echo "::error::threshold must be between 0 and 100"
+            exit 1
+          fi
+
+          # coverage-format must be one of the supported values
+          case "$INPUT_COVERAGE_FORMAT" in
+            lcov|cobertura|json|xml) ;;
+            *) echo "::error::coverage-format must be lcov|cobertura|json|xml, got: $INPUT_COVERAGE_FORMAT"; exit 1 ;;
+          esac
+
+          # coverage-report path must not escape the repo (no .. components)
+          if echo "$INPUT_COVERAGE_REPORT" | grep -qE '(^|/)\.\.(/|$)'; then
+            echo "::error::coverage-report path must not contain '..'"
+            exit 1
+          fi
+
+          # working-directory must not escape the repo root
+          if echo "$INPUT_WORKING_DIR" | grep -qE '(^|/)\.\.(/|$)'; then
+            echo "::error::working-directory must not contain '..'"
+            exit 1
+          fi
+
+          # not-applicable: only allow alphanumeric + underscore + comma
+          if ! echo "$INPUT_NOT_APPLICABLE" | grep -qE '^[a-zA-Z0-9_,]*$'; then
+            echo "::error::not-applicable must only contain letters, digits, underscores, and commas"
+            exit 1
+          fi
+
+          echo "Input validation passed."
+
+      # ── Generate .qgate.toml from inputs (overrides repo config) ──────
+      - name: Write .qgate.toml overrides
+        env:
+          INPUT_THRESHOLD: ${{ inputs.threshold }}
+          INPUT_COVERAGE_REPORT: ${{ inputs.coverage-report }}
+          INPUT_COVERAGE_FORMAT: ${{ inputs.coverage-format }}
+          INPUT_NOT_APPLICABLE: ${{ inputs.not-applicable }}
+          INPUT_WORKING_DIR: ${{ inputs.working-directory }}
+        run: |
+          WORK_DIR="_repo/${INPUT_WORKING_DIR}"
+          cd "$WORK_DIR"
+
+          # Only write fields that differ from defaults, so repo .qgate.toml
+          # values still apply for everything not specified as a workflow input.
+          # Values come from env vars (validated above), never from raw ${{ }}.
+          NOT_APPLICABLE_TOML=$(printf '%s' "$INPUT_NOT_APPLICABLE" \
+            | tr ',' '\n' \
+            | grep -v '^$' \
+            | sed 's/.*/"&"/' \
+            | paste -sd ',' -)
+
+          cat > .qgate-ci-override.toml <<TOML
+          coverage_threshold = ${INPUT_THRESHOLD}
+          coverage_path = "${INPUT_COVERAGE_REPORT}"
+          coverage_format = "${INPUT_COVERAGE_FORMAT}"
+          not_applicable = [${NOT_APPLICABLE_TOML}]
+          TOML
+
+          # Merge into .qgate.toml (override wins for listed keys).
+          if [ -f .qgate.toml ]; then
+            cp .qgate.toml .qgate.toml.bak
+          fi
+          cat .qgate-ci-override.toml >> .qgate.toml
+
+      # ── Run qgate full gate ────────────────────────────────────────────
+      - name: Run qgate
+        id: run-gate
+        env:
+          INPUT_THRESHOLD: ${{ inputs.threshold }}
+          INPUT_COVERAGE_REPORT: ${{ inputs.coverage-report }}
+          INPUT_COVERAGE_FORMAT: ${{ inputs.coverage-format }}
+          INPUT_WORKING_DIR: ${{ inputs.working-directory }}
+        # qgate exits 1 on FAIL — we capture but don't immediately fail so we
+        # can upload the report artifact first.
+        run: |
+          cd "_repo/${INPUT_WORKING_DIR}"
+
+          set +e
+          "$QGATE_BIN" run \
+            --coverage-report "$INPUT_COVERAGE_REPORT" \
+            --coverage-format "$INPUT_COVERAGE_FORMAT" \
+            --threshold "$INPUT_THRESHOLD" \
+            --path "." \
+            > /tmp/qgate-report.json \
+            2>/tmp/qgate-summary.txt
+          EXIT=$?
+          set -e
+
+          # Summary to step summary
+          cat /tmp/qgate-summary.txt >> "$GITHUB_STEP_SUMMARY"
+
+          # Outputs
+          STATUS=$([ "$EXIT" -eq 0 ] && echo "PASS" || echo "FAIL")
+          echo "gate-status=$STATUS" >> "$GITHUB_OUTPUT"
+          # Write JSON report as a multiline output block
+          {
+            echo 'report-json<<QGATE_EOF'
+            cat /tmp/qgate-report.json
+            echo 'QGATE_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          exit $EXIT
+
+      # ── Upload JSON report as artifact ────────────────────────────────
+      - name: Upload qgate report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: qgate-report
+          path: /tmp/qgate-report.json
+          if-no-files-found: warn
+          retention-days: 30

@@ -6,6 +6,7 @@ members = [
     "crates/docs-health",
     "crates/fr-trace",
     "crates/quality-gate",
+    "crates/qgate",
     "crates/legacy-scan",
     "crates/agent-orchestrator",
     "crates/audit-privacy",
