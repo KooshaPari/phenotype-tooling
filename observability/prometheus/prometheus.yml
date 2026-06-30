@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/phenotype-tooling.rules.yml
+
+scrape_configs:
+  # Default `phenotype-cli observability --addr 0.0.0.0:9090` exposes
+  # /metrics + /health on the same port. Port configurable via env
+  # `PHENOTYPE_METRICS_ADDR` (see crates/phenotype-cli/src/lib.rs
+  # obs_cmd::Params.metrics_addr).
+  - job_name: phenotype-cli
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets:
+          - "host.docker.internal:9090"
+        labels:
+          service: phenotype-cli
+          tier: ops
+
+  - job_name: phenotype-cli-health
+    metrics_path: /health
+    scheme: http
+    static_configs:
+      - targets:
+          - "host.docker.internal:9090"
+        labels:
+          service: phenotype-cli
+          tier: ops
