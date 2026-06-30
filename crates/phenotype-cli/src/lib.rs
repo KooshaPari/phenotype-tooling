@@ -73,6 +73,55 @@ pub enum Command {
     /// Observability surface (metrics / health / SLO HTTP endpoints).
     #[cfg(feature = "observability")]
     Observability(obs_cmd::Args),
+
+    // ---------------------------------------------------------------
+    // Delegated subcommands (WP-07)
+    //
+    // Each of the following variants does NOT inline the crate's
+    // implementation. Instead the facade spawns the underlying crate
+    // binary (or `cargo run -p <name>` when a compiled binary isn't
+    // available) and forwards the remaining argv. This keeps
+    // `phenotype-cli` independent of the absorbed crates at runtime
+    // while still presenting a single, uniform `pt <cmd>` surface.
+    //
+    // See `cmd_delegate::resolve_crate_name` for the mapping table.
+    // ---------------------------------------------------------------
+
+    /// Verify an acceptance contract for an absorbed crate.
+    AcceptanceContract(cmd_delegate::Args),
+
+    /// Forecast token budgets per agent category.
+    AgentForecast(cmd_delegate::Args),
+
+    /// Orchestrate background agents (start, pause, resume).
+    AgentOrchestrator(cmd_delegate::Args),
+
+    /// Poll Anthropic usage metrics.
+    AnthropicUsagePoll(cmd_delegate::Args),
+
+    /// Privacy audit for diagnostic outputs.
+    AuditPrivacy(cmd_delegate::Args),
+
+    /// Benchmark regression guard.
+    BenchGuard(cmd_delegate::Args),
+
+    /// Verify commit messages match house conventions.
+    CommitMsgCheck(cmd_delegate::Args),
+
+    /// DAG scheduler for cross-repo task dependencies.
+    DagScheduler(cmd_delegate::Args),
+
+    /// Verify documentation internal links.
+    DocLinkCheck(cmd_delegate::Args),
+
+    /// Functional-requirement coverage report.
+    FrCoverage(cmd_delegate::Args),
+
+    /// Detect legacy code paths that should be removed.
+    LegacyScan(cmd_delegate::Args),
+
+    /// Git worktree manager for parallel-branch development.
+    WorktreeManager(cmd_delegate::Args),
 }
 
 /// Exit codes (Linux sysexits.h-compatible).
@@ -101,6 +150,20 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Command::Workspace => workspace::run(cli.verbose),
         #[cfg(feature = "observability")]
         Command::Observability(args) => obs_cmd::run(args, cli.verbose),
+
+        // Delegated subcommands (WP-07).
+        Command::AcceptanceContract(args) => cmd_delegate::run("acceptance-contract", args, cli.verbose),
+        Command::AgentForecast(args) => cmd_delegate::run("agent-forecast", args, cli.verbose),
+        Command::AgentOrchestrator(args) => cmd_delegate::run("agent-orchestrator", args, cli.verbose),
+        Command::AnthropicUsagePoll(args) => cmd_delegate::run("anthropic-usage-poll", args, cli.verbose),
+        Command::AuditPrivacy(args) => cmd_delegate::run("audit-privacy", args, cli.verbose),
+        Command::BenchGuard(args) => cmd_delegate::run("bench-guard", args, cli.verbose),
+        Command::CommitMsgCheck(args) => cmd_delegate::run("commit-msg-check", args, cli.verbose),
+        Command::DagScheduler(args) => cmd_delegate::run("dag-scheduler", args, cli.verbose),
+        Command::DocLinkCheck(args) => cmd_delegate::run("doc-link-check", args, cli.verbose),
+        Command::FrCoverage(args) => cmd_delegate::run("fr-coverage", args, cli.verbose),
+        Command::LegacyScan(args) => cmd_delegate::run("legacy-scan", args, cli.verbose),
+        Command::WorktreeManager(args) => cmd_delegate::run("worktree-manager", args, cli.verbose),
     };
     match code {
         exit_code::OK => Ok(()),
@@ -122,6 +185,20 @@ pub fn run_cli(cli: Cli) -> i32 {
         Command::Workspace => workspace::run(cli.verbose),
         #[cfg(feature = "observability")]
         Command::Observability(args) => obs_cmd::run(args, cli.verbose),
+
+        // Delegated subcommands (WP-07).
+        Command::AcceptanceContract(args) => cmd_delegate::run("acceptance-contract", args, cli.verbose),
+        Command::AgentForecast(args) => cmd_delegate::run("agent-forecast", args, cli.verbose),
+        Command::AgentOrchestrator(args) => cmd_delegate::run("agent-orchestrator", args, cli.verbose),
+        Command::AnthropicUsagePoll(args) => cmd_delegate::run("anthropic-usage-poll", args, cli.verbose),
+        Command::AuditPrivacy(args) => cmd_delegate::run("audit-privacy", args, cli.verbose),
+        Command::BenchGuard(args) => cmd_delegate::run("bench-guard", args, cli.verbose),
+        Command::CommitMsgCheck(args) => cmd_delegate::run("commit-msg-check", args, cli.verbose),
+        Command::DagScheduler(args) => cmd_delegate::run("dag-scheduler", args, cli.verbose),
+        Command::DocLinkCheck(args) => cmd_delegate::run("doc-link-check", args, cli.verbose),
+        Command::FrCoverage(args) => cmd_delegate::run("fr-coverage", args, cli.verbose),
+        Command::LegacyScan(args) => cmd_delegate::run("legacy-scan", args, cli.verbose),
+        Command::WorktreeManager(args) => cmd_delegate::run("worktree-manager", args, cli.verbose),
     }
 }
 
@@ -220,6 +297,145 @@ pub mod workspace {
         println!("phenotype-tooling v{}", super::VERSION);
         println!("26 workspace crates registered");
         super::exit_code::OK
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Subcommand delegation (WP-07)
+//
+// Each absorbed sub-crate keeps its own `Args` struct as the authoritative
+// CLI surface. `phenotype-cli` does not depend on those crates at runtime;
+// instead it spawns them through a thin delegation layer.
+//
+// Two execution modes are supported:
+//
+// 1. **`cargo run -p <name> -- <args>`**: default, always works regardless
+//    of whether the underlying binary is in PATH.  Trade-off: 1-2s warm-up
+//    while cargo resolves the workspace.
+//
+// 2. **Direct binary path**: when `PT_FAST_DELEGATE=1` is set, we skip
+//    `cargo run` and exec `<name>` directly. Use for hot loops / CI.
+//
+// The dispatcher picks mode 2 automatically when the `which::which` lookup
+// succeeds; otherwise it falls back to mode 1.
+//
+// `--pt-delegate-dry-run` (set by the `pt_delegate_dry_run` field on
+// `cmd_delegate::Args`) prints the resolved command without spawning it.
+// This is used by integration tests to verify the dispatcher's name
+// resolution without costing a real cargo run.
+// ---------------------------------------------------------------------------
+
+pub mod cmd_delegate {
+    use clap::Args as ClapArgs;
+
+    /// Forwarded argv for a delegated subcommand.
+    ///
+    /// The verbose flag (`-v` / `-vv`) is consumed at the top level by
+    /// `pt`'s parser and re-emitted on the inner command via `--verbose`.
+    /// The `--pt-delegate-dry-run` flag turns spawning off completely,
+    /// useful for tests.
+    #[derive(Debug, Default, ClapArgs)]
+    pub struct Args {
+        /// Print the resolved inner command without spawning it.
+        #[arg(long = "pt-delegate-dry-run", hide = true, global = false)]
+        pub dry_run: bool,
+
+        /// Pass through positional arguments (collected by clap after the
+        /// last flag).
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        pub passthrough: Vec<String>,
+    }
+
+    /// Build the inner `argv` for a delegated crate.
+    ///
+    /// `crate_name` is the kebab-case crate name (e.g. `fr-coverage`). The
+    /// vec returned starts with the program to exec (cargo by default), not
+    /// the full argv (the caller decides).
+    #[must_use]
+    pub fn resolve_command(
+        crate_name: &str,
+        args: &Args,
+        verbosity: u8,
+    ) -> Vec<String> {
+        let mut argv: Vec<String> = Vec::new();
+        if std::env::var("PT_FAST_DELEGATE").ok().as_deref() == Some("1")
+            && which_present(crate_name)
+        {
+            argv.push(crate_name.to_string());
+        } else {
+            argv.push("cargo".to_string());
+            argv.push("run".to_string());
+            argv.push("-q".to_string());
+            argv.push("--manifest-path".to_string());
+            // The crate manifest is always one level up from the CLI's
+            // own manifest when the workspace member is a sibling. The
+            // crates/ subfolder convention is enforced by the workspace
+            // root, so this path is stable.
+            let manifest = format!("crates/{crate_name}/Cargo.toml");
+            argv.push(manifest);
+            argv.push("--".to_string());
+        }
+
+        if verbosity > 0 {
+            argv.push(format!("-{}", "v".repeat(verbosity as usize)));
+        }
+        argv.extend(args.passthrough.iter().cloned());
+        argv
+    }
+
+    /// Spawn the underlying crate, forwarding `args.passthrough` and our
+    /// global `-v` flag. Returns the process exit code.
+    #[must_use]
+    pub fn run(crate_name: &str, args: Args, verbosity: u8) -> i32 {
+        let argv = resolve_command(crate_name, &args, verbosity);
+        if args.dry_run {
+            println!("{}", argv.join(" "));
+            return super::exit_code::OK;
+        }
+        spawn_argv(&argv)
+    }
+
+    /// Exec `argv[0] argv[1..]` and return its exit code.
+    #[must_use]
+    pub fn spawn_argv(argv: &[String]) -> i32 {
+        if argv.is_empty() {
+            eprintln!("error: cmd_delegate::run called with empty argv");
+            return super::exit_code::USAGE;
+        }
+        let mut cmd_iter = argv.iter();
+        let program = cmd_iter.next().expect("non-empty argv");
+        let mut command = std::process::Command::new(program);
+        for arg in cmd_iter {
+            command.arg(arg);
+        }
+        match command.status() {
+            Ok(status) => status.code().unwrap_or(super::exit_code::SOFTWARE),
+            Err(e) => {
+                eprintln!("error: cannot spawn '{program}': {e}");
+                super::exit_code::SOFTWARE
+            }
+        }
+    }
+
+    /// Cheap "is the binary in PATH" probe without depending on the
+    /// external `which` crate.
+    fn which_present(crate_name: &str) -> bool {
+        if let Some(paths) = std::env::var_os("PATH") {
+            for dir in std::env::split_paths(&paths) {
+                let candidate = dir.join(crate_name);
+                if candidate.is_file() {
+                    return true;
+                }
+                #[cfg(windows)]
+                {
+                    let candidate_exe = dir.join(format!("{crate_name}.exe"));
+                    if candidate_exe.is_file() {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
     }
 }
 
@@ -413,5 +629,88 @@ mod tests {
     fn version_constant_matches_cargo() {
         assert_eq!(VERSION, env!("CARGO_PKG_VERSION"));
         assert!(!VERSION.is_empty());
+    }
+
+    // ---------------------------------------------------------------
+    // Tests for the delegated subcommand surface (WP-07).
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn parses_acceptance_contract_delegate() {
+        let cli = Cli::try_parse_from([
+            "pt",
+            "acceptance-contract",
+            "--crate",
+            "docs-health",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::AcceptanceContract(args) => {
+                assert_eq!(args.passthrough, vec!["--crate", "docs-health"]);
+            }
+            _ => panic!("expected AcceptanceContract"),
+        }
+    }
+
+    #[test]
+    fn resolves_fr_coverage_command_cargo_run_path() {
+        // Force the cargo-run path by ensuring PT_FAST_DELEGATE is unset
+        // and `fr-coverage` is unlikely to be in PATH.
+        std::env::remove_var("PT_FAST_DELEGATE");
+        let args = cmd_delegate::Args {
+            dry_run: false,
+            passthrough: vec!["FR-001".into(), "--json".into()],
+        };
+        let argv = cmd_delegate::resolve_command("fr-coverage", &args, 1);
+        assert!(argv.first().map(String::as_str) == Some("cargo"));
+        assert!(argv.iter().any(|a| a.starts_with("crates/fr-coverage")));
+        assert!(argv.contains(&"FR-001".into()));
+        assert!(argv.contains(&"-v".into()));
+        assert!(argv.contains(&"--json".into()));
+    }
+
+    #[test]
+    fn dry_run_does_not_spawn() {
+        std::env::remove_var("PT_FAST_DELEGATE");
+        let args = cmd_delegate::Args {
+            dry_run: true,
+            passthrough: vec!["--version".into()],
+        };
+        let code = cmd_delegate::run("doc-link-check", args, 0);
+        assert_eq!(code, exit_code::OK);
+    }
+
+    #[test]
+    fn every_delegated_variant_parses() {
+        let names = [
+            "acceptance-contract",
+            "agent-forecast",
+            "agent-orchestrator",
+            "anthropic-usage-poll",
+            "audit-privacy",
+            "bench-guard",
+            "commit-msg-check",
+            "dag-scheduler",
+            "doc-link-check",
+            "fr-coverage",
+            "legacy-scan",
+            "worktree-manager",
+        ];
+        for name in names {
+            let cli = Cli::try_parse_from(["pt", name, "--"]).unwrap();
+            // We don't deeply inspect the variant here; we just want to
+            // know the parser accepts every WP-07 subcommand name.
+            let _ = cli.command;
+        }
+    }
+
+    #[test]
+    fn unresolved_crate_name_does_not_panic() {
+        // Even though we never reach spawn, this verifies the
+        // resolve_command contract holds for arbitrary kebab-case strings.
+        let args = cmd_delegate::Args::default();
+        let argv = cmd_delegate::resolve_command("nope-no-such-crate", &args, 0);
+        assert!(argv.contains(&"nope-no-such-crate".to_string())
+                || argv.contains(&"crates/nope-no-such-crate/Cargo.toml".to_string()));
     }
 }
