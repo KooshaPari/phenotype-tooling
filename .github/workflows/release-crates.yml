@@ -1,0 +1,51 @@
+name: Release Crates
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Perform a dry run without publishing'
+        required: false
+        default: 'false'
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Dry run — check publish (PR only)
+        if: github.event_name == 'pull_request' || github.event.inputs.dry_run == 'true'
+        run: |
+          cargo publish --dry-run -p phenotype-cli
+          cargo publish --dry-run -p phenotype-tooling-observability
+          cargo publish --dry-run -p temporal-grounding
+          cargo publish --dry-run -p worktree-manager
+
+      - name: Publish to crates.io
+        if: startsWith(github.ref, 'refs/tags/v') && github.event.inputs.dry_run != 'true'
+        run: |
+          # Publish in topological order (no inter-dependencies)
+          cargo publish -p phenotype-cli --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
+          cargo publish -p phenotype-tooling-observability --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
+          cargo publish -p temporal-grounding --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
+          cargo publish -p worktree-manager --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
