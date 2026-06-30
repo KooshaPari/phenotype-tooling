@@ -15,4 +15,4 @@ clap = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
+tokio = { version = "1.52", features = ["rt-multi-thread", "macros", "fs", "process"] }
