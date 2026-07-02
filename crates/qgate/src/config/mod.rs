@@ -39,6 +39,14 @@ pub struct QGateConfig {
     /// Path to the coverage report file (default: "coverage/lcov.info").
     #[serde(default = "default_coverage_path")]
     pub coverage_path: String,
+
+    /// Optional shell command to generate a CycloneDX SBOM at
+    /// `target/sbom.cdx.json` (e.g. `cyclonedx-py -o target/sbom.cdx.json`).
+    /// When set, SBOM category runs the command and verifies the artifact
+    /// exists; missing/unset means SBOM is auto-SKIPPED unless artifact
+    /// already exists at `target/sbom.cdx.json`.
+    #[serde(default)]
+    pub sbom_command: Option<String>,
 }
 
 fn default_coverage_threshold() -> f64 { 85.0 }
@@ -60,6 +68,7 @@ impl Default for QGateConfig {
             not_applicable: vec![],
             coverage_format: default_coverage_format(),
             coverage_path: default_coverage_path(),
+            sbom_command: None,
         }
     }
 }
@@ -96,8 +105,10 @@ mod tests {
 
     #[test]
     fn is_na_check() {
-        let mut cfg = QGateConfig::default();
-        cfg.not_applicable = vec!["a11y".into(), "chaos".into()];
+        let cfg = QGateConfig {
+            not_applicable: vec!["a11y".into(), "chaos".into()],
+            ..QGateConfig::default()
+        };
         assert!(cfg.is_na("a11y"));
         assert!(!cfg.is_na("unit"));
     }

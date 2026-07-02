@@ -20,6 +20,10 @@ fn default_matrix_contains_all_categories() {
     assert!(names.contains(&"static_analysis"), "missing static_analysis");
     assert!(names.contains(&"security"), "missing security");
     assert!(names.contains(&"a11y"), "missing a11y");
+    // Spectrum extension: DAST + SAST (split from Security) + SBOM
+    assert!(names.contains(&"dast"), "missing dast");
+    assert!(names.contains(&"sast"), "missing sast");
+    assert!(names.contains(&"sbom"), "missing sbom");
 }
 
 /// QG-CHK-002: N/A category does not count as failure
@@ -140,4 +144,78 @@ fn matrix_serializes_to_json() {
     let matrix = CheckMatrix::from_results(results);
     let json = serde_json::to_string(&matrix).expect("should serialize");
     assert!(json.contains("unit") || json.contains("Unit"));
+}
+
+// QG-CHK-201: SAST result serializes in snake_case (matches runner JSON output)
+#[test]
+fn sast_serializes_in_snake_case() {
+    let r = CheckResult {
+        category: CheckCategory::Sast,
+        status: CheckStatus::Passed,
+        score: Some(0.0),
+        threshold: Some(0.0),
+        details: "0 findings".into(),
+    };
+    let json = serde_json::to_string(&r).expect("should serialize");
+    assert!(json.contains("\"sast\""), "expected snake_case sast in {json}");
+}
+
+// QG-CHK-202: DAST and SBOM serialize in snake_case
+#[test]
+fn dast_and_sbom_serialize_in_snake_case() {
+    let r1 = CheckResult {
+        category: CheckCategory::Dast,
+        status: CheckStatus::Skipped,
+        score: None,
+        threshold: None,
+        details: "no config".into(),
+    };
+    let r2 = CheckResult {
+        category: CheckCategory::Sbom,
+        status: CheckStatus::Passed,
+        score: Some(1.0),
+        threshold: Some(0.0),
+        details: "ok".into(),
+    };
+    let j1 = serde_json::to_string(&r1).unwrap();
+    let j2 = serde_json::to_string(&r2).unwrap();
+    assert!(j1.contains("\"dast\""), "expected dast in {j1}");
+    assert!(j2.contains("\"sbom\""), "expected sbom in {j2}");
+}
+
+// QG-CHK-203: Skipped DAST does NOT fail the gate (graceful when no schema)
+#[test]
+fn skipped_dast_does_not_fail() {
+    let r = CheckResult {
+        category: CheckCategory::Dast,
+        status: CheckStatus::Skipped,
+        score: None,
+        threshold: None,
+        details: "schemathesis not installed".into(),
+    };
+    assert!(!r.is_failure());
+    assert!(r.is_applicable());
+}
+
+// QG-CHK-204: SBOM missing artifact counts as failure
+#[test]
+fn sbom_missing_artifact_is_failure() {
+    let r = CheckResult {
+        category: CheckCategory::Sbom,
+        status: CheckStatus::Failed,
+        score: Some(0.0),
+        threshold: Some(0.0),
+        details: "target/sbom.cdx.json not generated".into(),
+    };
+    assert!(r.is_failure());
+}
+
+// QG-CHK-205: Spectrum extension visible in default matrix
+#[test]
+fn default_matrix_contains_spectrum_extensions() {
+    let matrix = CheckMatrix::default();
+    let names: Vec<&str> = matrix.results.iter().map(|c| c.category.name()).collect();
+    assert_eq!(names.iter().filter(|n| **n == "dast").count(), 1);
+    assert_eq!(names.iter().filter(|n| **n == "sast").count(), 1);
+    assert_eq!(names.iter().filter(|n| **n == "sbom").count(), 1);
 }

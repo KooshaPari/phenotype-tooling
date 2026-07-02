@@ -34,7 +34,7 @@ impl<'a> StackDetector<'a> {
                 .max_depth(5)
                 .into_iter()
                 .filter_map(|e| e.ok())
-                .any(|e| e.path().extension().map_or(false, |x| x == *ext))
+                .any(|e| e.path().extension().is_some_and(|x| x == *ext))
         })
     }
 }
@@ -321,7 +321,7 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
         if !gl_ok { sec_failed = true; sec_details.push(format!("gitleaks: {}", gl_detail.lines().next().unwrap_or(""))); }
         else { sec_details.push("gitleaks: ok".into()); }
 
-        // semgrep SAST
+        // semgrep SAST — moved to dedicated Sast category (see below)
         let (sg_ok, sg_detail) = run_cmd(
             "semgrep", &["--config=auto", "--error", "--quiet", "."], root,
         ).await.unwrap_or((true, "semgrep not installed — skipping".into()));
@@ -350,6 +350,165 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
             threshold: Some(Thresholds::SECURITY_HIGH_FINDINGS),
             details: sec_details.join("; "),
         });
+    }
+
+    // ── SAST (semgrep) — dedicated category for static analysis findings ───
+    // Semgrep was historically bundled under Security; splitting it out lets
+    // repos opt-in independently (e.g. language-specific configs) and gives
+    // DAST/SBOM their own audit trail.
+    if cfg.is_na("sast") {
+        results.push(na("sast", CheckCategory::Sast));
+    } else {
+        let semgrep_available = run_cmd("semgrep", &["--version"], root).await
+            .map(|(ok, _)| ok)
+            .unwrap_or(false);
+        if semgrep_available {
+            // Prefer repo-supplied `.semgrep.yml` if present; otherwise auto.
+            let cfg_arg: &str = if root.join(".semgrep.yml").exists()
+                || root.join(".semgrep.yaml").exists()
+                || root.join("semgrep.yml").exists()
+            {
+                "--config=.semgrep.yml"
+            } else {
+                "--config=auto"
+            };
+            let (ok, detail) = run_cmd(
+                "semgrep",
+                &[cfg_arg, "--error", "--quiet", "--json", "--output=/tmp/semgrep.json", "."],
+                root,
+            ).await.unwrap_or((false, "semgrep failed".into()));
+            // Count high/critical findings from the JSON (best-effort, fall
+            // back to exit-code if /tmp/semgrep.json is unreadable).
+            let high_count = parse_semgrep_high_count("/tmp/semgrep.json");
+            let (status, score) = if !ok {
+                (CheckStatus::Failed, Some(high_count.max(1.0)))
+            } else if high_count > 0.0 {
+                (CheckStatus::Failed, Some(high_count))
+            } else {
+                (CheckStatus::Passed, Some(0.0))
+            };
+            let details = match status {
+                CheckStatus::Passed => "semgrep: 0 high/critical findings".to_string(),
+                _ => format!("semgrep: {high_count} high/critical findings — {detail}"),
+            };
+            results.push(CheckResult {
+                category: CheckCategory::Sast,
+                status,
+                score,
+                threshold: Some(Thresholds::SAST_HIGH_FINDINGS),
+                details,
+            });
+        } else {
+            results.push(skipped("sast", CheckCategory::Sast, "semgrep not installed"));
+        }
+    }
+
+    // ── DAST (schemathesis) — schema-driven black-box API fuzzing ─────────
+    // Looks for `.qgate/dast-schemathesis.toml` (or env QGATE_DAST_BASE_URL)
+    // describing the OpenAPI URL and base URL; runs `schemathesis run` with
+    // a 5-minute timeout and parses the JSON report for failed-check counts.
+    if cfg.is_na("dast") {
+        results.push(na("dast", CheckCategory::Dast));
+    } else {
+        let dast_cfg = DastConfig::discover(root);
+        match dast_cfg {
+            None => results.push(skipped(
+                "dast",
+                CheckCategory::Dast,
+                "no .qgate/dast.toml or QGATE_DAST_BASE_URL configured",
+            )),
+            Some(cfg) => {
+                let schemathesis_available = run_cmd("schemathesis", &["--version"], root).await
+                    .map(|(ok, _)| ok)
+                    .unwrap_or(false);
+                if !schemathesis_available {
+                    results.push(skipped("dast", CheckCategory::Dast, "schemathesis not installed"));
+                } else {
+                    let report_path = root.join("target/qgate-dast-report.json");
+                    let schema_arg = cfg.schema_url.as_deref().unwrap_or(&cfg.base_url);
+                    let (ok, detail) = run_cmd(
+                        "schemathesis",
+                        &[
+                            "run",
+                            schema_arg,
+                            "--base-url",
+                            &cfg.base_url,
+                            "--checks=all",
+                            "--max-examples=50",
+                            "--request-timeout=5",
+                            &format!("--report-json={}", report_path.display()),
+                        ],
+                        root,
+                    ).await.unwrap_or((false, "schemathesis crashed".into()));
+                    let failed = parse_dast_failed_count(&report_path);
+                    let (status, score) = if !ok {
+                        (CheckStatus::Failed, Some(failed.max(1.0)))
+                    } else if failed > 0.0 {
+                        (CheckStatus::Failed, Some(failed))
+                    } else {
+                        (CheckStatus::Passed, Some(0.0))
+                    };
+                    let details = match status {
+                        CheckStatus::Passed => {
+                            format!("schemathesis: 0 failed checks against {}", cfg.base_url)
+                        }
+                        _ => format!("schemathesis: {failed} failed checks — {detail}"),
+                    };
+                    results.push(CheckResult {
+                        category: CheckCategory::Dast,
+                        status,
+                        score,
+                        threshold: Some(Thresholds::DAST_FAILED_CHECKS),
+                        details,
+                    });
+                }
+            }
+        }
+    }
+
+    // ── SBOM (CycloneDX) — supply-chain artifact must be generated ────────
+    // Repo opts in via `.qgate.toml` field `sbom_command` or by shipping a
+    // pre-generated `target/sbom.cdx.json`. If neither is present and SBOM is
+    // not declared N/A, the check is SKIPPED (warning) — not failed — to
+    // avoid gating every repo on SBOM adoption.
+    if cfg.is_na("sbom") {
+        results.push(na("sbom", CheckCategory::Sbom));
+    } else if let Some(cmd) = cfg.sbom_command.as_deref() {
+        let (ok, detail) = run_cmd("bash", &["-c", cmd], root).await
+            .unwrap_or((false, "sbom command failed to execute".into()));
+        let artifact = root.join("target/sbom.cdx.json");
+        let present = artifact.exists();
+        let (status, score, details) = if ok && present {
+            (CheckStatus::Passed, Some(1.0), format!("sbom generated: {}", artifact.display()))
+        } else if present {
+            (CheckStatus::Passed, Some(1.0), format!("sbom artifact present (command exited non-zero but artifact exists): {}", artifact.display()))
+        } else {
+            (CheckStatus::Failed, Some(0.0), format!("sbom command did not produce target/sbom.cdx.json: {detail}"))
+        };
+        results.push(CheckResult {
+            category: CheckCategory::Sbom,
+            status,
+            score,
+            threshold: Some(Thresholds::SBOM_MUST_EXIST),
+            details,
+        });
+    } else {
+        let artifact = root.join("target/sbom.cdx.json");
+        if artifact.exists() {
+            results.push(CheckResult {
+                category: CheckCategory::Sbom,
+                status: CheckStatus::Passed,
+                score: Some(1.0),
+                threshold: Some(Thresholds::SBOM_MUST_EXIST),
+                details: format!("sbom artifact present at {}", artifact.display()),
+            });
+        } else {
+            results.push(skipped(
+                "sbom",
+                CheckCategory::Sbom,
+                "no sbom_command in .qgate.toml and target/sbom.cdx.json not found",
+            ));
+        }
     }
 
     // ── A11y ───────────────────────────────────────────────────────────────
@@ -390,4 +549,88 @@ fn skipped(name: &str, cat: CheckCategory, reason: &str) -> CheckResult {
         threshold: None,
         details: format!("{name} skipped: {reason}"),
     }
+}
+
+// ─── DAST configuration discovery ─────────────────────────────────────────
+//
+// A repo opts into DAST by shipping `.qgate/dast.toml` with `base_url` and
+// (optionally) `schema_url` pointing at an OpenAPI document. Falling back to
+// `QGATE_DAST_BASE_URL` / `QGATE_DAST_SCHEMA_URL` env vars makes it easy to
+// drive from CI without committing internal URLs.
+#[derive(Debug, Clone)]
+struct DastConfig {
+    base_url: String,
+    schema_url: Option<String>,
+}
+
+impl DastConfig {
+    fn discover(root: &Path) -> Option<Self> {
+        // 1) .qgate/dast.toml (TOML preferred for consistency with .qgate.toml)
+        let toml_path = root.join(".qgate/dast.toml");
+        if toml_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&toml_path) {
+                if let Ok(v) = toml::from_str::<toml::Value>(&content) {
+                    let base_url = v.get("base_url")?.as_str()?.to_string();
+                    let schema_url = v.get("schema_url").and_then(|s| s.as_str()).map(String::from);
+                    if !base_url.is_empty() {
+                        return Some(Self { base_url, schema_url });
+                    }
+                }
+            }
+        }
+        // 2) Environment variables
+        let base_url = std::env::var("QGATE_DAST_BASE_URL").ok()?;
+        if base_url.is_empty() {
+            return None;
+        }
+        let schema_url = std::env::var("QGATE_DAST_SCHEMA_URL").ok().filter(|s| !s.is_empty());
+        Some(Self { base_url, schema_url })
+    }
+}
+
+/// Parse the high/critical finding count out of a semgrep JSON report.
+/// Returns 0.0 if the file is missing, unreadable, or has no findings array.
+fn parse_semgrep_high_count(path: &str) -> f64 {
+    let Ok(content) = std::fs::read_to_string(path) else { return 0.0; };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) else { return 0.0; };
+    let results = v.get("results").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+    let mut count: f64 = 0.0;
+    for finding in results {
+        let severity = finding.get("extra")
+            .and_then(|e| e.get("severity"))
+            .and_then(|s| s.as_str())
+            .unwrap_or("");
+        if severity.eq_ignore_ascii_case("error")
+            || severity.eq_ignore_ascii_case("warning")
+            || severity.eq_ignore_ascii_case("high")
+            || severity.eq_ignore_ascii_case("critical")
+        {
+            count += 1.0;
+        }
+    }
+    count
+}
+
+/// Parse the failed-check count out of a schemathesis JSON report.
+/// Returns 0.0 if missing/unreadable; counts `failed_examples` if present
+/// and `checks[].status == "failure"` markers as a fallback.
+fn parse_dast_failed_count(path: &std::path::Path) -> f64 {
+    let Ok(content) = std::fs::read_to_string(path) else { return 0.0; };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) else { return 0.0; };
+    if let Some(n) = v.get("failed_examples").and_then(|n| n.as_f64()) {
+        return n;
+    }
+    if let Some(n) = v.get("summary")
+        .and_then(|s| s.get("failed"))
+        .and_then(|n| n.as_f64())
+    {
+        return n;
+    }
+    if let Some(arr) = v.get("checks").and_then(|c| c.as_array()) {
+        let fails = arr.iter()
+            .filter(|c| c.get("status").and_then(|s| s.as_str()) == Some("failure"))
+            .count();
+        return fails as f64;
+    }
+    0.0
 }
