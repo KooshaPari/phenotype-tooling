@@ -26,6 +26,7 @@ members = [
     "crates/worktree-manager",
     "crates/phenotype-tooling-observability",
     "crates/phenotype-cli",
+    "crates/ptx",
     "bin/hook-entry",
 ]
 
