@@ -69,7 +69,10 @@ pub const fn default_sequence() -> &'static [&'static str] {
 /// is consistent.
 #[must_use]
 pub fn nop_gates() -> Vec<Gate> {
-    default_sequence().iter().map(|name| Gate::passed(*name)).collect()
+    default_sequence()
+        .iter()
+        .map(|name| Gate::passed(*name))
+        .collect()
 }
 
 /// Root directory the gate runner should evaluate. Defaults to the
@@ -88,7 +91,9 @@ impl GateContext {
             path: PathBuf::from("<cwd>"),
             source,
         })?;
-        Ok(Self { workspace_root: cwd })
+        Ok(Self {
+            workspace_root: cwd,
+        })
     }
 
     /// Use an explicit workspace root.

@@ -14,7 +14,10 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// Path under the workspace root where the manifest is written.
 #[must_use]
 pub fn manifest_path(workspace_root: &Path) -> PathBuf {
-    workspace_root.join("target").join("ptx").join("manifest.json")
+    workspace_root
+        .join("target")
+        .join("ptx")
+        .join("manifest.json")
 }
 
 /// Result of writing the manifest — `wrote_new` distinguishes between

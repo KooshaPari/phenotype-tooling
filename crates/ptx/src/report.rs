@@ -46,7 +46,10 @@ pub fn render_markdown(gates: &[Gate]) -> String {
         .iter()
         .filter(|g| matches!(g.status, Status::Passed))
         .count();
-    out.push_str(&format!("{passed} / {total} gates passed", total = gates.len()));
+    out.push_str(&format!(
+        "{passed} / {total} gates passed",
+        total = gates.len()
+    ));
     out.push('\n');
     out
 }
@@ -66,7 +69,10 @@ mod tests {
 
     #[test]
     fn render_includes_expected_anchors() {
-        let gates = vec![gate("fmt", Status::Passed, "clean"), gate("clippy", Status::Failed, "1 err")];
+        let gates = vec![
+            gate("fmt", Status::Passed, "clean"),
+            gate("clippy", Status::Failed, "1 err"),
+        ];
         let md = render_markdown(&gates);
         assert!(md.starts_with(REPORT_HEADER));
         assert!(md.contains(REPORT_GATES_HEADER));

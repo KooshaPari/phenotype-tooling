@@ -2,10 +2,14 @@
 name = "quality-gate"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
-repository.workspace = true
 description = "Aggregates cargo/clippy/test/fmt/bench pass-fail into a single gate"
 
+readme = "README.md"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/KooshaPari/phenotype-tooling"
+homepage = "https://github.com/KooshaPari/phenotype-tooling"
+keywords = ["phenotype", "tooling", "cli"]
+categories = ["command-line-utilities"]
 [[bin]]
 name = "quality-gate"
 path = "src/main.rs"

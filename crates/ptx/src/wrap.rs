@@ -61,7 +61,10 @@ pub fn read_lockfile(root: &std::path::Path) -> Result<Lockfile, PtxError> {
             .trim()
             .to_string();
         if name.is_empty() || version.is_empty() {
-            return Err(PtxError::Parse(format!("line {}: empty key or value", i + 1)));
+            return Err(PtxError::Parse(format!(
+                "line {}: empty key or value",
+                i + 1
+            )));
         }
         pinned.push(PinnedCrate { name, version });
     }
@@ -97,10 +100,7 @@ mod tests {
     fn malformed_line_returns_parse_error() {
         let dir = tempdir();
         std::fs::write(dir.path().join(LOCKFILE_PATH), "no-equals-sign\n").unwrap();
-        assert!(matches!(
-            read_lockfile(dir.path()),
-            Err(PtxError::Parse(_))
-        ));
+        assert!(matches!(read_lockfile(dir.path()), Err(PtxError::Parse(_))));
     }
 
     fn tempdir() -> tempfile::TempDir {

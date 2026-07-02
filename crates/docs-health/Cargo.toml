@@ -2,10 +2,14 @@
 name = "docs-health"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
-repository.workspace = true
 description = "Scans markdown files for vale/markdownlint compliance and broken links"
 
+readme = "README.md"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/KooshaPari/phenotype-tooling"
+homepage = "https://github.com/KooshaPari/phenotype-tooling"
+keywords = ["phenotype", "tooling", "cli"]
+categories = ["command-line-utilities"]
 [[bin]]
 name = "docs-health"
 path = "src/main.rs"

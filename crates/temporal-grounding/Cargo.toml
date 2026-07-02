@@ -3,11 +3,15 @@ name = "temporal-grounding"
 description = "Temporal grounding utilities for Claude Code agent sessions"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
-repository.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 
+readme = "README.md"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/KooshaPari/phenotype-tooling"
+homepage = "https://github.com/KooshaPari/phenotype-tooling"
+keywords = ["phenotype", "tooling", "cli"]
+categories = ["command-line-utilities"]
 [lib]
 name = "temporal_grounding"
 path = "src/lib.rs"

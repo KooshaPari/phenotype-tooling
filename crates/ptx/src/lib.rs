@@ -92,7 +92,10 @@ impl From<ExitCode> for u8 {
 pub const fn all_passed(gates: &[check::Gate]) -> bool {
     matches!(
         gates.last(),
-        Some(check::Gate { status: check::Status::Passed, .. })
+        Some(check::Gate {
+            status: check::Status::Passed,
+            ..
+        })
     )
 }
 
@@ -112,8 +115,10 @@ pub enum PtxError {
     /// Manifest or input could not be tokenised; carries a short parser
     /// context including line/column when available.
     #[error("parse error: {0}")]
-    Parse(/// Human-readable parse-error message.
-        String),
+    Parse(
+        /// Human-readable parse-error message.
+        String,
+    ),
     /// Manifest schema version on disk does not match the version this
     /// build of `ptx` was compiled against.
     #[error("manifest version mismatch: expected {expected}, found {found}")]
@@ -160,7 +165,7 @@ pub fn run_cli() -> Result<(), PtxError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExitCode, PTX_VERSION, PtxError, all_passed};
+    use super::{all_passed, ExitCode, PtxError, PTX_VERSION};
 
     #[test]
     fn version_constant_is_not_empty() {

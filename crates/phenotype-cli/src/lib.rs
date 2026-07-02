@@ -86,7 +86,6 @@ pub enum Command {
     //
     // See `cmd_delegate::resolve_crate_name` for the mapping table.
     // ---------------------------------------------------------------
-
     /// Verify an acceptance contract for an absorbed crate.
     AcceptanceContract(cmd_delegate::Args),
 
@@ -152,10 +151,16 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Command::Observability(args) => obs_cmd::run(args, cli.verbose),
 
         // Delegated subcommands (WP-07).
-        Command::AcceptanceContract(args) => cmd_delegate::run("acceptance-contract", args, cli.verbose),
+        Command::AcceptanceContract(args) => {
+            cmd_delegate::run("acceptance-contract", args, cli.verbose)
+        }
         Command::AgentForecast(args) => cmd_delegate::run("agent-forecast", args, cli.verbose),
-        Command::AgentOrchestrator(args) => cmd_delegate::run("agent-orchestrator", args, cli.verbose),
-        Command::AnthropicUsagePoll(args) => cmd_delegate::run("anthropic-usage-poll", args, cli.verbose),
+        Command::AgentOrchestrator(args) => {
+            cmd_delegate::run("agent-orchestrator", args, cli.verbose)
+        }
+        Command::AnthropicUsagePoll(args) => {
+            cmd_delegate::run("anthropic-usage-poll", args, cli.verbose)
+        }
         Command::AuditPrivacy(args) => cmd_delegate::run("audit-privacy", args, cli.verbose),
         Command::BenchGuard(args) => cmd_delegate::run("bench-guard", args, cli.verbose),
         Command::CommitMsgCheck(args) => cmd_delegate::run("commit-msg-check", args, cli.verbose),
@@ -187,10 +192,16 @@ pub fn run_cli(cli: Cli) -> i32 {
         Command::Observability(args) => obs_cmd::run(args, cli.verbose),
 
         // Delegated subcommands (WP-07).
-        Command::AcceptanceContract(args) => cmd_delegate::run("acceptance-contract", args, cli.verbose),
+        Command::AcceptanceContract(args) => {
+            cmd_delegate::run("acceptance-contract", args, cli.verbose)
+        }
         Command::AgentForecast(args) => cmd_delegate::run("agent-forecast", args, cli.verbose),
-        Command::AgentOrchestrator(args) => cmd_delegate::run("agent-orchestrator", args, cli.verbose),
-        Command::AnthropicUsagePoll(args) => cmd_delegate::run("anthropic-usage-poll", args, cli.verbose),
+        Command::AgentOrchestrator(args) => {
+            cmd_delegate::run("agent-orchestrator", args, cli.verbose)
+        }
+        Command::AnthropicUsagePoll(args) => {
+            cmd_delegate::run("anthropic-usage-poll", args, cli.verbose)
+        }
         Command::AuditPrivacy(args) => cmd_delegate::run("audit-privacy", args, cli.verbose),
         Command::BenchGuard(args) => cmd_delegate::run("bench-guard", args, cli.verbose),
         Command::CommitMsgCheck(args) => cmd_delegate::run("commit-msg-check", args, cli.verbose),
@@ -352,11 +363,7 @@ pub mod cmd_delegate {
     /// vec returned starts with the program to exec (cargo by default), not
     /// the full argv (the caller decides).
     #[must_use]
-    pub fn resolve_command(
-        crate_name: &str,
-        args: &Args,
-        verbosity: u8,
-    ) -> Vec<String> {
+    pub fn resolve_command(crate_name: &str, args: &Args, verbosity: u8) -> Vec<String> {
         let mut argv: Vec<String> = Vec::new();
         if std::env::var("PT_FAST_DELEGATE").ok().as_deref() == Some("1")
             && which_present(crate_name)
@@ -637,13 +644,8 @@ mod tests {
 
     #[test]
     fn parses_acceptance_contract_delegate() {
-        let cli = Cli::try_parse_from([
-            "pt",
-            "acceptance-contract",
-            "--crate",
-            "docs-health",
-        ])
-        .unwrap();
+        let cli =
+            Cli::try_parse_from(["pt", "acceptance-contract", "--crate", "docs-health"]).unwrap();
         match cli.command {
             Command::AcceptanceContract(args) => {
                 assert_eq!(args.passthrough, vec!["--crate", "docs-health"]);
@@ -710,7 +712,9 @@ mod tests {
         // resolve_command contract holds for arbitrary kebab-case strings.
         let args = cmd_delegate::Args::default();
         let argv = cmd_delegate::resolve_command("nope-no-such-crate", &args, 0);
-        assert!(argv.contains(&"nope-no-such-crate".to_string())
-                || argv.contains(&"crates/nope-no-such-crate/Cargo.toml".to_string()));
+        assert!(
+            argv.contains(&"nope-no-such-crate".to_string())
+                || argv.contains(&"crates/nope-no-such-crate/Cargo.toml".to_string())
+        );
     }
 }
