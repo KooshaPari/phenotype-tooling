@@ -5,6 +5,12 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 publish = false
 
+readme = "README.md"
+description = "Agent orchestrator for phenotype-tooling"
+repository = "https://github.com/KooshaPari/phenotype-tooling"
+homepage = "https://github.com/KooshaPari/phenotype-tooling"
+keywords = ["phenotype", "tooling", "cli"]
+categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.5",features=["derive", "env"] }

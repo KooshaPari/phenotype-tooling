@@ -28,6 +28,7 @@ members = [
     "crates/phenotype-tooling-observability",
     "crates/phenotype-cli",
     "crates/perfharness",
+    "crates/ptx",
     "bin/hook-entry",
 ]
 

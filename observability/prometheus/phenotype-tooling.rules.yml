@@ -1,0 +1,119 @@
+groups:
+  - name: phenotype-tooling.rules
+    interval: 30s
+    rules:
+      # === Recording rules ===
+      # Derive the two SLO target series from the raw counters exposed by
+      # the `phenotype-cli observability` server on `/metrics`. These are
+      # references consumed in ../../crates/phenotype-tooling-observability/src/slo.rs
+      # and mirrored in ../../../docs/WP-09-OBSERVABILITY.md.
+
+      - record: phenotype_cli:success_rate:5m
+        expr: |
+          sum(rate(cli_invocations_total[5m]))
+            -
+          sum(rate(cli_errors_total[5m]))
+        labels:
+          window: "5m"
+
+      - record: phenotype_cli:success_rate:1h
+        expr: |
+          sum(rate(cli_invocations_total[1h]))
+            -
+          sum(rate(cli_errors_total[1h]))
+        labels:
+          window: "1h"
+
+      - record: phenotype_cli:success_rate_observed:1h
+        expr: |
+          (
+            sum(rate(cli_invocations_total[1h]))
+              -
+            sum(rate(cli_errors_total[1h]))
+          )
+          /
+          clamp_min(sum(rate(cli_invocations_total[1h])), 1)
+        labels:
+          window: "1h"
+
+      - record: phenotype_cli:startup_latency_p95:5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(cli_duration_seconds_bucket[5m]))
+          )
+        labels:
+          quantile: "p95"
+
+      - record: phenotype_cli:startup_latency_p99:5m
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (rate(cli_duration_seconds_bucket[5m]))
+          )
+        labels:
+          quantile: "p99"
+
+      - record: phenotype_cli:error_budget_remaining:1h
+        expr: |
+          1 - (
+            (
+              sum(increase(cli_errors_total[1h]))
+                /
+              clamp_min(sum(increase(cli_invocations_total[1h])), 1)
+            ) / 0.001
+          )
+        labels:
+          slo_target: "0.999"
+
+      # === Alerting rules ===
+      # Burn-rate alerts. Two windows per SLO (Google SRE workbook style):
+      #   fast burn  — 5m metric  / 1h metric
+      #   slow burn  — 1h metric  / 6h metric
+      # Alert is fired when the budget is being consumed too quickly.
+
+      - alert: PhenotypeCliSuccessRateFastBurn
+        expr: |
+          (
+            sum(rate(cli_errors_total[5m]))
+              /
+            clamp_min(sum(rate(cli_invocations_total[5m])), 1)
+          ) > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          slo: success_rate
+        annotations:
+          summary: "Phenotype-cli success rate burning error budget fast"
+          description: |
+            5m error rate >= 14.4x the 0.999 SLO target
+            (cli_success_rate target = 99.9%, currently degraded).
+            Investigate via dashboard "Phenotype Tooling / Observability".
+
+      - alert: PhenotypeCliSuccessRateSlowBurn
+        expr: |
+          (
+            sum(rate(cli_errors_total[1h]))
+              /
+            clamp_min(sum(rate(cli_invocations_total[1h])), 1)
+          ) > (6 * 0.001)
+        for: 30m
+        labels:
+          severity: warning
+          slo: success_rate
+        annotations:
+          summary: "Phenotype-cli success rate slowly consuming error budget"
+          description: |
+            1h error rate >= 6x the 0.999 SLO target.
+
+      - alert: PhenotypeCliStartupLatencyP95
+        expr: |
+          phenotype_cli:startup_latency_p95:5m > 0.200
+        for: 5m
+        labels:
+          severity: warning
+          slo: startup_p95
+        annotations:
+          summary: "Phenotype-cli p95 startup latency exceeds 200ms"
+          description: |
+            cli_startup_p95 SLO target = 200ms, currently at {{ $value }}s.

@@ -2,10 +2,14 @@
 name = "phenotype-tooling-observability"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
-repository.workspace = true
 description = "OTel/OTLP observability for the phenotype-tooling workspace — Prometheus metrics, /health endpoint, SLOs"
 
+readme = "README.md"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/KooshaPari/phenotype-tooling"
+homepage = "https://github.com/KooshaPari/phenotype-tooling"
+keywords = ["phenotype", "tooling", "cli"]
+categories = ["command-line-utilities"]
 [dependencies]
 pheno-tracing = { version = "0.4", default-features = false }
 tracing = { workspace = true }

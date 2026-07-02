@@ -1498,6 +1498,14 @@
       "version": "0.10.1"
     },
     {
+      "name": "ptx",
+      "purl": "pkg:cargo/ptx/0.1.0",
+      "scope": "required",
+      "source": "unknown",
+      "type": "library",
+      "version": "0.1.0"
+    },
+    {
       "name": "pulldown-cmark",
       "purl": "pkg:cargo/pulldown-cmark/0.13.3",
       "scope": "required",
@@ -2937,7 +2945,7 @@
       "type": "application",
       "version": "0.0.1"
     },
-    "timestamp": "2026-06-29T03:36:34.910251400-07:00",
+    "timestamp": "2026-07-02T15:48:20.704269700-07:00",
     "tools": [
       {
         "name": "sbom-gen",
