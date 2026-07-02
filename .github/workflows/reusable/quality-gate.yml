@@ -50,6 +50,26 @@ on:
         description: "Working directory for qgate (default: repo root)"
         type: string
         default: "."
+      # DAST — schemathesis base URL (set to opt in; leave empty to N/A)
+      dast-base-url:
+        description: "Base URL for schemathesis DAST runs (empty = N/A)"
+        type: string
+        default: ""
+      # DAST — schemathesis OpenAPI schema URL (defaults to base URL)
+      dast-schema-url:
+        description: "OpenAPI schema URL for schemathesis (empty = use base URL)"
+        type: string
+        default: ""
+      # SAST — semgrep config (auto | path/to/.semgrep.yml); empty = N/A
+      sast-config:
+        description: "Semgrep config: 'auto' or path to .semgrep.yml (empty = N/A)"
+        type: string
+        default: ""
+      # SBOM — cyclonedx generation command (empty = N/A)
+      sbom-command:
+        description: "Shell command to generate target/sbom.cdx.json (empty = N/A)"
+        type: string
+        default: ""
     outputs:
       # 'pass' or 'fail' — callers can gate merges on this.
       gate-status:
@@ -116,6 +136,10 @@ jobs:
           INPUT_COVERAGE_FORMAT: ${{ inputs.coverage-format }}
           INPUT_NOT_APPLICABLE: ${{ inputs.not-applicable }}
           INPUT_WORKING_DIR: ${{ inputs.working-directory }}
+          INPUT_DAST_BASE_URL: ${{ inputs.dast-base-url }}
+          INPUT_DAST_SCHEMA_URL: ${{ inputs.dast-schema-url }}
+          INPUT_SAST_CONFIG: ${{ inputs.sast-config }}
+          INPUT_SBOM_COMMAND: ${{ inputs.sbom-command }}
         run: |
           # threshold must be a number 0–100
           if ! echo "$INPUT_THRESHOLD" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
@@ -152,6 +176,28 @@ jobs:
             exit 1
           fi
 
+          # dast-base-url / dast-schema-url: only http(s) URLs allowed (or empty)
+          for v in "$INPUT_DAST_BASE_URL" "$INPUT_DAST_SCHEMA_URL"; do
+            if [ -n "$v" ] && ! echo "$v" | grep -qE '^https?://[A-Za-z0-9._/:?=&%+-]+$'; then
+              echo "::error::dast URL must be http(s)://... or empty, got: $v"
+              exit 1
+            fi
+          done
+
+          # sast-config: only 'auto' or relative path with no shell metas
+          if [ -n "$INPUT_SAST_CONFIG" ] \
+            && [ "$INPUT_SAST_CONFIG" != "auto" ] \
+            && echo "$INPUT_SAST_CONFIG" | grep -qE '[`$;&|<>]|\.\./'; then
+            echo "::error::sast-config must be 'auto' or a relative path with no shell metas"
+            exit 1
+          fi
+
+          # sbom-command: reject newlines, backticks, $(), and $( ) command substitution
+          if echo "$INPUT_SBOM_COMMAND" | grep -qE '[\n`$()]'; then
+            echo "::error::sbom-command must not contain backticks or $()"
+            exit 1
+          fi
+
           echo "Input validation passed."
 
       # ── Generate .qgate.toml from inputs (overrides repo config) ──────
@@ -162,6 +208,7 @@ jobs:
           INPUT_COVERAGE_FORMAT: ${{ inputs.coverage-format }}
           INPUT_NOT_APPLICABLE: ${{ inputs.not-applicable }}
           INPUT_WORKING_DIR: ${{ inputs.working-directory }}
+          INPUT_SBOM_COMMAND: ${{ inputs.sbom-command }}
         run: |
           WORK_DIR="_repo/${INPUT_WORKING_DIR}"
           cd "$WORK_DIR"
@@ -181,6 +228,12 @@ jobs:
           coverage_format = "${INPUT_COVERAGE_FORMAT}"
           not_applicable = [${NOT_APPLICABLE_TOML}]
           TOML
+
+          # SBOM command — only write the line when caller supplied one.
+          if [ -n "$INPUT_SBOM_COMMAND" ]; then
+            printf 'sbom_command = "%s"\n' "$INPUT_SBOM_COMMAND" \
+              >> .qgate-ci-override.toml
+          fi
 
           # Merge into .qgate.toml (override wins for listed keys).
           if [ -f .qgate.toml ]; then

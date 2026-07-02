@@ -19,6 +19,9 @@ pub enum CheckCategory {
     Mutation,
     StaticAnalysis,
     Security,
+    Sast,
+    Dast,
+    Sbom,
     A11y,
 }
 
@@ -34,6 +37,9 @@ impl CheckCategory {
             Self::Mutation => "mutation",
             Self::StaticAnalysis => "static_analysis",
             Self::Security => "security",
+            Self::Sast => "sast",
+            Self::Dast => "dast",
+            Self::Sbom => "sbom",
             Self::A11y => "a11y",
         }
     }
@@ -50,6 +56,9 @@ impl CheckCategory {
             Self::Mutation,
             Self::StaticAnalysis,
             Self::Security,
+            Self::Sast,
+            Self::Dast,
+            Self::Sbom,
             Self::A11y,
         ]
     }
@@ -157,8 +166,14 @@ impl Thresholds {
     pub const MUTATION_SCORE: f64 = 75.0;
     /// Static analysis: 0 errors (warnings may be configurable).
     pub const STATIC_ANALYSIS_ERRORS: f64 = 0.0;
-    /// Security: 0 high/critical findings.
+    /// Security (secrets + SCA): 0 high/critical findings.
     pub const SECURITY_HIGH_FINDINGS: f64 = 0.0;
+    /// SAST (semgrep): 0 high/critical findings.
+    pub const SAST_HIGH_FINDINGS: f64 = 0.0;
+    /// DAST (schemathesis): 0 failed checks / 5xx responses.
+    pub const DAST_FAILED_CHECKS: f64 = 0.0;
+    /// SBOM (CycloneDX): must generate a valid artifact; missing = failure.
+    pub const SBOM_MUST_EXIST: f64 = 0.0;
     /// A11y: 0 violations (only when UI detected).
     pub const A11Y_VIOLATIONS: f64 = 0.0;
 }
@@ -198,5 +213,70 @@ mod tests {
             details: "1 test failed".into(),
         };
         assert!(r.is_failure());
+    }
+
+    // @trace QG-CHK-101: new spectrum categories (DAST/SAST/SBOM) reachable
+    #[test]
+    fn new_spectrum_categories_reachable() {
+        let matrix = CheckMatrix::default();
+        let names: Vec<&str> = matrix.results.iter().map(|r| r.category.name()).collect();
+        assert!(names.contains(&"dast"), "missing dast");
+        assert!(names.contains(&"sast"), "missing sast");
+        assert!(names.contains(&"sbom"), "missing sbom");
+    }
+
+    // @trace QG-CHK-102: SAST failure counts as gate failure
+    #[test]
+    fn sast_failure_is_failure() {
+        let r = CheckResult {
+            category: CheckCategory::Sast,
+            status: CheckStatus::Failed,
+            score: Some(3.0),
+            threshold: Some(Thresholds::SAST_HIGH_FINDINGS),
+            details: "3 high-severity semgrep findings".into(),
+        };
+        assert!(r.is_failure());
+        assert_eq!(r.threshold, Some(0.0));
+    }
+
+    // @trace QG-CHK-103: DAST failure counts as gate failure
+    #[test]
+    fn dast_failure_is_failure() {
+        let r = CheckResult {
+            category: CheckCategory::Dast,
+            status: CheckStatus::Failed,
+            score: Some(5.0),
+            threshold: Some(Thresholds::DAST_FAILED_CHECKS),
+            details: "5 schemathesis checks failed".into(),
+        };
+        assert!(r.is_failure());
+        assert_eq!(r.threshold, Some(0.0));
+    }
+
+    // @trace QG-CHK-104: SBOM missing artifact counts as gate failure
+    #[test]
+    fn sbom_missing_is_failure() {
+        let r = CheckResult {
+            category: CheckCategory::Sbom,
+            status: CheckStatus::Failed,
+            score: Some(0.0),
+            threshold: Some(Thresholds::SBOM_MUST_EXIST),
+            details: "cyclonedx output not generated".into(),
+        };
+        assert!(r.is_failure());
+    }
+
+    // @trace QG-CHK-105: SBOM present counts as passed
+    #[test]
+    fn sbom_present_is_passed() {
+        let r = CheckResult {
+            category: CheckCategory::Sbom,
+            status: CheckStatus::Passed,
+            score: Some(1.0),
+            threshold: Some(Thresholds::SBOM_MUST_EXIST),
+            details: "sbom.cdx.json generated, 42 components".into(),
+        };
+        assert!(!r.is_failure());
+        assert!(r.is_applicable());
     }
 }
