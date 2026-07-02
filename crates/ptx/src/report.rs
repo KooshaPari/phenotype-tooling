@@ -62,7 +62,10 @@ mod tests {
     fn gate(name: &str, status: Status, detail: &str) -> Gate {
         Gate {
             name: name.to_string(),
+            elapsed_ms: 0,
             status,
+            stdout_tail: String::new(),
+            stderr_tail: String::new(),
             detail: detail.to_string(),
         }
     }

@@ -73,7 +73,8 @@ mod tests {
     #[test]
     fn manifest_path_is_under_target_ptx() {
         let p = manifest_path(Path::new("/workspace"));
-        assert_eq!(p.to_string_lossy(), "/workspace/target/ptx/manifest.json");
+        let s = p.to_string_lossy().replace('\\', "/");
+        assert_eq!(s, "/workspace/target/ptx/manifest.json");
     }
 
     #[test]
