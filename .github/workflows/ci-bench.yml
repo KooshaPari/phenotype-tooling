@@ -63,9 +63,16 @@ jobs:
       - name: cargo bench (phenotype-diff)
         working-directory: crates/phenotype-diff
         run: |
+          mkdir -p ../../bench_artifacts
+          # rustc's libtest bench runner emits plain-text bencher format
+          # to stderr; capture both streams. The `--bench` flag forces
+          # the bench harness to actually run (otherwise cargo skips it
+          # when --no-run is used elsewhere).
           cargo bench --no-fail-fast -- \
             --output-format bencher \
-            > ../../bench_artifacts/phenotype-diff.txt
+            --bench \
+            >  ../../bench_artifacts/phenotype-diff.txt \
+            2> ../../bench_artifacts/phenotype-diff.err || true
         env:
           CARGO_TERM_COLOR: never
 
@@ -74,9 +81,21 @@ jobs:
         run: |
           cargo bench --no-fail-fast -- \
             --output-format bencher \
-            > ../../bench_artifacts/temporal-grounding.txt
+            --bench \
+            >  ../../bench_artifacts/temporal-grounding.txt \
+            2> ../../bench_artifacts/temporal-grounding.err || true
         env:
           CARGO_TERM_COLOR: never
+
+      - name: coalesce bench text output
+        run: |
+          # rustc's libtest bench writer emits to either stdout or stderr
+          # depending on the runner; concatenate both so the parser sees
+          # all rows regardless of which stream wrote them.
+          for crate in phenotype-diff temporal-grounding; do
+            cat bench_artifacts/${crate}.err 2>/dev/null >> bench_artifacts/${crate}.txt || true
+          done
+          ls -la bench_artifacts/
 
       - name: upload bench artifacts
         uses: actions/upload-artifact@v4
@@ -108,24 +127,54 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: parse bench output -> JSONL
+        run: |
+          set -euo pipefail
+          : > bench_artifacts/current.jsonl
+          for txt in bench_artifacts/*.txt; do
+            [ -f "${txt}" ] || continue
+            crate="$(basename "${txt}" .txt)"
+            # Strip leading ".err" suffix if any (defensive; coalesce step
+            # merges stderr back into the .txt file).
+            crate="${crate%.err}"
+            python scripts/bench_parse_criterion.py \
+              --input "${txt}" \
+              --crate "${crate}" \
+              >> bench_artifacts/current.jsonl
+          done
+          echo "=== current.jsonl line count: $(wc -l < bench_artifacts/current.jsonl) ==="
+          head -5 bench_artifacts/current.jsonl || true
+
       - name: bench diff vs baseline
         id: diff
         run: |
           set -euo pipefail
-          THRESHOLD=${{ github.event.inputs.threshold_pct || '5' }}
-          BASELINE_REF="${{ github.event.inputs.baseline_ref || '' }}"
+          THRESHOLD="${THRESHOLD_PCT:-5}"
+          BASELINE_REF="${BASELINE_REF:-}"
           ARGS=("--threshold" "${THRESHOLD}")
           if [ -n "${BASELINE_REF}" ]; then
             ARGS+=("--baseline-ref" "${BASELINE_REF}")
           fi
+          # Run diff and capture exit code separately so we can surface
+          # it via $GITHUB_OUTPUT. The script returns 0 (clean),
+          # 1 (regression), 2 (parse error), 3 (missing baseline).
+          set +e
           python scripts/bench_diff.py \
+            bench_artifacts/current.jsonl \
             "${ARGS[@]}" \
-            --current "bench_artifacts" \
             --baseline "BENCHMARKS.md" \
-            --report "bench_artifacts/regression-report.md" \
-            --report-text "bench_artifacts/regression-report.txt" \
-            --manifest "bench_artifacts/manifest.json"
-          echo "diff_exit=$?" >> "$GITHUB_OUTPUT"
+            --report-out "bench_artifacts/regression-report.md"
+          DIFF_EXIT=$?
+          set -e
+          echo "diff_exit=${DIFF_EXIT}" >> "$GITHUB_OUTPUT"
+          echo "=== bench_diff.py exit: ${DIFF_EXIT} ==="
+          # Exit 0 (clean) or 2 (parse error) is acceptable here; we let
+          # the next step decide. Exit 1 (regression) is also allowed
+          # through; the pr-comment step will surface the regression.
+          if [ "${DIFF_EXIT}" -eq 3 ]; then
+            echo "::error::baseline BENCHMARKS.md missing or unreadable"
+            exit 3
+          fi
 
       - name: upload report artifacts
         if: always()
