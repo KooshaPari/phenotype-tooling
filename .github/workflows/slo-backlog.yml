@@ -1,0 +1,60 @@
+name: slo-backlog
+
+# WP-13: SLO-driven backlog.
+#
+# Polls the Prometheus /api/v1/alerts endpoint every 10 minutes and emits a
+# GitHub issue for each newly-firing burn-rate alert owned by this repo.
+# Issues are deduped via the [fp=<12hex>] suffix in the title.
+#
+# Trigger:
+#   - schedule: every 10 min
+#   - workflow_dispatch: manual run with optional inputs
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      prometheus_url:
+        description: 'Prometheus base URL'
+        required: false
+        default: 'http://127.0.0.1:9090'
+      dry_run:
+        description: 'Print planned issues without opening them'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: slo-backlog
+  cancel-in-progress: false
+
+jobs:
+  emit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install gh CLI
+        run: |
+          type gh >/dev/null 2>&1 || (type apt-get >/dev/null 2>&1 && sudo apt-get update && sudo apt-get install -y gh)
+          gh --version
+
+      - name: Run SLO backlog emitter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PROMETHEUS_URL: ${{ inputs.prometheus_url || 'http://127.0.0.1:9090' }}
+        run: |
+          set -euo pipefail
+          args=(--prometheus-url "$PROMETHEUS_URL" --repo "$GITHUB_REPOSITORY" --token "$GITHUB_TOKEN")
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          python scripts/slo_backlog.py "${args[@]}"
