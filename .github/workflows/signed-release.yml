@@ -16,16 +16,13 @@ permissions:
 
 jobs:
   sign-artifacts:
-    name: Sign release artifacts (cosign keyless)
+    name: Build, upload, sign release artifacts (cosign keyless)
     runs-on: ubuntu-24.04
     permissions:
       contents: write
       id-token: write
       attestations: read
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
       - name: Resolve release tag
         id: tag
         run: |
@@ -35,18 +32,41 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+
+      - name: Build release binaries (workspace)
+        run: cargo build --release --workspace --bins --locked
+
+      - name: Collect unsigned artifacts
+        run: |
+          mkdir -p unsigned
+          # Workspace binaries (one binary per [[bin]] crate)
+          find target/release -maxdepth 1 -type f -executable -not -name "*.d" -not -name "*.so*" -not -name "*.dylib" -print0 | xargs -0 -I {} cp {} unsigned/
+
+      - name: Upload unsigned artifacts (for verification step + downstream jobs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: unsigned/
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
         with:
           cosign-release: 'v2.4.1'
 
-      - name: Download release-artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: release-artifacts
-          path: unsigned/
-
-      - name: Set up signing environment (keyless OIDC)
+      - name: Set up keyless OIDC signing environment
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: |
@@ -61,7 +81,7 @@ jobs:
           cd unsigned
           shopt -s nullglob
           for file in *; do
-            if [ -f "$file" ] && [ ! -f "../signed/${file}.sig" ]; then
+            if [ -f "$file" ]; then
               echo ">>> Signing $file"
               cosign sign-blob \
                 --yes \
@@ -84,7 +104,7 @@ jobs:
           retention-days: 90
 
   attach-to-release:
-    name: Attach signed artifacts + SBOM to release
+    name: Attach signatures + SBOM to release
     needs: sign-artifacts
     runs-on: ubuntu-24.04
     permissions:
@@ -110,27 +130,36 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd signed/
-          files=(*.sig *.cert *.bundle)
-          if [ ${#files[@]} -gt 0 ] && [ -e "${files[0]}" ]; then
+          shopt -s nullglob
+          sig_files=(*.sig)
+          cert_files=(*.cert)
+          bundle_files=(*.bundle)
+          if [ ${#sig_files[@]} -gt 0 ] && [ -e "${sig_files[0]}" ]; then
+            echo "Uploading ${#sig_files[@]} signatures, ${#cert_files[@]} certs, ${#bundle_files[@]} bundles"
             gh release upload "${{ steps.tag.outputs.tag }}" \
               --clobber \
-              "${files[@]}"
+              "${sig_files[@]}" "${cert_files[@]}" "${bundle_files[@]}"
+          else
+            echo "No signatures to upload"
+            exit 1
           fi
 
       - name: Verify a sample signature (sanity check)
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: |
-          echo "=== Verify signature on any signed artifact ==="
-          # Pick the first .sig + .cert + source pair
+          echo "=== Verify signature on the first signed artifact ==="
           cd signed/
           first_sig=$(ls *.sig | head -1)
           base=${first_sig%.sig}
-          if [ -f "${base}.cert" ] && [ -f "$base" ] || [ -f "unsigned/$base" ]; then
+          echo "Verifying: $base"
+          if [ -f "${base}.cert" ]; then
             cosign verify-blob \
               --certificate "${base}.cert" \
               --signature "${base}.sig" \
               --certificate-identity-regexp 'https://github.com/.*/.github/workflows/signed-release.yml' \
               --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
-              "unsigned/$base" 2>/dev/null || echo "(unsigned dir not present locally — verify step is a no-op for this run)"
+              "../unsigned/$base" && echo ">>> Signature VERIFIED for $base"
+          else
+            echo "(cert not found — skipping verification)"
           fi
