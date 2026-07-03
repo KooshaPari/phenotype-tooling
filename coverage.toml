@@ -1,0 +1,33 @@
+# WP-17 coverage thresholds.
+# Read by .github/workflows/coverage.yml.
+# The workflow also enforces these inline; this file is the single
+# source of truth for the canonical numbers.
+
+[workspace]
+line_coverage_min = 80.0     # PR blocks merge if workspace < 80%
+branch_coverage_min = 60.0    # PR blocks merge if workspace < 60%
+critical_crate_min = 90.0     # phenotype-cli, phenotype-config,
+                              # phenotype-diff, phenotype-tooling-observability,
+                              # ptx must each be >= 90%
+
+[per_crate_overrides]
+# Crates that cannot reach 80% without disproportionate mocking.
+# Document the reason next to the override.
+phenotype-cli = 70.0          # CLI dispatch logic is well-covered;
+                              # tiny binary wrappers around sub-crates
+                              # inflate denominator
+
+[report]
+format = "lcov"
+output_dir = "target/llvm-cov"
+html = true
+summary = true
+json = true
+
+[ignore]
+# Files excluded from coverage calculation.
+# Each entry has a reason; PRs that add a new entry must include a justification.
+"crates/**/tests/**" = "integration tests, exercised via cargo test not llvm-cov"
+"crates/**/benches/**" = "criterion benchmarks, not unit-tested"
+"crates/ptx/src/main.rs" = "thin CLI entry point, logic in lib.rs"
+"crates/*/src/bin/*.rs" = "thin binary entry points"
