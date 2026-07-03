@@ -6,17 +6,17 @@ rust-version = "1.88"
 description = "Phenotype tooling CLI facade — `pt <subcmd>` entrypoint into the absorbed compute/infra ecosystem"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/KooshaPari/phenotype-tooling"
-
 readme = "README.md"
 homepage = "https://github.com/KooshaPari/phenotype-tooling"
 keywords = ["phenotype", "tooling", "cli"]
 categories = ["command-line-utilities"]
+
 [lib]
 name = "phenotype_cli"
 path = "src/lib.rs"
 
 [[bin]]
-name = "pt"
+name = "phenotype-cli"
 path = "src/main.rs"
 
 [dependencies]
@@ -30,12 +30,6 @@ serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", version = "0.1.0", default-features = false, features = ["server"], optional = true }
 
-[dev-dependencies]
-assert_cmd = "2.0"
-predicates = "3.1"
-tempfile = "3.10"
-pretty_assertions = "1.4"
-
 [features]
 default = []
 # Tokio async runtime — needed for any I/O-bound subcommand (HTTP, file-watch, exec).
@@ -46,29 +40,23 @@ telemetry = ["dep:tracing-subscriber"]
 json = ["dep:serde", "dep:serde_json"]
 # Observability subcommand — exposes /metrics, /health, /slo endpoints via axum.
 observability = ["dep:phenotype-tooling-observability", "async"]
-# Absorbed sub-crate gates — one per absorbed tool. All-off by default.
-absorbed-byteport = []
-absorbed-heliosapp = []
-absorbed-nanovms = []
-absorbed-policystack = []
-absorbed-worktree-manager = []
-absorbed-phenodiff = []
-absorbed-phenotype-resilience = []
-absorbed-phenotype-config = []
-# All absorbed crates at once (CI matrix convenience).
-all-absorbed = [
-    "absorbed-byteport",
-    "absorbed-heliosapp",
-    "absorbed-nanovms",
-    "absorbed-policystack",
-    "absorbed-worktree-manager",
-    "absorbed-phenodiff",
-    "absorbed-phenotype-resilience",
-    "absorbed-phenotype-config",
-]
+# Note (ORPHAN-2): The 8 `absorbed-*` and `all-absorbed` features that WP-01
+# scaffolded have been removed. They were declared but never referenced in
+# any source file (verified via grep across the whole workspace). The WP-07
+# delegation layer does not depend on them — subcommands dispatch by
+# enum variant and spawn the underlying crate binary unconditionally.
 
-[lints.rust]
-unsafe_code = "forbid"
+[profile.dev]
+codegen-units = 1
+
+[profile.release]
+codegen-units = 1
+
+[profile.test]
+opt-level = 1
+
+[profile.bench]
+codegen-units = 1
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
@@ -76,3 +64,4 @@ pedantic = { level = "warn", priority = -1 }
 module_name_repetitions = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
+unsafe_code = "forbid"
