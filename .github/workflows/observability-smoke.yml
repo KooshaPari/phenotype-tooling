@@ -3,10 +3,11 @@ name: observability-smoke
 on:
   push:
     branches:
-      - feat/t22-observability-pheno-tracing-otlp-2026-06-20
+      - main
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   otlp-smoke:
