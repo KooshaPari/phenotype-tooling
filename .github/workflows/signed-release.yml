@@ -24,7 +24,7 @@ jobs:
       attestations: read
     steps:
       - name: Checkout source
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@v4
 
       - name: Resolve release tag
         id: tag
@@ -36,12 +36,12 @@ jobs:
           fi
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@9d0681fc99f7cb29e62bd65c4c4de2c1a14e2c31
+        uses: sigstore/cosign-installer@v3
         with:
           cosign-release: 'v2.4.1'
 
       - name: Download release-artifacts
-        uses: actions/download-artifact@fa6e1069be6e9c0e44f2b3e9f38ea0168e9b0168
+        uses: actions/download-artifact@v4
         with:
           name: release-artifacts
           path: unsigned/
@@ -76,7 +76,7 @@ jobs:
           ls -la signed/
 
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@v4
         with:
           name: signed-release-artifacts
           path: signed/
@@ -100,7 +100,7 @@ jobs:
           fi
 
       - name: Download signed artifacts
-        uses: actions/download-artifact@fa6e1069be6e9c0e44f2b3e9f38ea0168e9b0168
+        uses: actions/download-artifact@v4
         with:
           name: signed-release-artifacts
           path: signed/
