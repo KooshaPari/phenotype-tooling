@@ -39,7 +39,10 @@ permissions:
   actions: read
 
 env:
-  FUZZ_TARGETS: "audit_chain_verify canonical_json ir_hash_stability starlark_parse_invariants"
+  # Disabled targets (renamed to *.disabled.rs): ir_hash_stability, starlark_parse_invariants
+  # Re-enable by reverting the rename + restoring the name to FUZZ_TARGETS once
+  # focus_ir / focus_lang crates are re-absorbed into the workspace.
+  FUZZ_TARGETS: "audit_chain_verify canonical_json"
 
 jobs:
   fuzz:

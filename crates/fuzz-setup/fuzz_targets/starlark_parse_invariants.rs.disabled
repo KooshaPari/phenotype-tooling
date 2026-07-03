@@ -1,3 +1,20 @@
+// DISABLED fuzz target — references `focus_lang::compile`, an API that is not
+// present in the workspace. The current implementation only validates Starlark
+// hash-stability on `serde_json::Value` (a stand-in) and would not exercise
+// the real Starlark parse path. Disabled until the `focus_lang` crate lands.
+//
+// To re-enable when `focus_lang` lands:
+//   1. `git mv fuzz_targets/starlark_parse_invariants.rs.disabled \
+//          fuzz_targets/starlark_parse_invariants.rs`
+//   2. Add `focus_lang` to the `[dependencies]` table in this crate's `Cargo.toml`.
+//   3. Replace the `serde_json::from_str` placeholder inside the
+//      `catch_unwind` block with a real `focus_lang::compile(&fpl_source)`
+//      call so INVARIANT 1 actually exercises the parser.
+//   4. Append the target filename back to the `FUZZ_TARGETS` list in
+//      `.github/workflows/fuzz.yml`.
+//
+// See: docs/WP-10-FUZZ.md for the invariant contract and acceptance criteria.
+
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 use sha2::{Digest, Sha256};
@@ -15,7 +32,7 @@ rule "{}" {{
     action: show_notification {{ text: "test" }}
     priority: 0
 }}
-"#,
+:"#,
             generate_rule_name(input),
             input.trim()
         );
