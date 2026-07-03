@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/conventional-changelog/commitlint/master/@commitlint/config-conventional/index.js",
+  "extends": ["@commitlint/config-conventional"],
+  "rules": {
+    "header-max-length": [2, "always", 100],
+    "type-enum": [
+      2,
+      "always",
+      [
+        "feat",
+        "fix",
+        "perf",
+        "refactor",
+        "docs",
+        "test",
+        "build",
+        "ci",
+        "chore",
+        "style",
+        "revert"
+      ]
+    ],
+    "scope-enum": [
+      2,
+      "always",
+      [
+        "cli",
+        "ptx",
+        "obs",
+        "bench",
+        "fuzz",
+        "deps",
+        "release",
+        "docs",
+        "hygiene",
+        "ci"
+      ]
+    ],
+    "subject-case": [2, "always", "lower-case"],
+    "subject-empty": [2, "never"],
+    "type-empty": [2, "never"],
+    "type-case": [2, "always", "lower-case"]
+  }
+}

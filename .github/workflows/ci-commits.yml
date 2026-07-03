@@ -1,0 +1,44 @@
+name: ci-commits
+
+# WP-15 — Conventional-commit linter.
+# Runs on every PR + push to enforce that commit messages follow the
+# Conventional Commits 1.0 spec. release-please depends on the parsed
+# type/scope for semver bumping + CHANGELOG.md grouping.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  lint-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Conventional commits PR-time check
+      - name: Lint PR title + commits
+        uses: wagoid/commitlint-github-action@v5
+        with:
+          configFile: .commitlintrc.json
+
+      # Local-branch commit check (push to main)
+      - name: Lint pushed commits
+        if: github.event_name == 'push'
+        run: |
+          # Validate every commit on this push since the last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${LAST_TAG}..HEAD"
+          fi
+          echo "Linting range: $RANGE"
+          npx --yes @commitlint/cli --config .commitlintrc.json --from="$LAST_TAG" --to=HEAD
