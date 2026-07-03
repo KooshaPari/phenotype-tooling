@@ -119,6 +119,9 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout source
+        uses: actions/checkout@v4
+
       - name: Download signed artifacts
         uses: actions/download-artifact@v4
         with:
