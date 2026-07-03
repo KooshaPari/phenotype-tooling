@@ -1,0 +1,58 @@
+name: ptx
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# WP-14: PTX as required check.
+#
+# Required branch-protection check: "ptx / governance".
+# Runs the same manifest exercises that local `ptx run` does so
+# ptx --strict on the release manifest of gates gives the merge
+# decision a deterministic signal independent from individual
+# lint/build/test jobs.
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  governance:
+    name: ptx / governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            target
+            .cargo
+      - name: Build PTX
+        run: cargo build -p ptx --release
+      - name: Run governance gates
+        env:
+          PTX_MANIFEST: ptx.ci.toml
+          PTX_STRICT: "1"
+        run: |
+          set -euo pipefail
+          if [[ ! -f "${PTX_MANIFEST}" ]]; then
+            echo "error: ${PTX_MANIFEST} not found" >&2
+            exit 1
+          fi
+          ./target/release/ptx --strict --manifest "${PTX_MANIFEST}" --report-out ptx-report.md
+      - name: Upload governance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ptx-governance-report
+          path: |
+            ptx-report.md
+            target/release/ptx-*.log
+          if-no-files-found: warn
+          retention-days: 14

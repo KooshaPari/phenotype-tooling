@@ -1,0 +1,86 @@
+# WP-14: Default CI governance manifest.
+#
+# Run locally with:
+#   cargo run -p ptx -- --manifest ptx.ci.toml --report-out /tmp/ptx.md
+#
+# Run in CI:
+#   .github/workflows/ptx-gate.yml invokes ./target/release/ptx
+#   --strict on this same manifest.
+
+[ptx]
+schema_version = 1
+result_path    = "ptx-result.json"
+
+# Each `[gates.<name>]` block defines a single governance gate.
+# `required = true` means a non-zero exit blocks merge.
+
+[gates.fmt]
+required = true
+command  = "cargo"
+args     = ["fmt", "--all", "--", "--check"]
+timeout_s = 300
+
+[gates.clippy]
+required = true
+command  = "cargo"
+args     = ["clippy", "--workspace", "--all-features", "--", "-D", "warnings"]
+timeout_s = 900
+
+[gates.test]
+required = true
+command  = "cargo"
+args     = ["test", "--workspace", "--all-features", "--no-fail-fast"]
+timeout_s = 1800
+
+[gates.build]
+required = true
+command  = "cargo"
+args     = ["build", "--workspace", "--all-features"]
+timeout_s = 1800
+
+[gates.audit_cargo_deny]
+required = true
+command  = "cargo"
+args     = ["deny", "check"]
+timeout_s = 300
+
+[gates.fuzz_smoke]
+required   = false
+command    = "cargo"
+args       = ["test", "-p", "fuzz-setup", "--", "--nocapture"]
+timeout_s  = 60
+evidence   = "smoke"
+
+[gates.bench_regression]
+required = false
+command  = "python"
+args     = ["scripts/bench_diff.py", "bench_artifacts/combined.jsonl",
+            "--baseline", "BENCHMARKS.md", "--threshold", "5",
+            "--report-out", "bench_artifacts/regression-report.md"]
+timeout_s = 120
+
+[gates.trufflehog]
+required  = true
+command   = "trufflehog"
+args      = ["filesystem", "--directory", ".", "--only-verified", "--fail"]
+timeout_s = 600
+
+[gates.secret_scan]
+required = true
+command  = "gitleaks"
+args     = ["protect", "--staged", "--redact"]
+timeout_s = 300
+
+# Optional, advisory gates — never block, just record.
+
+[gates.scorecard]
+required   = false
+command    = "scorecard"
+args       = ["--repo=github.com/KooshaPari/phenotype-tooling", "--format=json"]
+timeout_s  = 120
+
+[gates.dependency_audit]
+required = false
+command  = "python"
+args     = ["scripts/deps_audit.py"]
+timeout_s = 600
