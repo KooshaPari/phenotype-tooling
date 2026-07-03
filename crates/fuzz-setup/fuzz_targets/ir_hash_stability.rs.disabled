@@ -1,3 +1,18 @@
+// DISABLED fuzz target — references `focus_ir::RuleIr`, a crate that is not
+// present in the workspace. Kept here as a reference implementation so the
+// invariant contract (RuleIr round-trip hash stability) can be re-activated
+// once the `focus_ir` crate lands.
+//
+// To re-enable when `focus_ir` lands:
+//   1. `git mv fuzz_targets/ir_hash_stability.rs.disabled \
+//          fuzz_targets/ir_hash_stability.rs`
+//   2. Add `focus_ir` to the `[dependencies]` table in this crate's `Cargo.toml`
+//      (likely as a path dep: `focus_ir = { path = "../focus_ir" }`).
+//   3. Append the target filename back to the `FUZZ_TARGETS` list in
+//      `.github/workflows/fuzz.yml`.
+//
+// See: docs/WP-10-FUZZ.md for the invariant contract and acceptance criteria.
+
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 use focus_ir::RuleIr;
