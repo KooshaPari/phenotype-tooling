@@ -1,0 +1,52 @@
+name: slo-incident
+
+# WP-19 — On-call ack workflow
+# Triggers when a `slo:phase1:crit` issue is opened with no
+# ack comment within 5 minutes. Pages the on-call rotation.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  watch-and-page:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'slo:phase1:crit')
+    steps:
+      - name: Wait 5 min for ack
+        run: sleep 300
+        shell: bash
+      - name: Check for ack comment
+        id: check
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment-author: maintainers
+          since: ${{ github.event.issue.created_at }}
+      - name: Page on-call if not acked
+        if: steps.check.outputs.comment-id == ''
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          channel-id: ${{ vars.SLO_PAGER_CHANNEL }}
+          payload: |
+            {
+              "text": "🚨 *SLO breach un-acked for 5m*\nIssue: #${{ github.event.issue.number }} — ${{ github.event.issue.title }}\nURL: ${{ github.event.issue.html_url }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLO_PAGER_WEBHOOK }}
+        continue-on-error: true
+      - name: Add 'paged' label
+        if: steps.check.outputs.comment-id == ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['paged'],
+            });

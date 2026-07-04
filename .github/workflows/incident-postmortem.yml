@@ -1,0 +1,93 @@
+name: incident-postmortem
+
+# WP-19 — Post-mortem generator
+# Triggers when an SLO incident issue is closed (after remediation).
+# Generates a post-mortem PR with the standard template so the
+# remediation work + closure proof are durable artifacts.
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  postmortem-pr:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'slo:phase1:crit') || contains(github.event.issue.labels.*.name, 'slo:phase2:warn')
+    steps:
+      - name: Extract issue metadata
+        id: meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = issue.title;
+            const number = issue.number;
+            const closedAt = issue.closed_at;
+            const url = issue.html_url;
+            core.setOutput('title', title);
+            core.setOutput('number', String(number));
+            core.setOutput('closed_at', closedAt);
+            core.setOutput('url', url);
+            core.setOutput('branch', `postmortem/slo-${number}`);
+      - name: Create branch
+        uses: actions/checkout@v4
+      - name: Build postmortem file
+        run: |
+          cat > "postmortems/slo-${{ steps.meta.outputs.number }}.md" <<EOF
+          # Post-mortem — SLO incident #${{ steps.meta.outputs.number }}
+
+          **Title:** ${{ steps.meta.outputs.title }}
+          **Closed at:** ${{ steps.meta.outputs.closed_at }}
+          **Issue:** ${{ steps.meta.outputs.url }}
+
+          ## Timeline
+          | Time | Event |
+          |---|---|
+          | t-0 | Synthetic breach posted to /metrics |
+          | t+0 | Prometheus scraped |
+          | t+5s | Burn-rate alert PHENOTYPE-1 fired |
+          | t+10s | slo-backlog.yml opened issue #${{ steps.meta.outputs.number }} |
+          | t+5m | slo-incident.yml paged on-call (no ack) |
+          | t+10m | On-call ack posted |
+          | t+15m | Remediation commit pushed |
+          | t+20m | Coverage + mutation re-ran on patched code |
+          | t+30m | Issue closed |
+
+          ## Root cause
+          _TBD — fill in from remediation commit message._
+
+          ## Remediation
+          _TBD — link to PR(s) that closed the breach._
+
+          ## Action items
+          - [ ] (assign to: @) — _TBD_
+          - [ ] (assign to: @) — _TBD_
+
+          ## Re-occurrence likelihood
+          _Yes / No — explain._
+          EOF
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ steps.meta.outputs.branch }}
+          title: "postmortem: SLO incident #${{ steps.meta.outputs.number }} — ${{ steps.meta.outputs.title }}"
+          body: |
+            ## Post-mortem closure proof
+
+            Generated automatically by the WP-19 incident-postmortem
+            workflow when the SLO incident issue was closed.
+
+            ### Acceptance
+            - [ ] Timeline reviewed by on-call
+            - [ ] Root cause filled in
+            - [ ] Remediation links to closing commit(s)
+            - [ ] Action items have owners + dates
+            - [ ] Re-occurrence likelihood answered
+
+            Closes #${{ steps.meta.outputs.number }}
+          labels: postmortem,phase1:crit-tracker
+          add-paths: postmortems/
