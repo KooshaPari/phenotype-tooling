@@ -1,0 +1,90 @@
+# WP-22 dependency license allowlist.
+# Used by scripts/license_check.py + .github/workflows/license-check.yml.
+#
+# Schema:
+#   licenses.allow = list of SPDX identifiers that may be used without review
+#   licenses.deny  = list of SPDX identifiers that block the build
+#   licenses.review_required = list of SPDX identifiers that gate merges on
+#                                explicit CODEOWNER approval (not deny, not
+#                                auto-allow)
+#
+# SPDX identifiers are uppercase normalized by the script before matching.
+
+[licenses]
+allow = [
+  # Permissive — accepted unconditionally
+  "MIT",
+  "APACHE-2.0",
+  "APACHE-2.0 OR MIT",
+  "BSD-2-CLAUSE",
+  "BSD-3-CLAUSE",
+  "BSL-1.0",
+  "CC0-1.0",
+  "ISC",
+  "MPL-2.0",
+  "UNLICENSE",
+  "ZLIB",
+  "BLUE OAK-1.0.0",
+  "BLUE OAK-1.1.0",
+
+  # Dual-licensed permissive + copyleft — permissive form accepted
+  "MIT OR APACHE-2.0",
+  "APACHE-2.0 OR BSD-3-CLAUSE OR MIT",
+  "APACHE-2.0 OR MIT OR BSD-3-CLAUSE",
+
+  # Documentation / data — non-code assets
+  "CC-BY-4.0",
+  "OFL-1.1",
+  "OFL-1.1-NO-FEE-LICENSE",
+
+  # Crates.io standardized — these are upstream crates, not
+  # vendored. Treat as MIT-like for acceptance purposes.
+  "CRATES-IO-MIT-PALLODIAN-1.1.0",
+]
+
+deny = [
+  # Strong copyleft that would infect the whole binary
+  "GPL-2.0",
+  "GPL-2.0-ONLY",
+  "GPL-2.0-OR-LATER",
+  "GPL-3.0",
+  "GPL-3.0-ONLY",
+  "GPL-3.0-OR-LATER",
+  "AGPL-3.0",
+  "AGPL-3.0-ONLY",
+  "AGPL-3.0-OR-LATER",
+  "SSPL-1.0",
+  "BUSL-1.1",
+
+  # Network clauses incompatible with offline binaries
+  "JSON-LICENSE",
+  "OPENSSL-SSLEAY",
+  "OPENSSL-AND-OPENSSL-SSLEAY",
+]
+
+review_required = [
+  # Weak copyleft — derivative works would need to adopt the license
+  "LGPL-2.0",
+  "LGPL-2.0-ONLY",
+  "LGPL-2.0-OR-LATER",
+  "LGPL-2.1",
+  "LGPL-2.1-ONLY",
+  "LGPL-2.1-OR-LATER",
+  "LGPL-3.0",
+  "LGPL-3.0-ONLY",
+  "LGPL-3.0-OR-LATER",
+  "EPL-1.0",
+  "EPL-2.0",
+  "MPL-1.0",
+  "MPL-1.1",
+
+  # Network-style weak copyleft
+  "CDDL-1.0",
+  "CDDL-1.1",
+
+  # Unknown / unspecified — must surface for manual review
+  "UNKNOWN",
+  "UNLICENSED",
+  "SEE-AUTHORS",
+  "OTHER",
+]

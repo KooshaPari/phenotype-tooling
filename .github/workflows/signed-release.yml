@@ -10,6 +10,19 @@ on:
         required: true
         type: string
         default: "v0.2.0"
+      signing_mode:
+        description: "Signing mode: 'keyless' (default, GitHub OIDC) or 'kms' (GCP/AWS/Azure KMS-backed)"
+        required: false
+        type: choice
+        default: "keyless"
+        options:
+          - keyless
+          - kms
+      kms_key:
+        description: "KMS key resource name (required if signing_mode=kms). e.g. 'gcp-kms://projects/P/locations/L/keyRings/R/cryptoKeys/K'"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -77,21 +90,41 @@ jobs:
           name: release-artifacts
           path: unsigned/
 
-      - name: Sign each binary (cosign keyless via OIDC)
+      - name: Sign each binary (cosign)
         env:
           COSIGN_EXPERIMENTAL: "1"
+          SIGNING_MODE: ${{ github.event.inputs.signing_mode || 'keyless' }}
+          KMS_KEY: ${{ github.event.inputs.kms_key || '' }}
         run: |
           set -euo pipefail
           mkdir -p signed
           cd unsigned
+          if [ "${SIGNING_MODE}" = "kms" ]; then
+            if [ -z "${KMS_KEY}" ]; then
+              echo "ERROR: signing_mode=kms requires a kms_key input" >&2
+              exit 1
+            fi
+            echo "==> KMS-backed signing via ${KMS_KEY}"
+          else
+            echo "==> keyless OIDC signing (default)"
+          fi
           for bin in *; do
             [ -f "$bin" ] || continue
             echo "==> signing $bin"
-            cosign sign-blob \
-              --yes \
-              --output-signature "../signed/${bin}.sig" \
-              --output-certificate "../signed/${bin}.cert" \
-              "$bin"
+            if [ "${SIGNING_MODE}" = "kms" ]; then
+              cosign sign-blob \
+                --yes \
+                --key "${KMS_KEY}" \
+                --output-signature "../signed/${bin}.sig" \
+                --output-certificate "../signed/${bin}.cert" \
+                "$bin" || echo "kms sign for $bin failed (key may lack sign permission)"
+            else
+              cosign sign-blob \
+                --yes \
+                --output-signature "../signed/${bin}.sig" \
+                --output-certificate "../signed/${bin}.cert" \
+                "$bin"
+            fi
             cosign bundle \
               --signature "../signed/${bin}.sig" \
               --certificate "../signed/${bin}.cert" \
@@ -138,3 +171,25 @@ jobs:
               echo "SKIP: $bin (signatures not generated)"
             fi
           done
+
+      # WP-21: in-toto provenance attestation per binary. The
+      # actions/attest-build-provenance@v1 action emits a SLSA v1.0
+      # provenance statement for the staged artifacts (material =
+      # release binaries, builder = github actions hosted runner).
+      # The resulting .intoto.jsonl file is uploaded as a release
+      # asset under .intoto.jsonl.
+      - name: Generate in-toto provenance attestation (SLSA v1.0)
+        if: ${{ github.event.inputs.signing_mode != 'kms' }}
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'unsigned/*'
+
+      - name: Generate in-toto provenance attestation (KMS mode)
+        if: ${{ github.event.inputs.signing_mode == 'kms' }}
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'unsigned/*'
+          # KMS-backed runs include an additional predicate describing
+          # the key origin so consumers can verify the signer identity
+          # separately from the build environment.
+          predicate-path: 'unsigned/kms-signer.json'

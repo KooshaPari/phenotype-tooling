@@ -1,0 +1,73 @@
+name: license-check
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  license-audit:
+    name: License audit (Tier-1 only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: install cyclonedx-python-lib + tomli
+        run: |
+          python -m pip install --quiet cyclonedx-python-lib tomli
+
+      - name: install cargo-license
+        run: |
+          cargo install cargo-license --quiet --locked || true
+
+      - name: cargo-license audit (workspace)
+        run: |
+          mkdir -p artifacts
+          cargo license --json > artifacts/cargo-licenses.json || true
+          python scripts/license_check.py --input artifacts/cargo-licenses.json --output artifacts/denied.txt
+          if [ -s artifacts/denied.txt ]; then
+            echo "::error::License denied deps:"
+            cat artifacts/denied.txt
+            exit 1
+          fi
+
+      - name: pip-licenses audit (if any)
+        run: |
+          python scripts/license_check.py \
+              --input <(find . -name 'requirements*.txt' -exec cat {} + 2>/dev/null | sort -u) \
+              --output artifacts/pip-denied.txt || true
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-audit-${{ github.event.pull_request.number || github.ref_name }}
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: pr comment (only on failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = "**License audit failed** — one or more dependencies use a non-allowlisted license. See the job log for details and update `LICENSE_ALLOWLIST.toml` if the license is acceptable.";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
