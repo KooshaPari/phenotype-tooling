@@ -138,14 +138,14 @@ jobs:
         uses: sigstore/cosign-installer@v3
         with:
           cosign-release: 'v2.4.1'
+          install-dir: /usr/local/bin
 
       - name: Verify cosign install
         run: |
           echo "=== Verifying cosign installation ==="
-          which cosign || echo "cosign not on PATH"
-          ls -la /usr/local/bin/cosign 2>/dev/null || true
-          ls -la $HOME/.cosign/ 2>/dev/null || true
-          cosign version 2>&1 || true
+          echo "PATH=$PATH"
+          which cosign
+          cosign version
 
       - name: Attach .sig/.cert/.bundle to release
         env:
