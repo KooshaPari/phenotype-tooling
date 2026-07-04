@@ -10,8 +10,16 @@
       "bench / regression",
       "audit / cargo-deny",
       "audit / trufflehog",
-      "scorecard / openssf"
-    ]
+      "scorecard / openssf",
+      "coverage",
+      "mutation-score",
+      "release-please"
+    ],
+    "strict_up_to_date_branches": [
+      "main",
+      "release-please--branches--main"
+    ],
+    "checks": []
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
