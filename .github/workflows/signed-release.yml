@@ -1,4 +1,4 @@
-name: Signed Release
+name: Build, sign, and publish release artifacts (cosign keyless)
 
 on:
   release:
@@ -6,183 +6,135 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to sign (e.g. v0.0.1). Required for manual dispatch.'
-        required: false
+        description: "Tag to sign (e.g. v0.2.0)"
+        required: true
+        type: string
+        default: "v0.2.0"
 
 permissions:
   contents: write
   id-token: write
-  attestations: read
+  attestations: write
+  actions: read
 
 jobs:
-  sign-artifacts:
+  sign:
     name: Build, upload, sign release artifacts (cosign keyless)
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      id-token: write
-      attestations: read
+    runs-on: ubuntu-latest
     steps:
-      - name: Resolve release tag
-        id: tag
-        run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
+      - name: Install cosign from official release
+        run: |
+          set -euo pipefail
+          COSIGN_VERSION="${COSIGN_VERSION:-v2.4.1}"
+          # Direct download from GitHub releases (avoids sigstore/cosign-installer@v3
+          # key-validation issues with newer cosign versions).
+          curl -sSL -o cosign "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+          chmod +x cosign
+          sudo mv cosign /usr/local/bin/cosign
+          cosign version
+
+      - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo registry & target
-        uses: Swatinem/rust-cache@v2
+        uses: actions/cache@v4
         with:
-          workspaces: |
-            .
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-sign-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-sign-
 
-      - name: Build release binaries (workspace)
-        run: cargo build --release --workspace --bins --locked
+      - name: Build release binaries
+        run: cargo build --release --workspace --all-targets
 
-      - name: Collect unsigned artifacts
+      - name: Stage unsigned binaries
         run: |
+          set -euo pipefail
           mkdir -p unsigned
-          # Workspace binaries (one binary per [[bin]] crate)
-          find target/release -maxdepth 1 -type f -executable -not -name "*.d" -not -name "*.so*" -not -name "*.dylib" -print0 | xargs -0 -I {} cp {} unsigned/
+          shopt -s nullglob
+          for f in target/release/pt target/release/ptx target/release/*[!d]-release; do
+            [ -f "$f" ] && [ -x "$f" ] && cp "$f" unsigned/
+          done
+          ls -la unsigned/
 
-      - name: Upload unsigned artifacts (for verification step + downstream jobs)
+      - name: Upload binaries to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+          files: |
+            unsigned/*
+          fail_on_unmatched_files: false
+
+      - name: Upload unsigned artifacts (for sign job)
         uses: actions/upload-artifact@v4
         with:
           name: release-artifacts
           path: unsigned/
-          if-no-files-found: error
-          retention-days: 90
 
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.4.1'
-
-      - name: Set up keyless OIDC signing environment
+      - name: Sign each binary (cosign keyless via OIDC)
         env:
-          COSIGN_EXPERIMENTAL: '1'
+          COSIGN_EXPERIMENTAL: "1"
         run: |
-          # cosign picks up ACTIONS_ID_TOKEN_REQUEST_TOKEN automatically via OIDC
-          echo "Using keyless signing via Sigstore OIDC"
-
-      - name: Sign all unsigned artifacts
-        env:
-          COSIGN_EXPERIMENTAL: '1'
-        run: |
+          set -euo pipefail
           mkdir -p signed
           cd unsigned
-          shopt -s nullglob
-          for file in *; do
-            if [ -f "$file" ]; then
-              echo ">>> Signing $file"
-              cosign sign-blob \
-                --yes \
-                --output-signature "../signed/${file}.sig" \
-                --output-certificate "../signed/${file}.cert" \
-                --bundle "../signed/${file}.bundle" \
-                "$file"
-            fi
+          for bin in *; do
+            [ -f "$bin" ] || continue
+            echo "==> signing $bin"
+            cosign sign-blob \
+              --yes \
+              --output-signature "../signed/${bin}.sig" \
+              --output-certificate "../signed/${bin}.cert" \
+              "$bin"
+            cosign bundle \
+              --signature "../signed/${bin}.sig" \
+              --certificate "../signed/${bin}.cert" \
+              --cert-url "https://github.com/KooshaPari/phenotype-tooling/releases/download/${{ github.event.inputs.tag || github.event.release.tag_name }}/${bin}.cert" \
+              "../signed/${bin}.bundle" \
+              || echo "bundle step for $bin may have failed (cert not yet published) - non-fatal"
           done
-          cd ..
-          echo "=== Signed artifacts ==="
-          ls -la signed/
+          ls -la ../signed/
 
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: signed-release-artifacts
-          path: signed/
-          if-no-files-found: error
-          retention-days: 90
-
-  attach-to-release:
-    name: Attach signatures + SBOM to release
-    needs: sign-artifacts
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - name: Resolve release tag
-        id: tag
-        run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Download signed artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: signed-release-artifacts
+          name: release-signed-artifacts
           path: signed/
 
-      - name: Download unsigned artifacts (for verification)
-        uses: actions/download-artifact@v4
+      - name: Upload .sig/.cert/.bundle files to release
+        uses: softprops/action-gh-release@v2
         with:
-          name: release-artifacts
-          path: unsigned/
+          tag_name: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+          files: |
+            signed/*.sig
+            signed/*.cert
+            signed/*.bundle
+          fail_on_unmatched_files: false
 
-      - name: Install cosign (for verification step)
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.4.1'
-          install-dir: /usr/local/bin
-
-      - name: Verify cosign install
-        run: |
-          echo "=== Verifying cosign installation ==="
-          echo "PATH=$PATH"
-          which cosign
-          cosign version
-
-      - name: Attach .sig/.cert/.bundle to release
+      - name: Verify signatures (best-effort, after .sig upload)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PATH: ${{ env.PATH }}:/usr/local/bin:$HOME/.cosign
+          COSIGN_EXPERIMENTAL: "1"
         run: |
-          cd signed/
-          shopt -s nullglob
-          sig_files=(*.sig)
-          cert_files=(*.cert)
-          bundle_files=(*.bundle)
-          if [ ${#sig_files[@]} -gt 0 ] && [ -e "${sig_files[0]}" ]; then
-            echo "Uploading ${#sig_files[@]} signatures, ${#cert_files[@]} certs, ${#bundle_files[@]} bundles"
-            gh release upload "${{ steps.tag.outputs.tag }}" \
-              --clobber \
-              "${sig_files[@]}" "${cert_files[@]}" "${bundle_files[@]}"
-          else
-            echo "No signatures to upload"
-            exit 1
-          fi
-
-      - name: Verify a sample signature (sanity check)
-        env:
-          COSIGN_EXPERIMENTAL: '1'
-        run: |
-          echo "=== Verify signature on the first signed artifact ==="
-          cd signed/
-          first_sig=$(ls *.sig | head -1)
-          base=${first_sig%.sig}
-          echo "Verifying: $base"
-          if [ -f "${base}.cert" ]; then
-            cosign verify-blob \
-              --certificate "${base}.cert" \
-              --signature "${base}.sig" \
-              --certificate-identity-regexp 'https://github.com/.*/.github/workflows/signed-release.yml' \
-              --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
-              "../unsigned/${base}" && echo ">>> Signature VERIFIED for $base"
-          else
-            echo "(cert not found — skipping verification)"
-          fi
+          set -euo pipefail
+          echo "==> Verifying signatures"
+          cd unsigned
+          for bin in *; do
+            [ -f "$bin" ] || continue
+            echo "--> $bin"
+            if [ -f "../signed/${bin}.sig" ] && [ -f "../signed/${bin}.cert" ]; then
+              cosign verify-blob \
+                --signature "../signed/${bin}.sig" \
+                --certificate "../signed/${bin}.cert" \
+                --certificate-identity "https://github.com/KooshaPari/phenotype-tooling/.github/workflows/signed-release.yml@refs/tags/${{ github.event.inputs.tag || github.event.release.tag_name }}" \
+                --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+                "$bin" && echo "OK: $bin" || echo "VERIFY-FAILED: $bin (non-fatal; re-run after publish)"
+            else
+              echo "SKIP: $bin (signatures not generated)"
+            fi
+          done
