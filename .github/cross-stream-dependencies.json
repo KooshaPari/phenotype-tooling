@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "edges": [
+    {
+      "from_crate": "hook-entry",
+      "from_stream": "cli",
+      "to_crate": "phenotype-tooling-observability",
+      "to_stream": "unassigned",
+      "kind": "normal",
+      "cross_stream": true
+    },
+    {
+      "from_crate": "phenotype-cli",
+      "from_stream": "cli",
+      "to_crate": "phenotype-tooling-observability",
+      "to_stream": "unassigned",
+      "kind": "normal",
+      "cross_stream": true
+    },
+    {
+      "from_crate": "dag-scheduler",
+      "from_stream": "core",
+      "to_crate": "acceptance-contract",
+      "to_stream": "cli",
+      "kind": "normal",
+      "cross_stream": true
+    },
+    {
+      "from_crate": "ptx",
+      "from_stream": "unassigned",
+      "to_crate": "phenotype-tooling-observability",
+      "to_stream": "unassigned",
+      "kind": "normal",
+      "cross_stream": false
+    }
+  ],
+  "summary": {
+    "edges_total": 4,
+    "cross_stream_edges": 3,
+    "by_from_stream": {
+      "core": 1,
+      "cli": 2
+    },
+    "stream_targets_required": {
+      "core": 1,
+      "cli": 1
+    }
+  }
+}

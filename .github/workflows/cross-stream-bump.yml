@@ -1,0 +1,85 @@
+name: Cross-Stream Dependency Graph
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+    paths:
+      - 'crates/**/Cargo.toml'
+      - 'workspace.metadata.toml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'crates/**/Cargo.toml'
+      - 'workspace.metadata.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  graph:
+    name: Compute cross-stream dependency graph
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '.'
+
+      - name: Compute cross-stream graph
+        shell: bash
+        run: |
+          python scripts/cross_stream_deps.py --out .github/cross-stream-dependencies.json
+
+      - name: Verify graph drift (PR mode)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          python scripts/cross_stream_deps.py \
+            --out .github/cross-stream-dependencies.json \
+            --check
+
+      - name: Upload graph artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-stream-graph
+          path: .github/cross-stream-dependencies.json
+          retention-days: 14
+
+      - name: Post PR summary
+        if: github.event_name == 'pull_request' && github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.github/cross-stream-dependencies.json';
+            if (!fs.existsSync(path)) { return; }
+            const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const s = data.summary;
+            const lines = [];
+            lines.push('### Cross-Stream Dependency Graph');
+            lines.push('');
+            lines.push(`* Total edges: **${s.edges_total}**`);
+            lines.push(`* Cross-stream edges: **${s.cross_stream_edges}**`);
+            lines.push('');
+            lines.push('| Source stream | Cross-stream deps |');
+            lines.push('|---|---|');
+            for (const [stream, n] of Object.entries(s.by_from_stream).sort()) {
+              lines.push(`| ${stream} | ${n} |`);
+            }
+            const body = lines.join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
