@@ -12,7 +12,7 @@ use anyhow::Result;
 use std::time::Instant;
 use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::process::Command;
-use tokio::time::{timeout, Duration, sleep};
+use tokio::time::{sleep, timeout, Duration};
 use tracing::debug;
 
 /// A single RSS poll sample.
@@ -134,7 +134,10 @@ fn detect_leak(samples: &[RssSample]) -> bool {
 }
 
 fn build_command(cfg: &HarnessConfig) -> Command {
-    let (prog, args) = cfg.command.split_first().expect("command must be non-empty");
+    let (prog, args) = cfg
+        .command
+        .split_first()
+        .expect("command must be non-empty");
     let mut cmd = Command::new(prog);
     cmd.args(args);
     if let Some(ref wd) = cfg.workdir {
@@ -181,8 +184,14 @@ mod tests {
     #[test]
     fn detect_leak_flags_2x_growth() {
         let samples = vec![
-            RssSample { elapsed_ms: 0, rss_kb: 10_000 },
-            RssSample { elapsed_ms: 500, rss_kb: 25_000 },
+            RssSample {
+                elapsed_ms: 0,
+                rss_kb: 10_000,
+            },
+            RssSample {
+                elapsed_ms: 500,
+                rss_kb: 25_000,
+            },
         ];
         assert!(detect_leak(&samples));
     }
@@ -190,15 +199,24 @@ mod tests {
     #[test]
     fn detect_leak_ok_for_stable_rss() {
         let samples = vec![
-            RssSample { elapsed_ms: 0, rss_kb: 10_000 },
-            RssSample { elapsed_ms: 500, rss_kb: 10_200 },
+            RssSample {
+                elapsed_ms: 0,
+                rss_kb: 10_000,
+            },
+            RssSample {
+                elapsed_ms: 500,
+                rss_kb: 10_200,
+            },
         ];
         assert!(!detect_leak(&samples));
     }
 
     #[test]
     fn detect_leak_ok_for_single_sample() {
-        let samples = vec![RssSample { elapsed_ms: 0, rss_kb: 50_000 }];
+        let samples = vec![RssSample {
+            elapsed_ms: 0,
+            rss_kb: 50_000,
+        }];
         assert!(!detect_leak(&samples));
     }
 }

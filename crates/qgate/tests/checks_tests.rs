@@ -1,7 +1,7 @@
 // @trace QG-CHK-001: all-check-types orchestration + per-category thresholds
 // Tests for check-type matrix and threshold enforcement.
 
-use qgate::checks::{CheckCategory, CheckResult, CheckStatus, CheckMatrix};
+use qgate::checks::{CheckCategory, CheckMatrix, CheckResult, CheckStatus};
 
 /// QG-CHK-001: all categories present in a default matrix
 #[test]
@@ -17,7 +17,10 @@ fn default_matrix_contains_all_categories() {
     assert!(names.contains(&"perf"), "missing perf");
     assert!(names.contains(&"property"), "missing property");
     assert!(names.contains(&"mutation"), "missing mutation");
-    assert!(names.contains(&"static_analysis"), "missing static_analysis");
+    assert!(
+        names.contains(&"static_analysis"),
+        "missing static_analysis"
+    );
     assert!(names.contains(&"security"), "missing security");
     assert!(names.contains(&"a11y"), "missing a11y");
     // Spectrum extension: DAST + SAST (split from Security) + SBOM
@@ -111,7 +114,7 @@ fn perf_below_threshold_fails() {
     let result = CheckResult {
         category: CheckCategory::Perf,
         status: CheckStatus::Failed,
-        score: Some(20_000.0),   // ms — above 15s init threshold
+        score: Some(20_000.0), // ms — above 15s init threshold
         threshold: Some(15_000.0),
         details: "init time 20s exceeds 15s threshold".into(),
     };
@@ -157,7 +160,10 @@ fn sast_serializes_in_snake_case() {
         details: "0 findings".into(),
     };
     let json = serde_json::to_string(&r).expect("should serialize");
-    assert!(json.contains("\"sast\""), "expected snake_case sast in {json}");
+    assert!(
+        json.contains("\"sast\""),
+        "expected snake_case sast in {json}"
+    );
 }
 
 // QG-CHK-202: DAST and SBOM serialize in snake_case

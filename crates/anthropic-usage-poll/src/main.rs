@@ -8,8 +8,7 @@ use std::time::Duration;
 use tokio::time;
 
 /// Anthropic Admin API usage-report endpoint.
-const API_URL: &str =
-    "https://api.anthropic.com/v1/usage";
+const API_URL: &str = "https://api.anthropic.com/v1/usage";
 
 #[derive(Parser)]
 #[command(
@@ -124,10 +123,7 @@ fn build_client(api_key: &str) -> Result<reqwest::Client> {
         .context("invalid ANTHROPIC_ADMIN_KEY value")?;
     auth_value.set_sensitive(true);
     headers.insert(header::AUTHORIZATION, auth_value);
-    headers.insert(
-        "anthropic-version",
-        HeaderValue::from_static("2023-06-01"),
-    );
+    headers.insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
 
     let client = reqwest::Client::builder()
         .default_headers(headers)
@@ -153,7 +149,10 @@ async fn fetch_usage(client: reqwest::Client) -> Result<UsageSnapshot> {
     // The API response shape may vary; deserialize into a generic Value
     // first, then map known fields into UsageSnapshot so the tool remains
     // forward-compatible as the API evolves.
-    let body: serde_json::Value = resp.json().await.context("failed to parse usage response")?;
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .context("failed to parse usage response")?;
 
     Ok(UsageSnapshot {
         daily_remaining: body["daily_remaining"].as_u64(),
@@ -175,8 +174,7 @@ fn write_atomic(path: &Path, snapshot: &UsageSnapshot) -> Result<()> {
     // POSIX (same filesystem).
     let tmp = path.with_extension("json.tmp");
     let json = serde_json::to_string_pretty(snapshot)?;
-    std::fs::write(&tmp, &json)
-        .with_context(|| format!("write temp file {}", tmp.display()))?;
+    std::fs::write(&tmp, &json).with_context(|| format!("write temp file {}", tmp.display()))?;
     std::fs::rename(&tmp, path)
         .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
 

@@ -75,10 +75,7 @@ impl CoverageTree {
             "Coverage Tree (threshold {:.1}%)\n",
             self.threshold
         ));
-        out.push_str(&format!(
-            "  Overall: {:.1}%\n",
-            self.overall_rate() * 100.0
-        ));
+        out.push_str(&format!("  Overall: {:.1}%\n", self.overall_rate() * 100.0));
         for n in &self.nodes {
             render_node(n, &mut out, 1);
         }
@@ -316,14 +313,8 @@ pub fn parse_json_coverage(content: &str, threshold: f64) -> Result<CoverageTree
                 .to_string();
             let line_rate = f.get("line_rate").and_then(|x| x.as_f64()).unwrap_or(0.0);
             let branch_rate = f.get("branch_rate").and_then(|x| x.as_f64()).unwrap_or(0.0);
-            let lines_covered = f
-                .get("lines_covered")
-                .and_then(|x| x.as_u64())
-                .unwrap_or(0);
-            let lines_valid = f
-                .get("lines_valid")
-                .and_then(|x| x.as_u64())
-                .unwrap_or(0);
+            let lines_covered = f.get("lines_covered").and_then(|x| x.as_u64()).unwrap_or(0);
+            let lines_valid = f.get("lines_valid").and_then(|x| x.as_u64()).unwrap_or(0);
             nodes.push(CoverageNode {
                 path,
                 line_rate,
@@ -371,7 +362,10 @@ pub fn parse_json_coverage(content: &str, threshold: f64) -> Result<CoverageTree
         return Ok(CoverageTree { threshold, nodes });
     }
 
-    Ok(CoverageTree { threshold, nodes: vec![] })
+    Ok(CoverageTree {
+        threshold,
+        nodes: vec![],
+    })
 }
 
 #[cfg(test)]
@@ -380,7 +374,10 @@ mod tests {
 
     #[test]
     fn empty_tree_passes() {
-        let tree = CoverageTree { threshold: 85.0, nodes: vec![] };
+        let tree = CoverageTree {
+            threshold: 85.0,
+            nodes: vec![],
+        };
         assert!(tree.all_pass());
     }
 

@@ -1,23 +1,21 @@
 // @trace QG-COV-001: granular-recursive coverage gate
 // Tests for coverage parsing and tree-walk enforcement.
 
-use qgate::coverage::{CoverageNode, CoverageTree, parse_cobertura, parse_lcov};
+use qgate::coverage::{parse_cobertura, parse_lcov, CoverageNode, CoverageTree};
 
 /// QG-COV-001: overall coverage ≥ threshold passes
 #[test]
 fn overall_above_threshold_passes() {
     let tree = CoverageTree {
         threshold: 85.0,
-        nodes: vec![
-            CoverageNode {
-                path: "src/lib.rs".into(),
-                line_rate: 0.90,
-                branch_rate: 0.88,
-                lines_covered: 90,
-                lines_valid: 100,
-                children: vec![],
-            },
-        ],
+        nodes: vec![CoverageNode {
+            path: "src/lib.rs".into(),
+            line_rate: 0.90,
+            branch_rate: 0.88,
+            lines_covered: 90,
+            lines_valid: 100,
+            children: vec![],
+        }],
     };
     assert!(tree.all_pass());
 }
@@ -38,7 +36,7 @@ fn module_below_threshold_fails() {
             },
             CoverageNode {
                 path: "src/b.rs".into(),
-                line_rate: 0.50,  // below threshold
+                line_rate: 0.50, // below threshold
                 branch_rate: 0.50,
                 lines_covered: 50,
                 lines_valid: 100,
@@ -56,34 +54,28 @@ fn module_below_threshold_fails() {
 fn nested_module_below_threshold_fails() {
     let tree = CoverageTree {
         threshold: 85.0,
-        nodes: vec![
-            CoverageNode {
-                path: "src".into(),
+        nodes: vec![CoverageNode {
+            path: "src".into(),
+            line_rate: 0.90,
+            branch_rate: 0.90,
+            lines_covered: 90,
+            lines_valid: 100,
+            children: vec![CoverageNode {
+                path: "src/deep".into(),
                 line_rate: 0.90,
                 branch_rate: 0.90,
                 lines_covered: 90,
                 lines_valid: 100,
-                children: vec![
-                    CoverageNode {
-                        path: "src/deep".into(),
-                        line_rate: 0.90,
-                        branch_rate: 0.90,
-                        lines_covered: 90,
-                        lines_valid: 100,
-                        children: vec![
-                            CoverageNode {
-                                path: "src/deep/hidden.rs".into(),
-                                line_rate: 0.60,  // hidden deep failure
-                                branch_rate: 0.60,
-                                lines_covered: 60,
-                                lines_valid: 100,
-                                children: vec![],
-                            },
-                        ],
-                    },
-                ],
-            },
-        ],
+                children: vec![CoverageNode {
+                    path: "src/deep/hidden.rs".into(),
+                    line_rate: 0.60, // hidden deep failure
+                    branch_rate: 0.60,
+                    lines_covered: 60,
+                    lines_valid: 100,
+                    children: vec![],
+                }],
+            }],
+        }],
     };
     assert!(!tree.all_pass());
 }
@@ -93,16 +85,14 @@ fn nested_module_below_threshold_fails() {
 fn exactly_at_threshold_passes() {
     let tree = CoverageTree {
         threshold: 85.0,
-        nodes: vec![
-            CoverageNode {
-                path: "src/exact.rs".into(),
-                line_rate: 0.85,
-                branch_rate: 0.85,
-                lines_covered: 85,
-                lines_valid: 100,
-                children: vec![],
-            },
-        ],
+        nodes: vec![CoverageNode {
+            path: "src/exact.rs".into(),
+            line_rate: 0.85,
+            branch_rate: 0.85,
+            lines_covered: 85,
+            lines_valid: 100,
+            children: vec![],
+        }],
     };
     assert!(tree.all_pass());
 }
@@ -156,16 +146,14 @@ fn node_pass_fail_rendering() {
 fn tree_renders_to_string() {
     let tree = CoverageTree {
         threshold: 85.0,
-        nodes: vec![
-            CoverageNode {
-                path: "src/lib.rs".into(),
-                line_rate: 0.90,
-                branch_rate: 0.88,
-                lines_covered: 90,
-                lines_valid: 100,
-                children: vec![],
-            },
-        ],
+        nodes: vec![CoverageNode {
+            path: "src/lib.rs".into(),
+            line_rate: 0.90,
+            branch_rate: 0.88,
+            lines_covered: 90,
+            lines_valid: 100,
+            children: vec![],
+        }],
     };
     let rendered = tree.render_tree();
     assert!(rendered.contains("src/lib.rs"));

@@ -118,11 +118,7 @@ async fn main() -> Result<()> {
     let clippy_result = if cli.skip_clippy {
         (true, String::new())
     } else {
-        run_cargo(
-            &["clippy", "--workspace", "--", "-D", "warnings"],
-            &root,
-        )
-        .await?
+        run_cargo(&["clippy", "--workspace", "--", "-D", "warnings"], &root).await?
     };
     steps.push(StepResult {
         name: "clippy",

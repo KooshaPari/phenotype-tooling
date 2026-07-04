@@ -1,9 +1,9 @@
 // @trace QG-RPT-001: machine-readable JSON report + human tree summary
 // Tests for report generation and output format.
 
+use qgate::checks::{CheckCategory, CheckMatrix, CheckResult, CheckStatus};
+use qgate::coverage::{CoverageNode, CoverageTree};
 use qgate::report::{GateReport, GateStatus};
-use qgate::checks::{CheckCategory, CheckResult, CheckStatus, CheckMatrix};
-use qgate::coverage::{CoverageTree, CoverageNode};
 
 /// QG-RPT-001: gate report with all-pass produces GateStatus::Pass
 #[test]

@@ -63,7 +63,9 @@ impl GateReport {
         } else {
             "✗ FAIL"
         };
-        out.push_str(&format!("\n╔══ qgate {gate_marker} ══════════════════════════╗\n"));
+        out.push_str(&format!(
+            "\n╔══ qgate {gate_marker} ══════════════════════════╗\n"
+        ));
 
         // Coverage section
         let cov_pass = self.coverage.all_pass();

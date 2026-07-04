@@ -21,13 +21,13 @@
 //! table with per-regime numbers, bottleneck classification, and ranked optimizable hot
 //! paths with candidate-tech suggestions.
 
+pub mod profiler;
 pub mod regimes;
 pub mod scorecard;
-pub mod profiler;
 
-pub use scorecard::{Scorecard, RegimeResult, BottleneckClass, OptHotPath};
-pub use regimes::{IndividualResult, AccumulatedResult, ScaledParallelResult};
 pub use profiler::ExternalProfiler;
+pub use regimes::{AccumulatedResult, IndividualResult, ScaledParallelResult};
+pub use scorecard::{BottleneckClass, OptHotPath, RegimeResult, Scorecard};
 
 /// Configuration for a single harness run.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

@@ -84,7 +84,11 @@ async fn main() -> Result<()> {
     let cfg = QGateConfig::load(&root);
 
     let (coverage, checks) = match &cli.command {
-        Some(Commands::Coverage { report, format, threshold }) => {
+        Some(Commands::Coverage {
+            report,
+            format,
+            threshold,
+        }) => {
             let content = std::fs::read_to_string(report)?;
             let tree = parse_coverage(&content, format, *threshold)?;
             eprint!("{}", tree.render_tree());
@@ -93,10 +97,17 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Checks) => {
             let matrix = run_all_checks(&root, &cfg).await?;
-            let empty_cov = CoverageTree { threshold: cfg.coverage_threshold, nodes: vec![] };
+            let empty_cov = CoverageTree {
+                threshold: cfg.coverage_threshold,
+                nodes: vec![],
+            };
             (empty_cov, matrix)
         }
-        Some(Commands::Run { coverage_report, coverage_format, threshold }) => {
+        Some(Commands::Run {
+            coverage_report,
+            coverage_format,
+            threshold,
+        }) => {
             let threshold = threshold.unwrap_or(cfg.coverage_threshold);
             let cov_format = coverage_format.as_deref().unwrap_or(&cfg.coverage_format);
             let cov_path = coverage_report
@@ -107,9 +118,15 @@ async fn main() -> Result<()> {
                 let content = std::fs::read_to_string(&cov_path)?;
                 parse_coverage(&content, cov_format, threshold)?
             } else {
-                eprintln!("[qgate] Warning: coverage report not found at {}", cov_path.display());
+                eprintln!(
+                    "[qgate] Warning: coverage report not found at {}",
+                    cov_path.display()
+                );
                 eprintln!("[qgate] Run tests with coverage enabled first.");
-                CoverageTree { threshold, nodes: vec![] }
+                CoverageTree {
+                    threshold,
+                    nodes: vec![],
+                }
             };
 
             let matrix = run_all_checks(&root, &cfg).await?;
@@ -123,9 +140,15 @@ async fn main() -> Result<()> {
                 let content = std::fs::read_to_string(&cov_path)?;
                 parse_coverage(&content, &cfg.coverage_format, threshold)?
             } else {
-                eprintln!("[qgate] Warning: coverage report not found at {}", cov_path.display());
+                eprintln!(
+                    "[qgate] Warning: coverage report not found at {}",
+                    cov_path.display()
+                );
                 eprintln!("[qgate] Run tests with coverage enabled first.");
-                CoverageTree { threshold, nodes: vec![] }
+                CoverageTree {
+                    threshold,
+                    nodes: vec![],
+                }
             };
             let matrix = run_all_checks(&root, &cfg).await?;
             (tree, matrix)

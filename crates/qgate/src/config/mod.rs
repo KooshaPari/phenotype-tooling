@@ -49,13 +49,27 @@ pub struct QGateConfig {
     pub sbom_command: Option<String>,
 }
 
-fn default_coverage_threshold() -> f64 { 85.0 }
-fn default_mutation_threshold() -> f64 { 75.0 }
-fn default_chaos_threshold() -> f64 { 80.0 }
-fn default_perf_init_ms() -> f64 { 15_000.0 }
-fn default_perf_edit_ms() -> f64 { 5_000.0 }
-fn default_coverage_format() -> String { "lcov".into() }
-fn default_coverage_path() -> String { "coverage/lcov.info".into() }
+fn default_coverage_threshold() -> f64 {
+    85.0
+}
+fn default_mutation_threshold() -> f64 {
+    75.0
+}
+fn default_chaos_threshold() -> f64 {
+    80.0
+}
+fn default_perf_init_ms() -> f64 {
+    15_000.0
+}
+fn default_perf_edit_ms() -> f64 {
+    5_000.0
+}
+fn default_coverage_format() -> String {
+    "lcov".into()
+}
+fn default_coverage_path() -> String {
+    "coverage/lcov.info".into()
+}
 
 impl Default for QGateConfig {
     fn default() -> Self {

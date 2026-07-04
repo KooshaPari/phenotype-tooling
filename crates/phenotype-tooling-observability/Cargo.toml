@@ -21,11 +21,16 @@ once_cell = "1"
 prometheus = { version = "0.13", optional = true }
 axum = { version = "0.7", optional = true }
 tokio = { version = "1.40", features = ["macros", "rt-multi-thread", "net", "signal"], optional = true }
+rand = "0.8"
 
 [features]
 default = []
 # Prometheus exporter + axum HTTP server for /metrics and /health
 server = ["dep:prometheus", "dep:axum", "dep:tokio"]
+
+[[bin]]
+name = "breach_sim"
+path = "src/bin/breach_sim.rs"
 
 [lib]
 path = "src/lib.rs"

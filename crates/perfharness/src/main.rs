@@ -8,8 +8,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use perfharness::{
-    regimes::{accumulated, individual, scaled_parallel},
     profiler::ExternalProfiler,
+    regimes::{accumulated, individual, scaled_parallel},
     scorecard::Scorecard,
     HarnessConfig,
 };
@@ -129,7 +129,10 @@ async fn main() -> Result<()> {
 
             let acc = match regime {
                 RegimeArg::All | RegimeArg::Accumulated => {
-                    info!("running regime 2: accumulated ({} runs, rss_secs={})", runs, rss_secs);
+                    info!(
+                        "running regime 2: accumulated ({} runs, rss_secs={})",
+                        runs, rss_secs
+                    );
                     Some(accumulated::run(&cfg).await?)
                 }
                 _ => None,
@@ -184,15 +187,24 @@ async fn run_selftest() -> Result<()> {
 
     // Regime 1: Individual.
     let ind = individual::run(&cfg).await?;
-    assert!(ind.total_wall_ms > 0.0, "individual: total_wall_ms must be positive");
+    assert!(
+        ind.total_wall_ms > 0.0,
+        "individual: total_wall_ms must be positive"
+    );
     assert_eq!(ind.exit_code, Some(0), "individual: exit_code must be 0");
     info!("regime 1 OK — total_wall_ms={:.1}", ind.total_wall_ms);
 
     // Regime 2: Accumulated.
     let acc = accumulated::run(&cfg).await?;
     assert_eq!(acc.sequential_runs, 5, "accumulated: expected 5 runs");
-    assert!(acc.throughput_rps > 0.0, "accumulated: throughput_rps must be positive");
-    assert!(acc.rss_samples.is_empty(), "accumulated: rss_samples must be empty (long_running=0)");
+    assert!(
+        acc.throughput_rps > 0.0,
+        "accumulated: throughput_rps must be positive"
+    );
+    assert!(
+        acc.rss_samples.is_empty(),
+        "accumulated: rss_samples must be empty (long_running=0)"
+    );
     info!(
         "regime 2 OK — throughput_rps={:.2} mean_ms={:.1}",
         acc.throughput_rps,
@@ -201,9 +213,17 @@ async fn run_selftest() -> Result<()> {
 
     // Regime 3: Scaled-parallel.
     let sp = scaled_parallel::run(&cfg).await?;
-    assert_eq!(sp.curve.len(), 3, "scaled-parallel: expected 3 curve points");
+    assert_eq!(
+        sp.curve.len(),
+        3,
+        "scaled-parallel: expected 3 curve points"
+    );
     for pt in &sp.curve {
-        assert!(pt.throughput_rps > 0.0, "scaled-parallel: throughput must be positive at M={}", pt.concurrency);
+        assert!(
+            pt.throughput_rps > 0.0,
+            "scaled-parallel: throughput must be positive at M={}",
+            pt.concurrency
+        );
     }
     info!(
         "regime 3 OK — plateau at M={} ({:.2} rps), degrades past M={}",
@@ -220,9 +240,15 @@ async fn run_selftest() -> Result<()> {
     );
     let json = scorecard.to_json()?;
     let reparsed: serde_json::Value = serde_json::from_str(&json)?;
-    assert!(reparsed["bottleneck"].is_string(), "scorecard: bottleneck must be a string");
+    assert!(
+        reparsed["bottleneck"].is_string(),
+        "scorecard: bottleneck must be a string"
+    );
     let md = scorecard.to_markdown();
-    assert!(md.contains("Regime 1"), "markdown must contain regime headers");
+    assert!(
+        md.contains("Regime 1"),
+        "markdown must contain regime headers"
+    );
 
     info!("self-test PASSED — all 3 regimes produced sane numbers, scorecard serialises correctly");
     println!("{json}");
@@ -242,6 +268,10 @@ fn shell_split(s: &str) -> Result<Vec<String>> {
 
 fn parse_ladder(s: &str) -> Result<Vec<usize>> {
     s.split(',')
-        .map(|p| p.trim().parse::<usize>().map_err(|e| anyhow::anyhow!("bad ladder value: {e}")))
+        .map(|p| {
+            p.trim()
+                .parse::<usize>()
+                .map_err(|e| anyhow::anyhow!("bad ladder value: {e}"))
+        })
         .collect()
 }

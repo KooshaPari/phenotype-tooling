@@ -17,9 +17,13 @@ pub struct StackDetector<'a> {
 }
 
 impl<'a> StackDetector<'a> {
-    pub fn new(root: &'a Path) -> Self { Self { root } }
+    pub fn new(root: &'a Path) -> Self {
+        Self { root }
+    }
 
-    pub fn has_rust(&self) -> bool { self.root.join("Cargo.toml").exists() }
+    pub fn has_rust(&self) -> bool {
+        self.root.join("Cargo.toml").exists()
+    }
     pub fn has_typescript(&self) -> bool {
         self.root.join("package.json").exists() || self.root.join("bun.lock").exists()
     }
@@ -72,55 +76,98 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
     if cfg.is_na("unit") {
         results.push(na("unit", CheckCategory::Unit));
     } else if stack.has_rust() {
-        let (ok, detail) = run_cmd("cargo", &["test", "--workspace", "--lib"], root).await
+        let (ok, detail) = run_cmd("cargo", &["test", "--workspace", "--lib"], root)
+            .await
             .unwrap_or((false, "cargo not found".into()));
         results.push(CheckResult {
             category: CheckCategory::Unit,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: if ok { Some(100.0) } else { Some(0.0) },
             threshold: Some(Thresholds::UNIT_PASS_RATE),
-            details: if ok { "all unit tests passed".into() } else { detail },
+            details: if ok {
+                "all unit tests passed".into()
+            } else {
+                detail
+            },
         });
     } else if stack.has_typescript() {
-        let (ok, detail) = run_cmd("bun", &["test"], root).await
+        let (ok, detail) = run_cmd("bun", &["test"], root)
+            .await
             .unwrap_or((false, "bun not found".into()));
         results.push(CheckResult {
             category: CheckCategory::Unit,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: if ok { Some(100.0) } else { Some(0.0) },
             threshold: Some(Thresholds::UNIT_PASS_RATE),
-            details: if ok { "all bun tests passed".into() } else { detail },
+            details: if ok {
+                "all bun tests passed".into()
+            } else {
+                detail
+            },
         });
     } else if stack.has_python() {
-        let (ok, detail) = run_cmd("uv", &["run", "pytest", "-x", "--tb=short"], root).await
+        let (ok, detail) = run_cmd("uv", &["run", "pytest", "-x", "--tb=short"], root)
+            .await
             .unwrap_or((false, "uv not found".into()));
         results.push(CheckResult {
             category: CheckCategory::Unit,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: if ok { Some(100.0) } else { Some(0.0) },
             threshold: Some(Thresholds::UNIT_PASS_RATE),
-            details: if ok { "all pytest tests passed".into() } else { detail },
+            details: if ok {
+                "all pytest tests passed".into()
+            } else {
+                detail
+            },
         });
     } else {
-        results.push(skipped("unit", CheckCategory::Unit, "no supported stack detected"));
+        results.push(skipped(
+            "unit",
+            CheckCategory::Unit,
+            "no supported stack detected",
+        ));
     }
 
     // ── Integration tests ──────────────────────────────────────────────────
     if cfg.is_na("integration") {
         results.push(na("integration", CheckCategory::Integration));
     } else if stack.has_rust() {
-        let (ok, detail) = run_cmd(
-            "cargo", &["test", "--workspace", "--test", "*"], root,
-        ).await.unwrap_or((false, "cargo not found".into()));
+        let (ok, detail) = run_cmd("cargo", &["test", "--workspace", "--test", "*"], root)
+            .await
+            .unwrap_or((false, "cargo not found".into()));
         results.push(CheckResult {
             category: CheckCategory::Integration,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: if ok { Some(100.0) } else { Some(0.0) },
             threshold: Some(Thresholds::INTEGRATION_PASS_RATE),
-            details: if ok { "integration tests passed".into() } else { detail },
+            details: if ok {
+                "integration tests passed".into()
+            } else {
+                detail
+            },
         });
     } else {
-        results.push(skipped("integration", CheckCategory::Integration, "stack-specific runner not configured"));
+        results.push(skipped(
+            "integration",
+            CheckCategory::Integration,
+            "stack-specific runner not configured",
+        ));
     }
 
     // ── E2E tests ──────────────────────────────────────────────────────────
@@ -131,17 +178,30 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
         let playwright_ok = root.join("playwright.config.ts").exists()
             || root.join("playwright.config.js").exists();
         if playwright_ok {
-            let (ok, detail) = run_cmd("bun", &["x", "playwright", "test"], root).await
+            let (ok, detail) = run_cmd("bun", &["x", "playwright", "test"], root)
+                .await
                 .unwrap_or((false, "playwright not available".into()));
             results.push(CheckResult {
                 category: CheckCategory::E2e,
-                status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+                status: if ok {
+                    CheckStatus::Passed
+                } else {
+                    CheckStatus::Failed
+                },
                 score: if ok { Some(100.0) } else { Some(0.0) },
                 threshold: Some(Thresholds::E2E_PASS_RATE),
-                details: if ok { "playwright e2e passed".into() } else { detail },
+                details: if ok {
+                    "playwright e2e passed".into()
+                } else {
+                    detail
+                },
             });
         } else {
-            results.push(skipped("e2e", CheckCategory::E2e, "no playwright.config found"));
+            results.push(skipped(
+                "e2e",
+                CheckCategory::E2e,
+                "no playwright.config found",
+            ));
         }
     }
 
@@ -152,17 +212,30 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
         // Look for a chaos script or `cargo test --features chaos`.
         let chaos_script = root.join("scripts/chaos.sh");
         if chaos_script.exists() {
-            let (ok, detail) = run_cmd("bash", &[chaos_script.to_str().unwrap_or("")], root).await
+            let (ok, detail) = run_cmd("bash", &[chaos_script.to_str().unwrap_or("")], root)
+                .await
                 .unwrap_or((false, "bash not found".into()));
             results.push(CheckResult {
                 category: CheckCategory::Chaos,
-                status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+                status: if ok {
+                    CheckStatus::Passed
+                } else {
+                    CheckStatus::Failed
+                },
                 score: None,
                 threshold: Some(Thresholds::CHAOS_RESILIENCE),
-                details: if ok { "chaos tests passed".into() } else { detail },
+                details: if ok {
+                    "chaos tests passed".into()
+                } else {
+                    detail
+                },
             });
         } else {
-            results.push(skipped("chaos", CheckCategory::Chaos, "no scripts/chaos.sh found"));
+            results.push(skipped(
+                "chaos",
+                CheckCategory::Chaos,
+                "no scripts/chaos.sh found",
+            ));
         }
     }
 
@@ -171,17 +244,30 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
         results.push(na("perf", CheckCategory::Perf));
     } else if stack.has_rust() {
         // cargo bench — success means benchmarks compile and run; threshold is advisory here
-        let (ok, detail) = run_cmd("cargo", &["bench", "--workspace", "--no-run"], root).await
+        let (ok, detail) = run_cmd("cargo", &["bench", "--workspace", "--no-run"], root)
+            .await
             .unwrap_or((false, "cargo not found".into()));
         results.push(CheckResult {
             category: CheckCategory::Perf,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: None,
             threshold: Some(cfg.perf_init_ms),
-            details: if ok { "bench compile passed".into() } else { detail },
+            details: if ok {
+                "bench compile passed".into()
+            } else {
+                detail
+            },
         });
     } else {
-        results.push(skipped("perf", CheckCategory::Perf, "no Rust bench runner detected"));
+        results.push(skipped(
+            "perf",
+            CheckCategory::Perf,
+            "no Rust bench runner detected",
+        ));
     }
 
     // ── Property / fuzz ────────────────────────────────────────────────────
@@ -190,17 +276,33 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
     } else if stack.has_rust() {
         // Run proptest / quickcheck if `#[cfg(test)]` features indicate them.
         let (ok, detail) = run_cmd(
-            "cargo", &["test", "--workspace", "--features", "proptest"], root,
-        ).await.unwrap_or((false, "no proptest feature".into()));
+            "cargo",
+            &["test", "--workspace", "--features", "proptest"],
+            root,
+        )
+        .await
+        .unwrap_or((false, "no proptest feature".into()));
         results.push(CheckResult {
             category: CheckCategory::Property,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: None,
             threshold: Some(Thresholds::PROPERTY_COUNTEREXAMPLES),
-            details: if ok { "property tests passed".into() } else { detail },
+            details: if ok {
+                "property tests passed".into()
+            } else {
+                detail
+            },
         });
     } else {
-        results.push(skipped("property", CheckCategory::Property, "no Rust proptest runner"));
+        results.push(skipped(
+            "property",
+            CheckCategory::Property,
+            "no Rust proptest runner",
+        ));
     }
 
     // ── Mutation ───────────────────────────────────────────────────────────
@@ -208,35 +310,61 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
         results.push(na("mutation", CheckCategory::Mutation));
     } else if stack.has_rust() {
         // cargo-mutants must be installed; run with a 5-minute timeout.
-        let mutants_available = run_cmd("cargo", &["mutants", "--version"], root).await
+        let mutants_available = run_cmd("cargo", &["mutants", "--version"], root)
+            .await
             .map(|(ok, _)| ok)
             .unwrap_or(false);
         if mutants_available {
             let (ok, detail) = run_cmd(
-                "cargo", &["mutants", "--workspace", "--timeout", "60"], root,
-            ).await.unwrap_or((false, "cargo-mutants failed".into()));
+                "cargo",
+                &["mutants", "--workspace", "--timeout", "60"],
+                root,
+            )
+            .await
+            .unwrap_or((false, "cargo-mutants failed".into()));
             results.push(CheckResult {
                 category: CheckCategory::Mutation,
-                status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+                status: if ok {
+                    CheckStatus::Passed
+                } else {
+                    CheckStatus::Failed
+                },
                 score: None,
                 threshold: Some(cfg.mutation_threshold),
-                details: if ok { "mutation score passed".into() } else { detail },
+                details: if ok {
+                    "mutation score passed".into()
+                } else {
+                    detail
+                },
             });
         } else {
-            results.push(skipped("mutation", CheckCategory::Mutation, "cargo-mutants not installed"));
+            results.push(skipped(
+                "mutation",
+                CheckCategory::Mutation,
+                "cargo-mutants not installed",
+            ));
         }
     } else if stack.has_python() {
-        let (ok, detail) = run_cmd("uv", &["run", "mutmut", "run"], root).await
+        let (ok, detail) = run_cmd("uv", &["run", "mutmut", "run"], root)
+            .await
             .unwrap_or((false, "mutmut not found".into()));
         results.push(CheckResult {
             category: CheckCategory::Mutation,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: None,
             threshold: Some(cfg.mutation_threshold),
             details: if ok { "mutmut passed".into() } else { detail },
         });
     } else {
-        results.push(skipped("mutation", CheckCategory::Mutation, "no mutation runner for stack"));
+        results.push(skipped(
+            "mutation",
+            CheckCategory::Mutation,
+            "no mutation runner for stack",
+        ));
     }
 
     // ── Static analysis ────────────────────────────────────────────────────
@@ -248,20 +376,36 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
 
         if stack.has_rust() {
             let (ok, detail) = run_cmd(
-                "cargo", &["clippy", "--workspace", "--", "-D", "warnings"], root,
-            ).await.unwrap_or((false, "clippy not found".into()));
-            if !ok { sa_failed = true; sa_details.push(format!("clippy: {}", detail.lines().next().unwrap_or(""))); }
-            else { sa_details.push("clippy: ok".into()); }
+                "cargo",
+                &["clippy", "--workspace", "--", "-D", "warnings"],
+                root,
+            )
+            .await
+            .unwrap_or((false, "clippy not found".into()));
+            if !ok {
+                sa_failed = true;
+                sa_details.push(format!("clippy: {}", detail.lines().next().unwrap_or("")));
+            } else {
+                sa_details.push("clippy: ok".into());
+            }
 
-            let (fmt_ok, fmt_detail) = run_cmd(
-                "cargo", &["fmt", "--all", "--", "--check"], root,
-            ).await.unwrap_or((false, "rustfmt not found".into()));
-            if !fmt_ok { sa_failed = true; sa_details.push(format!("rustfmt: {}", fmt_detail.lines().next().unwrap_or(""))); }
-            else { sa_details.push("rustfmt: ok".into()); }
+            let (fmt_ok, fmt_detail) = run_cmd("cargo", &["fmt", "--all", "--", "--check"], root)
+                .await
+                .unwrap_or((false, "rustfmt not found".into()));
+            if !fmt_ok {
+                sa_failed = true;
+                sa_details.push(format!(
+                    "rustfmt: {}",
+                    fmt_detail.lines().next().unwrap_or("")
+                ));
+            } else {
+                sa_details.push("rustfmt: ok".into());
+            }
         }
 
         if stack.has_typescript() {
-            let (ok, detail) = run_cmd("bun", &["x", "tsgo", "--noEmit"], root).await
+            let (ok, detail) = run_cmd("bun", &["x", "tsgo", "--noEmit"], root)
+                .await
                 .unwrap_or_else(|_| {
                     // fallback to tsc if tsgo not installed
                     (false, "tsgo not found, falling back".into())
@@ -273,35 +417,69 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
                     .current_dir(root)
                     .output()
                     .await
-                    .map(|o| (o.status.success(), String::from_utf8_lossy(&o.stderr).to_string()))
+                    .map(|o| {
+                        (
+                            o.status.success(),
+                            String::from_utf8_lossy(&o.stderr).to_string(),
+                        )
+                    })
                     .unwrap_or((false, "tsc not found".into()));
-                if !tsc_ok { sa_failed = true; sa_details.push(format!("tsc: {}", tsc_detail.lines().next().unwrap_or(""))); }
-                else { sa_details.push("tsc: ok".into()); }
+                if !tsc_ok {
+                    sa_failed = true;
+                    sa_details.push(format!("tsc: {}", tsc_detail.lines().next().unwrap_or("")));
+                } else {
+                    sa_details.push("tsc: ok".into());
+                }
             } else {
                 sa_details.push(format!("tsgo: {}", if ok { "ok" } else { &detail }));
             }
 
-            let (lint_ok, lint_detail) = run_cmd("bun", &["run", "lint"], root).await
+            let (lint_ok, lint_detail) = run_cmd("bun", &["run", "lint"], root)
+                .await
                 .unwrap_or((false, "eslint not found".into()));
-            if !lint_ok { sa_failed = true; sa_details.push(format!("eslint: {}", lint_detail.lines().next().unwrap_or(""))); }
-            else { sa_details.push("eslint: ok".into()); }
+            if !lint_ok {
+                sa_failed = true;
+                sa_details.push(format!(
+                    "eslint: {}",
+                    lint_detail.lines().next().unwrap_or("")
+                ));
+            } else {
+                sa_details.push("eslint: ok".into());
+            }
         }
 
         if stack.has_python() {
-            let (ok, detail) = run_cmd("uv", &["run", "mypy", "."], root).await
+            let (ok, detail) = run_cmd("uv", &["run", "mypy", "."], root)
+                .await
                 .unwrap_or((false, "mypy not found".into()));
-            if !ok { sa_failed = true; sa_details.push(format!("mypy: {}", detail.lines().next().unwrap_or(""))); }
-            else { sa_details.push("mypy: ok".into()); }
+            if !ok {
+                sa_failed = true;
+                sa_details.push(format!("mypy: {}", detail.lines().next().unwrap_or("")));
+            } else {
+                sa_details.push("mypy: ok".into());
+            }
 
-            let (ruff_ok, ruff_detail) = run_cmd("uv", &["run", "ruff", "check", "."], root).await
+            let (ruff_ok, ruff_detail) = run_cmd("uv", &["run", "ruff", "check", "."], root)
+                .await
                 .unwrap_or((false, "ruff not found".into()));
-            if !ruff_ok { sa_failed = true; sa_details.push(format!("ruff: {}", ruff_detail.lines().next().unwrap_or(""))); }
-            else { sa_details.push("ruff: ok".into()); }
+            if !ruff_ok {
+                sa_failed = true;
+                sa_details.push(format!(
+                    "ruff: {}",
+                    ruff_detail.lines().next().unwrap_or("")
+                ));
+            } else {
+                sa_details.push("ruff: ok".into());
+            }
         }
 
         results.push(CheckResult {
             category: CheckCategory::StaticAnalysis,
-            status: if sa_failed { CheckStatus::Failed } else { CheckStatus::Passed },
+            status: if sa_failed {
+                CheckStatus::Failed
+            } else {
+                CheckStatus::Passed
+            },
             score: if sa_failed { Some(1.0) } else { Some(0.0) },
             threshold: Some(Thresholds::STATIC_ANALYSIS_ERRORS),
             details: sa_details.join("; "),
@@ -316,36 +494,79 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
         let mut sec_details: Vec<String> = Vec::new();
 
         // gitleaks for secrets
-        let (gl_ok, gl_detail) = run_cmd("gitleaks", &["detect", "--no-git", "--exit-code", "1"], root).await
-            .unwrap_or((true, "gitleaks not installed — skipping".into()));
-        if !gl_ok { sec_failed = true; sec_details.push(format!("gitleaks: {}", gl_detail.lines().next().unwrap_or(""))); }
-        else { sec_details.push("gitleaks: ok".into()); }
+        let (gl_ok, gl_detail) = run_cmd(
+            "gitleaks",
+            &["detect", "--no-git", "--exit-code", "1"],
+            root,
+        )
+        .await
+        .unwrap_or((true, "gitleaks not installed — skipping".into()));
+        if !gl_ok {
+            sec_failed = true;
+            sec_details.push(format!(
+                "gitleaks: {}",
+                gl_detail.lines().next().unwrap_or("")
+            ));
+        } else {
+            sec_details.push("gitleaks: ok".into());
+        }
 
         // semgrep SAST — moved to dedicated Sast category (see below)
         let (sg_ok, sg_detail) = run_cmd(
-            "semgrep", &["--config=auto", "--error", "--quiet", "."], root,
-        ).await.unwrap_or((true, "semgrep not installed — skipping".into()));
-        if !sg_ok { sec_failed = true; sec_details.push(format!("semgrep: {}", sg_detail.lines().next().unwrap_or(""))); }
-        else { sec_details.push("semgrep: ok".into()); }
+            "semgrep",
+            &["--config=auto", "--error", "--quiet", "."],
+            root,
+        )
+        .await
+        .unwrap_or((true, "semgrep not installed — skipping".into()));
+        if !sg_ok {
+            sec_failed = true;
+            sec_details.push(format!(
+                "semgrep: {}",
+                sg_detail.lines().next().unwrap_or("")
+            ));
+        } else {
+            sec_details.push("semgrep: ok".into());
+        }
 
         if stack.has_rust() {
-            let (ca_ok, ca_detail) = run_cmd("cargo", &["audit"], root).await
+            let (ca_ok, ca_detail) = run_cmd("cargo", &["audit"], root)
+                .await
                 .unwrap_or((true, "cargo-audit not installed — skipping".into()));
-            if !ca_ok { sec_failed = true; sec_details.push(format!("cargo-audit: {}", ca_detail.lines().next().unwrap_or(""))); }
-            else { sec_details.push("cargo-audit: ok".into()); }
+            if !ca_ok {
+                sec_failed = true;
+                sec_details.push(format!(
+                    "cargo-audit: {}",
+                    ca_detail.lines().next().unwrap_or("")
+                ));
+            } else {
+                sec_details.push("cargo-audit: ok".into());
+            }
         }
 
         if stack.has_python() {
-            let (bandit_ok, bandit_detail) = run_cmd(
-                "uv", &["run", "bandit", "-r", ".", "-ll"], root,
-            ).await.unwrap_or((true, "bandit not installed — skipping".into()));
-            if !bandit_ok { sec_failed = true; sec_details.push(format!("bandit: {}", bandit_detail.lines().next().unwrap_or(""))); }
-            else { sec_details.push("bandit: ok".into()); }
+            let (bandit_ok, bandit_detail) =
+                run_cmd("uv", &["run", "bandit", "-r", ".", "-ll"], root)
+                    .await
+                    .unwrap_or((true, "bandit not installed — skipping".into()));
+            if !bandit_ok {
+                sec_failed = true;
+                sec_details.push(format!(
+                    "bandit: {}",
+                    bandit_detail.lines().next().unwrap_or("")
+                ));
+            } else {
+                sec_details.push("bandit: ok".into());
+            }
         }
 
         results.push(CheckResult {
             category: CheckCategory::Security,
-            status: if sec_failed { CheckStatus::Failed } else { CheckStatus::Passed },
+            status: if sec_failed {
+                CheckStatus::Failed
+            } else {
+                CheckStatus::Passed
+            },
             score: if sec_failed { Some(1.0) } else { Some(0.0) },
             threshold: Some(Thresholds::SECURITY_HIGH_FINDINGS),
             details: sec_details.join("; "),
@@ -359,7 +580,8 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
     if cfg.is_na("sast") {
         results.push(na("sast", CheckCategory::Sast));
     } else {
-        let semgrep_available = run_cmd("semgrep", &["--version"], root).await
+        let semgrep_available = run_cmd("semgrep", &["--version"], root)
+            .await
             .map(|(ok, _)| ok)
             .unwrap_or(false);
         if semgrep_available {
@@ -374,9 +596,18 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
             };
             let (ok, detail) = run_cmd(
                 "semgrep",
-                &[cfg_arg, "--error", "--quiet", "--json", "--output=/tmp/semgrep.json", "."],
+                &[
+                    cfg_arg,
+                    "--error",
+                    "--quiet",
+                    "--json",
+                    "--output=/tmp/semgrep.json",
+                    ".",
+                ],
                 root,
-            ).await.unwrap_or((false, "semgrep failed".into()));
+            )
+            .await
+            .unwrap_or((false, "semgrep failed".into()));
             // Count high/critical findings from the JSON (best-effort, fall
             // back to exit-code if /tmp/semgrep.json is unreadable).
             let high_count = parse_semgrep_high_count("/tmp/semgrep.json");
@@ -399,7 +630,11 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
                 details,
             });
         } else {
-            results.push(skipped("sast", CheckCategory::Sast, "semgrep not installed"));
+            results.push(skipped(
+                "sast",
+                CheckCategory::Sast,
+                "semgrep not installed",
+            ));
         }
     }
 
@@ -418,11 +653,16 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
                 "no .qgate/dast.toml or QGATE_DAST_BASE_URL configured",
             )),
             Some(cfg) => {
-                let schemathesis_available = run_cmd("schemathesis", &["--version"], root).await
+                let schemathesis_available = run_cmd("schemathesis", &["--version"], root)
+                    .await
                     .map(|(ok, _)| ok)
                     .unwrap_or(false);
                 if !schemathesis_available {
-                    results.push(skipped("dast", CheckCategory::Dast, "schemathesis not installed"));
+                    results.push(skipped(
+                        "dast",
+                        CheckCategory::Dast,
+                        "schemathesis not installed",
+                    ));
                 } else {
                     let report_path = root.join("target/qgate-dast-report.json");
                     let schema_arg = cfg.schema_url.as_deref().unwrap_or(&cfg.base_url);
@@ -439,7 +679,9 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
                             &format!("--report-json={}", report_path.display()),
                         ],
                         root,
-                    ).await.unwrap_or((false, "schemathesis crashed".into()));
+                    )
+                    .await
+                    .unwrap_or((false, "schemathesis crashed".into()));
                     let failed = parse_dast_failed_count(&report_path);
                     let (status, score) = if !ok {
                         (CheckStatus::Failed, Some(failed.max(1.0)))
@@ -474,16 +716,32 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
     if cfg.is_na("sbom") {
         results.push(na("sbom", CheckCategory::Sbom));
     } else if let Some(cmd) = cfg.sbom_command.as_deref() {
-        let (ok, detail) = run_cmd("bash", &["-c", cmd], root).await
+        let (ok, detail) = run_cmd("bash", &["-c", cmd], root)
+            .await
             .unwrap_or((false, "sbom command failed to execute".into()));
         let artifact = root.join("target/sbom.cdx.json");
         let present = artifact.exists();
         let (status, score, details) = if ok && present {
-            (CheckStatus::Passed, Some(1.0), format!("sbom generated: {}", artifact.display()))
+            (
+                CheckStatus::Passed,
+                Some(1.0),
+                format!("sbom generated: {}", artifact.display()),
+            )
         } else if present {
-            (CheckStatus::Passed, Some(1.0), format!("sbom artifact present (command exited non-zero but artifact exists): {}", artifact.display()))
+            (
+                CheckStatus::Passed,
+                Some(1.0),
+                format!(
+                    "sbom artifact present (command exited non-zero but artifact exists): {}",
+                    artifact.display()
+                ),
+            )
         } else {
-            (CheckStatus::Failed, Some(0.0), format!("sbom command did not produce target/sbom.cdx.json: {detail}"))
+            (
+                CheckStatus::Failed,
+                Some(0.0),
+                format!("sbom command did not produce target/sbom.cdx.json: {detail}"),
+            )
         };
         results.push(CheckResult {
             category: CheckCategory::Sbom,
@@ -515,14 +773,23 @@ pub async fn run_all_checks(root: &Path, cfg: &QGateConfig) -> Result<CheckMatri
     if cfg.is_na("a11y") {
         results.push(na("a11y", CheckCategory::A11y));
     } else if stack.has_ui() {
-        let (ok, detail) = run_cmd("bun", &["x", "axe", "--exit"], root).await
+        let (ok, detail) = run_cmd("bun", &["x", "axe", "--exit"], root)
+            .await
             .unwrap_or((true, "axe not installed — skipping".into()));
         results.push(CheckResult {
             category: CheckCategory::A11y,
-            status: if ok { CheckStatus::Passed } else { CheckStatus::Failed },
+            status: if ok {
+                CheckStatus::Passed
+            } else {
+                CheckStatus::Failed
+            },
             score: None,
             threshold: Some(Thresholds::A11Y_VIOLATIONS),
-            details: if ok { "axe: 0 violations".into() } else { detail },
+            details: if ok {
+                "axe: 0 violations".into()
+            } else {
+                detail
+            },
         });
     } else {
         results.push(na("a11y", CheckCategory::A11y));
@@ -571,9 +838,15 @@ impl DastConfig {
             if let Ok(content) = std::fs::read_to_string(&toml_path) {
                 if let Ok(v) = toml::from_str::<toml::Value>(&content) {
                     let base_url = v.get("base_url")?.as_str()?.to_string();
-                    let schema_url = v.get("schema_url").and_then(|s| s.as_str()).map(String::from);
+                    let schema_url = v
+                        .get("schema_url")
+                        .and_then(|s| s.as_str())
+                        .map(String::from);
                     if !base_url.is_empty() {
-                        return Some(Self { base_url, schema_url });
+                        return Some(Self {
+                            base_url,
+                            schema_url,
+                        });
                     }
                 }
             }
@@ -583,20 +856,34 @@ impl DastConfig {
         if base_url.is_empty() {
             return None;
         }
-        let schema_url = std::env::var("QGATE_DAST_SCHEMA_URL").ok().filter(|s| !s.is_empty());
-        Some(Self { base_url, schema_url })
+        let schema_url = std::env::var("QGATE_DAST_SCHEMA_URL")
+            .ok()
+            .filter(|s| !s.is_empty());
+        Some(Self {
+            base_url,
+            schema_url,
+        })
     }
 }
 
 /// Parse the high/critical finding count out of a semgrep JSON report.
 /// Returns 0.0 if the file is missing, unreadable, or has no findings array.
 fn parse_semgrep_high_count(path: &str) -> f64 {
-    let Ok(content) = std::fs::read_to_string(path) else { return 0.0; };
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) else { return 0.0; };
-    let results = v.get("results").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return 0.0;
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return 0.0;
+    };
+    let results = v
+        .get("results")
+        .and_then(|r| r.as_array())
+        .cloned()
+        .unwrap_or_default();
     let mut count: f64 = 0.0;
     for finding in results {
-        let severity = finding.get("extra")
+        let severity = finding
+            .get("extra")
             .and_then(|e| e.get("severity"))
             .and_then(|s| s.as_str())
             .unwrap_or("");
@@ -615,19 +902,25 @@ fn parse_semgrep_high_count(path: &str) -> f64 {
 /// Returns 0.0 if missing/unreadable; counts `failed_examples` if present
 /// and `checks[].status == "failure"` markers as a fallback.
 fn parse_dast_failed_count(path: &std::path::Path) -> f64 {
-    let Ok(content) = std::fs::read_to_string(path) else { return 0.0; };
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) else { return 0.0; };
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return 0.0;
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return 0.0;
+    };
     if let Some(n) = v.get("failed_examples").and_then(|n| n.as_f64()) {
         return n;
     }
-    if let Some(n) = v.get("summary")
+    if let Some(n) = v
+        .get("summary")
         .and_then(|s| s.get("failed"))
         .and_then(|n| n.as_f64())
     {
         return n;
     }
     if let Some(arr) = v.get("checks").and_then(|c| c.as_array()) {
-        let fails = arr.iter()
+        let fails = arr
+            .iter()
             .filter(|c| c.get("status").and_then(|s| s.as_str()) == Some("failure"))
             .count();
         return fails as f64;

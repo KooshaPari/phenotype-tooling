@@ -3,8 +3,8 @@
 //! Mirrors the forgecode#74 profile format: per-regime tables, bottleneck
 //! classification, and ranked hot-path suggestions with candidate tech.
 
-use crate::regimes::{AccumulatedResult, IndividualResult, ScaledParallelResult};
 use crate::profiler::ExternalProfiler;
+use crate::regimes::{AccumulatedResult, IndividualResult, ScaledParallelResult};
 use chrono::Utc;
 
 /// Top-level bottleneck classification for a profiled target.
@@ -85,7 +85,11 @@ impl Scorecard {
             target,
             timestamp: Utc::now().to_rfc3339(),
             profiler,
-            regimes: RegimeResult { individual, accumulated, scaled_parallel },
+            regimes: RegimeResult {
+                individual,
+                accumulated,
+                scaled_parallel,
+            },
             bottleneck,
             hot_paths,
         }
@@ -126,10 +130,7 @@ impl Scorecard {
                 "| wait | {:.1} | unavoidable LLM/network wait |\n",
                 r.unavoidable_wait_ms
             ));
-            out.push_str(&format!(
-                "| teardown | {:.1} | cleanup |\n",
-                r.teardown_ms
-            ));
+            out.push_str(&format!("| teardown | {:.1} | cleanup |\n", r.teardown_ms));
             out.push_str(&format!(
                 "| **total** | **{:.1}** | wall-clock |\n\n",
                 r.total_wall_ms
@@ -155,7 +156,11 @@ impl Scorecard {
             if r.rss_samples.is_empty() {
                 out.push_str("_skipped (long_running_secs = 0)_\n\n");
             } else {
-                let rss_mb: Vec<f64> = r.rss_samples.iter().map(|s| s.rss_kb as f64 / 1024.0).collect();
+                let rss_mb: Vec<f64> = r
+                    .rss_samples
+                    .iter()
+                    .map(|s| s.rss_kb as f64 / 1024.0)
+                    .collect();
                 let min = rss_mb.iter().cloned().fold(f64::INFINITY, f64::min);
                 let max = rss_mb.iter().cloned().fold(0.0_f64, f64::max);
                 let growth = max - min;
@@ -165,7 +170,11 @@ impl Scorecard {
                 out.push_str(&format!("| rss_growth_mb | {:.1} |\n", growth));
                 out.push_str(&format!(
                     "| leak_flag | {} |\n\n",
-                    if r.memory_leak_flag { "**YES — investigate**" } else { "no" }
+                    if r.memory_leak_flag {
+                        "**YES — investigate**"
+                    } else {
+                        "no"
+                    }
                 ));
             }
         } else {
@@ -199,7 +208,10 @@ impl Scorecard {
 
         // --- Bottleneck & hot paths ---
         out.push_str("## Bottleneck & Optimizations\n\n");
-        out.push_str(&format!("**Primary bottleneck:** `{:?}`\n\n", self.bottleneck));
+        out.push_str(&format!(
+            "**Primary bottleneck:** `{:?}`\n\n",
+            self.bottleneck
+        ));
         if self.hot_paths.is_empty() {
             out.push_str("_No hot paths identified._\n");
         } else {
@@ -310,8 +322,8 @@ fn rank_hot_paths(
             paths.push(OptHotPath {
                 description: "Majority of wall-clock is unavoidable upstream wait".into(),
                 estimated_impact: 0.3,
-                candidate_tech:
-                    "Request batching; streaming responses; speculative prefetch".into(),
+                candidate_tech: "Request batching; streaming responses; speculative prefetch"
+                    .into(),
             });
         }
         _ => {}
@@ -380,8 +392,14 @@ mod tests {
             sequential_total_ms: 500.0,
             throughput_rps: 10.0,
             rss_samples: vec![
-                RssSample { elapsed_ms: 0, rss_kb: 10_000 },
-                RssSample { elapsed_ms: 500, rss_kb: 50_000 },
+                RssSample {
+                    elapsed_ms: 0,
+                    rss_kb: 10_000,
+                },
+                RssSample {
+                    elapsed_ms: 500,
+                    rss_kb: 50_000,
+                },
             ],
             memory_leak_flag: true,
         };
@@ -407,7 +425,13 @@ mod tests {
             exit_code: Some(0),
             profiler_output: None,
         };
-        let sc = Scorecard::build(vec!["test".into()], ExternalProfiler::None, Some(ind), None, None);
+        let sc = Scorecard::build(
+            vec!["test".into()],
+            ExternalProfiler::None,
+            Some(ind),
+            None,
+            None,
+        );
         assert_eq!(sc.bottleneck, BottleneckClass::Init);
     }
 }

@@ -10,9 +10,9 @@
 use crate::HarnessConfig;
 use anyhow::Result;
 use std::time::Instant;
+use tokio::process::Command;
 use tokio::task::JoinSet;
 use tokio::time::{timeout, Duration};
-use tokio::process::Command;
 use tracing::debug;
 
 /// A single point on the scaling curve.
@@ -82,10 +82,18 @@ pub async fn run(cfg: &HarnessConfig) -> Result<ScaledParallelResult> {
         let wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
         let successful = (m - errors) as f64;
         let throughput_rps = successful / (wall_ms / 1000.0).max(f64::EPSILON);
-        let mean_run_ms = if successful > 0.0 { wall_ms / successful } else { 0.0 };
+        let mean_run_ms = if successful > 0.0 {
+            wall_ms / successful
+        } else {
+            0.0
+        };
 
         debug!("M={} wall_ms={:.0} rps={:.2}", m, wall_ms, throughput_rps);
-        curve.push(ScaleCurvePoint { concurrency: m, throughput_rps, mean_run_ms });
+        curve.push(ScaleCurvePoint {
+            concurrency: m,
+            throughput_rps,
+            mean_run_ms,
+        });
 
         // Small pause between ladder steps to let OS scheduler recover.
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -104,9 +112,7 @@ pub async fn run(cfg: &HarnessConfig) -> Result<ScaledParallelResult> {
 }
 
 /// Find the plateau (last M with >5% gain) and degradation (first M below plateau).
-fn find_plateau_and_degradation(
-    curve: &[ScaleCurvePoint],
-) -> (usize, f64, usize) {
+fn find_plateau_and_degradation(curve: &[ScaleCurvePoint]) -> (usize, f64, usize) {
     if curve.is_empty() {
         return (0, 0.0, 0);
     }
@@ -175,7 +181,11 @@ mod tests {
 
     #[test]
     fn find_plateau_single_point() {
-        let curve = vec![ScaleCurvePoint { concurrency: 1, throughput_rps: 10.0, mean_run_ms: 100.0 }];
+        let curve = vec![ScaleCurvePoint {
+            concurrency: 1,
+            throughput_rps: 10.0,
+            mean_run_ms: 100.0,
+        }];
         let (pm, prps, dm) = find_plateau_and_degradation(&curve);
         assert_eq!(pm, 1);
         assert!((prps - 10.0).abs() < 0.01);
@@ -185,10 +195,26 @@ mod tests {
     #[test]
     fn find_plateau_detects_degradation() {
         let curve = vec![
-            ScaleCurvePoint { concurrency: 1, throughput_rps: 10.0, mean_run_ms: 100.0 },
-            ScaleCurvePoint { concurrency: 4, throughput_rps: 35.0, mean_run_ms: 110.0 },
-            ScaleCurvePoint { concurrency: 8, throughput_rps: 38.0, mean_run_ms: 210.0 },
-            ScaleCurvePoint { concurrency: 16, throughput_rps: 30.0, mean_run_ms: 530.0 },
+            ScaleCurvePoint {
+                concurrency: 1,
+                throughput_rps: 10.0,
+                mean_run_ms: 100.0,
+            },
+            ScaleCurvePoint {
+                concurrency: 4,
+                throughput_rps: 35.0,
+                mean_run_ms: 110.0,
+            },
+            ScaleCurvePoint {
+                concurrency: 8,
+                throughput_rps: 38.0,
+                mean_run_ms: 210.0,
+            },
+            ScaleCurvePoint {
+                concurrency: 16,
+                throughput_rps: 30.0,
+                mean_run_ms: 530.0,
+            },
         ];
         let (pm, _prps, dm) = find_plateau_and_degradation(&curve);
         // Plateau at M=8 (last gain > 5%), degradation at M=16.

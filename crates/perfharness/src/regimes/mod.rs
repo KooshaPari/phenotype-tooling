@@ -1,7 +1,7 @@
-pub mod individual;
 pub mod accumulated;
+pub mod individual;
 pub mod scaled_parallel;
 
-pub use individual::IndividualResult;
 pub use accumulated::{AccumulatedResult, RssSample};
-pub use scaled_parallel::{ScaledParallelResult, ScaleCurvePoint};
+pub use individual::IndividualResult;
+pub use scaled_parallel::{ScaleCurvePoint, ScaledParallelResult};
