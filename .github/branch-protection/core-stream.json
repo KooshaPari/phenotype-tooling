@@ -1,0 +1,64 @@
+{
+  "_comment": "Branch protection override for the core release stream. Enforces ptx + coverage + mutation + license + sbom-diff on PRs that touch core+standalone crates (per workspace.metadata.toml core-stream).",
+  "branch": "main",
+  "protection": {
+    "required_status_checks": {
+      "strict": true,
+      "contexts": [
+        "ptx / governance",
+        "coverage",
+        "mutation-score",
+        "license-check",
+        "sbom-diff"
+      ]
+    },
+    "enforce_admins": false,
+    "required_pull_request_reviews": {
+      "required_approving_review_count": 1,
+      "dismiss_stale_reviews": true,
+      "require_code_owner_reviews": true,
+      "require_last_push_approval": true
+    },
+    "restrictions": {
+      "users": [],
+      "teams": ["core-stream-maintainers"]
+    },
+    "required_signatures": true,
+    "linear_history": true,
+    "allow_force_pushes": false,
+    "allow_deletions": false,
+    "block_creations": false,
+    "required_conversation_resolution": true,
+    "lock_branch": false,
+    "allow_fork_syncing": false
+  },
+  "stream": "core-stream",
+  "member_filter": {
+    "paths": [
+      "crates/phenotype-cli/**",
+      "crates/phenotype-config/**",
+      "crates/phenotype-diff/**",
+      "crates/phenotype-tooling-observability/**",
+      "crates/acceptance-contract/**",
+      "crates/agent-forecast/**",
+      "crates/agent-orchestrator/**",
+      "crates/anthropic-usage-poll/**",
+      "crates/audit-privacy/**",
+      "crates/bench-guard/**",
+      "crates/commit-msg-check/**",
+      "crates/dag-scheduler/**",
+      "crates/doc-link-check/**",
+      "crates/docs-health/**",
+      "crates/fr-coverage/**",
+      "crates/fr-trace/**",
+      "crates/legacy-scan/**",
+      "crates/perfharness/**",
+      "crates/quality-gate/**",
+      "crates/release-cut/**",
+      "crates/sbom-gen/**",
+      "crates/worktree-manager/**",
+      "crates/fuzz-setup/**",
+      "crates/temporal-grounding/**"
+    ]
+  }
+}

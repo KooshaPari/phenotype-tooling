@@ -1,3 +1,9 @@
+# Phenotype tooling workspace metadata.
+#
+# WP-25: 3 release streams drive 3 release-please packages.
+# Each release-group corresponds to one release-stream.
+# Crates that share a release-stream share a version.
+
 [workspace.metadata.release-groups.core]
 members = [
   "phenotype-config",
@@ -20,6 +26,15 @@ members = [
   "policystack",
   "policy-engine",
   "perf",
+  "absorb-kits",
+  "pheno-mcp",
+  "pheno-mcp-router",
+  "pheno-port-adapter",
+  "pheno-events",
+  "pheno-otel",
+  "phenodag",
+  "portage",
+  "absorb",
 ]
 bump = "minor"
 
@@ -43,31 +58,24 @@ members = [
 ]
 bump = "minor"
 
-[workspace.metadata.release-groups.observability]
+[workspace.metadata.release-groups.ops]
 members = [
   "phenotype-tooling-observability",
   "fuzz-setup",
   "perfharness",
-]
-bump = "minor"
-
-[workspace.metadata.release-groups.release]
-members = [
   "ptx",
   "sbom-gen",
 ]
-bump = "patch"
+bump = "minor"
 
-[workspace.metadata.release-groups.standalone]
-members = [
-  "absorb-kits",
-  "pheno-mcp",
-  "pheno-mcp-router",
-  "pheno-port-adapter",
-  "pheno-events",
-  "pheno-otel",
-  "phenodag",
-  "portage",
-  "absorb",
-]
-bump = "patch"
+[workspace.metadata.release-streams.core]
+groups = ["core"]
+description = "Domain crates + absorbed monoliths. Single semver."
+
+[workspace.metadata.release-streams.cli]
+groups = ["cli"]
+description = "CLI facade + governance/audit/quality-gate tooling."
+
+[workspace.metadata.release-streams.ops]
+groups = ["observability", "release"]
+description = "Observability + release tooling (SBOM, ptx, fuzz)."

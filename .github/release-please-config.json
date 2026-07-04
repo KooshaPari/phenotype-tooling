@@ -11,11 +11,32 @@
   "release-search-depth": 100,
   "pull-request-header-pattern": "^chore\\(release\\):",
   "pull-request-footer-regex": "",
+  "group-pull-request-title-pattern": "chore(release): {{group}} v{{version}}",
+  "plugins": [
+    {
+      "type": "cargo-workspace",
+      "exclude-paths": ["crates/ci-only/**"]
+    }
+  ],
   "packages": {
-    ".": {
-      "package-name": "phenotype-tooling",
+    "core-stream": {
+      "package-name": "phenotype-tooling-core",
       "release-type": "rust",
-      "changelog-path": "CHANGELOG.md",
+      "changelog-path": "CHANGELOG-core.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "cli-stream": {
+      "package-name": "phenotype-tooling-cli",
+      "release-type": "rust",
+      "changelog-path": "CHANGELOG-cli.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "ops-stream": {
+      "package-name": "phenotype-tooling-ops",
+      "release-type": "rust",
+      "changelog-path": "CHANGELOG-ops.md",
       "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": false
     }
