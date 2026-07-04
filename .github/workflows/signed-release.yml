@@ -171,3 +171,25 @@ jobs:
               echo "SKIP: $bin (signatures not generated)"
             fi
           done
+
+      # WP-21: in-toto provenance attestation per binary. The
+      # actions/attest-build-provenance@v1 action emits a SLSA v1.0
+      # provenance statement for the staged artifacts (material =
+      # release binaries, builder = github actions hosted runner).
+      # The resulting .intoto.jsonl file is uploaded as a release
+      # asset under .intoto.jsonl.
+      - name: Generate in-toto provenance attestation (SLSA v1.0)
+        if: ${{ github.event.inputs.signing_mode != 'kms' }}
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'unsigned/*'
+
+      - name: Generate in-toto provenance attestation (KMS mode)
+        if: ${{ github.event.inputs.signing_mode == 'kms' }}
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'unsigned/*'
+          # KMS-backed runs include an additional predicate describing
+          # the key origin so consumers can verify the signer identity
+          # separately from the build environment.
+          predicate-path: 'unsigned/kms-signer.json'
