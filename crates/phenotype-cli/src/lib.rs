@@ -25,6 +25,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// CLI name (short alias).
 pub const NAME: &str = "pt";
 
+// WP-28 streaming release channels: config + check + apply subcommand.
+pub mod stream_channel;
+
 /// Top-level CLI args.
 #[derive(Debug, Parser)]
 #[command(
@@ -121,6 +124,9 @@ pub enum Command {
 
     /// Git worktree manager for parallel-branch development.
     WorktreeManager(cmd_delegate::Args),
+
+    /// Self-update `pt` from a streaming release channel (WP-28).
+    Upgrade(stream_channel::UpgradeArgs),
 }
 
 /// Exit codes (Linux sysexits.h-compatible).
@@ -210,6 +216,7 @@ pub fn run_cli(cli: Cli) -> i32 {
         Command::FrCoverage(args) => cmd_delegate::run("fr-coverage", args, cli.verbose),
         Command::LegacyScan(args) => cmd_delegate::run("legacy-scan", args, cli.verbose),
         Command::WorktreeManager(args) => cmd_delegate::run("worktree-manager", args, cli.verbose),
+        Command::Upgrade(args) => stream_channel::run(args, cli.verbose),
     }
 }
 
