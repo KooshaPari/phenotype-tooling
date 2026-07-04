@@ -1,0 +1,66 @@
+name: release-sbom-attestation
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attest (e.g. v0.3.0)'
+        required: true
+        default: 'v0.3.0'
+      signing_mode:
+        description: 'keyless | aws-kms | gcp-kms | azure-keyvault'
+        required: false
+        default: 'keyless'
+      kms_key:
+        description: 'KMS provider URI (overrides signing_mode when set)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  actions: read
+
+jobs:
+  attest-sbom:
+    name: Sign and attach SBOM attestation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.4.1'
+      - name: Generate fresh SBOM
+        run: |
+          cargo install --path crates/sbom-gen --quiet
+          cargo run -p sbom-gen --release
+      - name: Sign SBOM attestation
+        env:
+          SIGNING_MODE: ${{ github.event.inputs.signing_mode || 'keyless' }}
+          KMS_KEY: ${{ github.event.inputs.kms_key }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          python scripts/sign_sbom_attestation.py \
+            --sbom crates/sbom-gen/docs/security/sbom.json \
+            --tag "${TAG}" \
+            --out attestations/ \
+            $([ -n "$KMS_KEY" ] && echo "--kms-key $KMS_KEY" || ([ "$SIGNING_MODE" != "keyless" ] && echo "--kms-key ${SIGNING_MODE}://placeholder" || echo ""))
+      - name: Upload attestation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-attestations-${{ github.event.inputs.tag || github.ref_name }}
+          path: attestations/
+      - name: Attach signed attestation to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          gh release upload "$TAG" attestations/* --clobber
