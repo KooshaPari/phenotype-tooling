@@ -22,7 +22,7 @@ regex = { workspace = true }
 serde_yaml = { workspace = true }
 chrono = { workspace = true }
 toml = "0.8"
-quick-xml = { version = "0.36", features = ["serialize"] }
+quick-xml = { version = "0.39", features = ["serialize"] }
 
 [lib]
 name = "qgate"
