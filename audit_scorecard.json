@@ -1,393 +1,1810 @@
 {
   "repo": "KlipDot",
-  "overall": 50,
-  "grade": "D+",
+  "auditor": "Forge AI Audit System v1.0",
+  "audited_at": "2026-07-09",
+  "overall": 65.3,
+  "grade": "C+",
+  "note": "KlipDot is a well-structured Rust CLI tool for terminal image interception. Strong foundation with production CI/CD (11 workflows, SLSA L2 attestation, multi-OS matrix), solid security posture (TruffleHog, cargo-audit, scorecard, deny.toml), and good developer experience (justfile, pre-commit, CODEOWNERS). Key gaps: sparse testing (no fuzz/proptest/bench, 53 tests for ~6,600 LOC), no structured observability (tracing only with unstructured fmt), deprecated CI actions, missing ARCHITECTURE.md, empty clippy.toml, no CodeQL/SBOM, and an aspirational SPEC.md (2,843 lines) with only 1 of 10 ADRs accepted. No releases yet (v0.1.0). Estimated C+ (65.3%).",
   "scores": {
-    "L1 Architecture": 0,
-    "L2 Dev Loop": 10,
-    "L3 Agent Loop": 40,
-    "L4 Observability": 65,
-    "L5 Security": 100,
-    "L6 Performance": 25,
-    "L7 Extensibility": 25,
-    "L8 Compliance": 30,
-    "L9 Complexity": 100,
-    "L10 Type Safety": 50,
-    "L11 Dependencies": 40,
-    "L12 Error Handling": 55,
-    "L13 Logging": 55,
-    "L14 Data Layer": 70,
-    "L15 API Surface": 50,
-    "L16 Frontend": 90,
-    "L17 I18n/A11y": 45,
-    "L18 Concurrency": 60,
-    "L19 Memory": 45,
-    "L20 Config": 50,
-    "L21 Testing Depth": 40,
-    "L22 Fuzzing": 35,
-    "L23 Release": 75,
-    "L24 Migration": 50,
-    "L25 Vendor Lockin": 100,
-    "L26 Event Driven": 55,
-    "L27 Infrastructure": 35,
-    "L28 Cost Efficiency": 55,
-    "L29 Monitoring": 30,
-    "L30 Onboarding": 40
-  },
-  "details": {
-    "L1 Architecture": {
-      "details": "No source files found.",
-      "raw": {}
+    "code_quality": {
+      "score": 41,
+      "max": 56,
+      "percentage": 73.2,
+      "pillars": 14
     },
-    "L2 Dev Loop": {
-      "details": "0 test files, 0 collected, 0 errors.",
-      "raw": {}
+    "architecture": {
+      "score": 44,
+      "max": 68,
+      "percentage": 64.7,
+      "pillars": 17
     },
-    "L3 Agent Loop": {
-      "details": "CLI: MISSING. CI: 10 workflows.",
-      "raw": {}
+    "testing": {
+      "score": 46,
+      "max": 104,
+      "percentage": 44.2,
+      "pillars": 26
     },
-    "L4 Observability": {
-      "details": "Docs: 6/8 canonical files.",
-      "raw": {}
-    },
-    "L5 Security": {
-      "details": "Secret-like patterns: 0.",
-      "raw": {}
-    },
-    "L6 Performance": {
-      "details": "Async defs: 0, awaits: 0.",
-      "raw": {}
-    },
-    "L7 Extensibility": {
-      "details": "0 source files. Config: 0 features.",
-      "raw": {}
-    },
-    "L8 Compliance": {
-      "details": "Commits: 20. SSOT: False.",
-      "raw": {}
-    },
-    "L9 Complexity": {
-      "details": "Long funcs: 0, nested blocks: 0, branches: 0.",
-      "raw": {}
-    },
-    "L10 Type Safety": {
-      "details": "Type coverage: 0/0 (0%). Dataclasses: 0.",
-      "raw": {}
-    },
-    "L11 Dependencies": {
-      "details": "Lock: False, Requirements: False.",
-      "raw": {}
-    },
-    "L12 Error Handling": {
-      "details": "Try blocks: 0, bare excepts: 0, custom exceptions: 0, retry: 0.",
-      "raw": {}
-    },
-    "L13 Logging": {
-      "details": "Logger imports: 0, structured: 0.",
-      "raw": {}
-    },
-    "L14 Data Layer": {
-      "details": "ORM: 0, Migrations: 0, Redis: 0, SQLite: 0.",
-      "raw": {}
-    },
-    "L15 API Surface": {
-      "details": "FastAPI: 0, Flask: 0, Endpoints: 0, OpenAPI: 0.",
-      "raw": {}
-    },
-    "L16 Frontend": {
-      "details": "HTML: 0, JS: 8, CSS: 0, Templates: 0, React: 0.",
-      "raw": {}
-    },
-    "L17 I18n/A11y": {
-      "details": "Locale files: 0, gettext: 0, aria: 0.",
-      "raw": {}
-    },
-    "L18 Concurrency": {
-      "details": "Threading: 0, MP: 0, Locks: 0, Queue: 0.",
-      "raw": {}
-    },
-    "L19 Memory": {
-      "details": "Context managers: 0, GC: 0, Weakref: 0, Cleanup: 0.",
-      "raw": {}
-    },
-    "L20 Config": {
-      "details": "Env refs: 0, Dotenv: 0, Pydantic: 0, Config files: 17.",
-      "raw": {}
-    },
-    "L21 Testing Depth": {
-      "details": "Parametrize: 0, Fixtures: 0, Mock: 0, Patch: 0.",
-      "raw": {}
-    },
-    "L22 Fuzzing": {
-      "details": "Hypothesis: 0, Fuzzing: 0, Property tests: 0.",
-      "raw": {}
-    },
-    "L23 Release": {
-      "details": "Version file: False, Tags: 1, Semver: 1, Changelog: True.",
-      "raw": {}
-    },
-    "L24 Migration": {
-      "details": "Deprecated: 0, Warnings: 0, Migrations: 0.",
-      "raw": {}
-    },
-    "L25 Vendor Lockin": {
-      "details": "AWS: 0, Azure: 0, GCP: 0, Generic: 0.",
-      "raw": {}
-    },
-    "L26 Event Driven": {
-      "details": "Event bus: 0, Queue: 0, Pubsub: 0, Kafka: 0, Celery: 0.",
-      "raw": {}
-    },
-    "L27 Infrastructure": {
-      "details": "Docker: 0, Compose: 0, K8s: 0, Terraform: 0.",
-      "raw": {}
-    },
-    "L28 Cost Efficiency": {
-      "details": "Batching: 0, N+1: 0, Bulk: 0, Pagination: 0.",
-      "raw": {}
-    },
-    "L29 Monitoring": {
-      "details": "Prometheus: 0, Health: 0, Tracing: 0, Metrics: 0, SLO: 0.",
-      "raw": {}
-    },
-    "L30 Onboarding": {
-      "details": "Makefile: 0, Devcontainer: 0, Setup: 3, README: 0.",
-      "raw": {}
-    }
-  },
-  "raw": {
-    "source": {
-      "total": 0,
-      "over_500": 0,
-      "over_350": 0,
-      "oversized_files": []
-    },
-    "tests": {
-      "total": 0,
-      "unit": 0,
-      "integration": 0,
-      "e2e": 0,
-      "files": []
-    },
-    "collection": {
-      "collected": 0,
-      "errors": 0,
-      "timeout": false,
-      "raw_output": ""
-    },
-    "cli": {
-      "exists": false,
-      "cmd": null,
-      "has_subcommands": false,
-      "help_length": 0
-    },
-    "docs": {
-      "has_docs_dir": true,
-      "files": {
-        "README": true,
-        "ARCHITECTURE": false,
-        "SSOT": false,
-        "CLAUDE": true,
-        "AGENTS": true,
-        "CONTRIBUTING": true,
-        "CHANGELOG": true,
-        "LICENSE": true
-      }
+    "observability": {
+      "score": 29,
+      "max": 72,
+      "percentage": 40.3,
+      "pillars": 18
     },
     "security": {
-      "hardcoded_api_key": 0,
-      "hardcoded_secret": 0,
-      "hardcoded_password": 0,
-      "hardcoded_token": 0
+      "score": 88,
+      "max": 128,
+      "percentage": 68.8,
+      "pillars": 32
     },
-    "benchmarks": {
-      "has_benchmarks": false,
-      "has_contract_smoke": false,
-      "has_context7_smoke": false,
-      "has_check_regression": false
+    "documentation": {
+      "score": 39,
+      "max": 68,
+      "percentage": 57.4,
+      "pillars": 17
     },
-    "async": {
-      "async_def": 0,
-      "await": 0,
-      "asyncio_import": 0,
-      "httpx_import": 0,
-      "aiohttp_import": 0
+    "ci_cd": {
+      "score": 33,
+      "max": 56,
+      "percentage": 58.9,
+      "pillars": 14
     },
-    "pyproject": {
-      "exists": false
+    "supply_chain": {
+      "score": 44,
+      "max": 80,
+      "percentage": 55.0,
+      "pillars": 20
     },
-    "git": {
-      "has_git": true,
-      "recent_commits": 20,
-      "has_merge_commits": false
+    "release_engineering": {
+      "score": 34,
+      "max": 52,
+      "percentage": 65.4,
+      "pillars": 13
     },
-    "ci": {
-      "has_github_actions": true,
-      "workflow_files": [
-        "release.yml",
-        "quality-gate.yml",
-        "cargo-deny.yml",
-        "trufflehog.yml",
-        "doc-links.yml",
-        "legacy-tooling-gate.yml",
-        "fr-coverage.yml",
-        "release-attestation.yml",
-        "ci.yml",
-        "scorecard.yml"
+    "developer_experience": {
+      "score": 32,
+      "max": 52,
+      "percentage": 61.5,
+      "pillars": 13
+    }
+  },
+  "domains": [
+    {
+      "name": "Code Quality",
+      "pillars": 14,
+      "score": 41,
+      "max": 56,
+      "percentage": 73.2,
+      "items": [
+        {
+          "id": "CQ-01",
+          "pillar": "Rust Edition & Linting",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Uses Rust 2021 edition with rustfmt.toml configured. Clippy warnings enabled in CI. rust-toolchain.toml pins nightly for fmt.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CQ-02",
+          "pillar": "Clippy Configuration",
+          "status": "partial",
+          "score": 2,
+          "rationale": "clippy.toml exists but is empty (just a comment placeholder). No custom clippy rules or lint-level overrides configured.",
+          "remediation": "Configure clippy.toml with project-specific lint levels: deny unwrap, expect_used, todo, dbg_macro. Add cognitive-complexity threshold."
+        },
+        {
+          "id": "CQ-03",
+          "pillar": "Error Handling Style",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Uses thiserror for library errors (error.rs) with proper Display/From impls. Well-structured error enum with relevant variants.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CQ-04",
+          "pillar": "Unsafe Code Audit Trail",
+          "status": "partial",
+          "score": 2,
+          "rationale": "4 unsafe blocks exist (signal handling in interceptor/main). Each has SAFETY comments but no formal unsafe review or tracking.",
+          "remediation": "Tag each unsafe block with // SAFETY: <justification> referencing an ADR or issue. Add a crate-level unsafe audit marker and CI check."
+        },
+        {
+          "id": "CQ-05",
+          "pillar": "Dead Code Elimination",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Production profile uses LTO = 'fat' + strip = 'symbols' in Cargo.toml. Nightly rustfmt for dead-code detection.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CQ-06",
+          "pillar": "Formatting Consistency",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "rustfmt.toml with nightly features. CI enforces formatting check in tier0-hygiene.yml. .editorconfig also aligns.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CQ-07",
+          "pillar": "Naming Conventions",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Consistent Rust naming: snake_case for functions/vars, CamelCase for types, SCREAMING_SNAKE for constants. Clippy enforces.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CQ-08",
+          "pillar": "Module Granularity",
+          "status": "partial",
+          "score": 2,
+          "rationale": "14 .rs files in a single crate. Some modules (service.rs, interceptor.rs) may exceed 500 lines. No internal crate splitting.",
+          "remediation": "Consider splitting service.rs and interceptor.rs into submodules if they exceed 600 lines. Evaluate multi-crate workspace for clear boundaries."
+        },
+        {
+          "id": "CQ-09",
+          "pillar": "Code Duplication",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No automated duplication detection (no cargo-duplicates, no copypasta check in CI). Duplication may exist across similar error paths.",
+          "remediation": "Add cargo-duplicates or cargo-copypasta to CI. Configure deny threshold."
+        },
+        {
+          "id": "CQ-10",
+          "pillar": "Complexity Budgeting",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No cyclomatic complexity or cognitive complexity limits. clippy.toml is empty. No loc-per-function budget.",
+          "remediation": "Set cognitive-complexity threshold (25) in clippy.toml. Add loc-per-function lint (100 lines) and cyclomatic-complexity (35)."
+        },
+        {
+          "id": "CQ-11",
+          "pillar": "TODO/FIXME Tracking",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No CI check for TODOs or FIXMEs. No tracking or TTL on outstanding work items.",
+          "remediation": "Add CI job to fail on unchecked TODOs. Use RUSTSEC-ignored-equivalent or cargo-todo tool."
+        },
+        {
+          "id": "CQ-12",
+          "pillar": "Code Review Protocol",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "CODEOWNERS present with @KooshaPari/core as default reviewer. PR template is 114 lines with detailed checklist.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CQ-13",
+          "pillar": "Semantic Versioning Discipline",
+          "status": "partial",
+          "score": 2,
+          "rationale": "CHANGELOG.md exists (56 lines) but is sparse. No automated changelog generation (no cliff.toml or git-cliff). Cargo.toml has 0.1.0.",
+          "remediation": "Add git-cliff or cargo-release for automated changelog generation. Enforce semver via CI check."
+        },
+        {
+          "id": "CQ-14",
+          "pillar": "Lint Enforcement in CI",
+          "status": "partial",
+          "score": 3,
+          "rationale": "Clippy runs in CI (tier0-hygiene.yml) but with 'continue-on-error: true'. Warnings can be merged.",
+          "remediation": "Remove continue-on-error from clippy job. Set RUSTFLAGS='-D warnings' or cargo clippy -- -D warnings in CI."
+        }
+      ]
+    },
+    {
+      "name": "Architecture",
+      "pillars": 17,
+      "score": 44,
+      "max": 68,
+      "percentage": 64.7,
+      "items": [
+        {
+          "id": "ARC-01",
+          "pillar": "Architecture Documentation",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No ARCHITECTURE.md exists. ADR.md has 10 ADRs but only 1 is accepted. No subsystem diagrams or data-flow docs.",
+          "remediation": "Write ARCHITECTURE.md covering: module boundaries, signal-flow (SIGSTOP/SIGCONT), clipboard lifecycle, image pipeline, and data-flow diagrams (Mermaid)."
+        },
+        {
+          "id": "ARC-02",
+          "pillar": "Module Cohesion",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Well-separated concerns: clipboard.rs, config.rs, interceptor.rs, service.rs, image_processor.rs, image_preview.rs, installer.rs, shell_hooks.rs, stdout_monitor.rs. Single responsibility per module.",
+          "remediation": "None required."
+        },
+        {
+          "id": "ARC-03",
+          "pillar": "Crate Organization",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Single crate with clear lib.rs exposing public API. main.rs is thin CLI wrapper. Standard Rust project layout.",
+          "remediation": "None required."
+        },
+        {
+          "id": "ARC-04",
+          "pillar": "Dependency Injection",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No formal DI pattern. Modules instantiate their own dependencies. Some tight coupling between interceptor and service.",
+          "remediation": "Introduce trait-based DI for injectable services (clipboard, image processing). Use constructor injection pattern."
+        },
+        {
+          "id": "ARC-05",
+          "pillar": "Error Boundary Design",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Centralized Error enum with proper propagation. Main function handles top-level error with exit codes.",
+          "remediation": "None required."
+        },
+        {
+          "id": "ARC-06",
+          "pillar": "Configuration Management",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Dedicated config.rs module. CLI args via clap (derive). Clear configuration hierarchy: CLI args \u2192 config file \u2192 defaults.",
+          "remediation": "None required."
+        },
+        {
+          "id": "ARC-07",
+          "pillar": "Platform Abstraction",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some platform-specific code (signal handling, clipboard) without trait abstraction. 4 unsafe blocks for signal handling assume Unix.",
+          "remediation": "Add cfg(target_os) conditional compilation with fallback implementations for non-Unix platforms. Abstract signal handling behind a trait."
+        },
+        {
+          "id": "ARC-08",
+          "pillar": "Concurrency Model",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Uses tokio for async runtime. Clear async boundaries: interceptor runs in spawned tasks, service handles streams. Good use of channels.",
+          "remediation": "None required."
+        },
+        {
+          "id": "ARC-09",
+          "pillar": "Resource Cleanup",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Proper Drop implementations, signal handling for graceful shutdown (SIGTERM, SIGINT). tempfile usage with scope-based cleanup.",
+          "remediation": "None required."
+        },
+        {
+          "id": "ARC-10",
+          "pillar": "Public API Surface",
+          "status": "partial",
+          "score": 2,
+          "rationale": "lib.rs exports public API but no semver visibility analysis. No #[doc(hidden)] markers for internal items. Risk of unintended public API commitments.",
+          "remediation": "Audit public API surface. Add #[doc(hidden)] to internal items. Consider pub(crate) visibility where possible."
+        },
+        {
+          "id": "ARC-11",
+          "pillar": "Extension Points",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No plugin system, no hook system, no trait-based extension points. Single binary with no embedding interface.",
+          "remediation": "If extensibility is desired: define plugin trait, consider WASM plugin host or dylib loading. Otherwise, document as intentionally closed."
+        },
+        {
+          "id": "ARC-12",
+          "pillar": "Type Safety & Newtypes",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Basic use of Result/Option but limited newtype usage for domain primitives (paths, URLs, dimensions are raw types).",
+          "remediation": "Add newtypes for ImagePath, ClipboardFormat, SignalType to leverage Rust's type system for compile-time guarantees."
+        },
+        {
+          "id": "ARC-13",
+          "pillar": "Protocol Compliance",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No formal specification compliance. STDIN/STDOUT interception protocol is ad-hoc. No protocol versioning.",
+          "remediation": "Document the interception protocol in a spec doc. Add protocol version header in intercepted streams."
+        },
+        {
+          "id": "ARC-14",
+          "pillar": "State Management",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Global/static state for signal handlers. No explicit state machine for lifecycle states (running, paused, intercepting).",
+          "remediation": "Define explicit AppState enum. Remove global statics in favor of passed state. Implement state transitions with type-state pattern."
+        },
+        {
+          "id": "ARC-15",
+          "pillar": "Library vs Binary Separation",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Clear separation: lib.rs for library API, main.rs for binary entry point. Library can be consumed by other crates.",
+          "remediation": "None required."
+        },
+        {
+          "id": "ARC-16",
+          "pillar": "Feature Gating",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No Cargo features defined. Platform-specific code not gated. All functionality compiled in for all targets.",
+          "remediation": "Add Cargo features: default (full), clipboard-x11, clipboard-wayland, image-processing. Gate platform-specific code."
+        },
+        {
+          "id": "ARC-17",
+          "pillar": "ADR Adoption Rate",
+          "status": "partial",
+          "score": 2,
+          "rationale": "10 ADRs written (502 lines) but only 1 accepted. 9 remain in 'proposed' or 'draft' state, indicating architectural decisions not ratified.",
+          "remediation": "Schedule ADR review session. Accept/reject each ADR with explicit rationale. Close stalled proposals."
+        }
+      ]
+    },
+    {
+      "name": "Testing",
+      "pillars": 26,
+      "score": 46,
+      "max": 104,
+      "percentage": 44.2,
+      "items": [
+        {
+          "id": "TST-01",
+          "pillar": "Unit Test Coverage",
+          "status": "partial",
+          "score": 2,
+          "rationale": "32 #[test] functions in src/. Coverage not measured (no tarpaulin/grcov in CI). No coverage threshold.",
+          "remediation": "Add tarpaulin or cargo-llvm-cov to CI. Set minimum 60% line coverage gate."
+        },
+        {
+          "id": "TST-02",
+          "pillar": "Integration Tests",
+          "status": "partial",
+          "score": 2,
+          "rationale": "2 integration test files (tests/smoke_test.rs, plus one more). No E2E scenario tests for the full interception pipeline.",
+          "remediation": "Add integration tests for: full clip \u2192 intercept \u2192 process \u2192 forward flow. Test with mock child processes and signal injection."
+        },
+        {
+          "id": "TST-03",
+          "pillar": "Async Test Coverage",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "21 #[tokio::test] functions for async modules (interceptor, service, stdout_monitor). Proper use of tokio::test.",
+          "remediation": "None required."
+        },
+        {
+          "id": "TST-04",
+          "pillar": "Test Organization",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Tests follow standard Rust convention: inline #[cfg(test)] modules + tests/ directory. Clear separation of unit and integration.",
+          "remediation": "None required."
+        },
+        {
+          "id": "TST-05",
+          "pillar": "Property-Based Testing",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No proptest or quickcheck usage. Zero property-based tests for any module.",
+          "remediation": "Add proptest dependency. Write property tests for: image format detection, clipboard content validation, shell escaping roundtrips."
+        },
+        {
+          "id": "TST-06",
+          "pillar": "Fuzz Testing",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No fuzz targets. No cargo-fuzz setup. No OSS-Fuzz integration.",
+          "remediation": "Add cargo-fuzz targets for: image parsing, clipboard input parsing, config file deserialization. Set up CI fuzz run for 30s per target."
+        },
+        {
+          "id": "TST-07",
+          "pillar": "Benchmark Suite",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No benchmarks (no benches/ directory, no #[bench], no criterion dependency).",
+          "remediation": "Add criterion benchmarks for: image processing latency, clipboard read/write throughput, STDOUT interception overhead."
+        },
+        {
+          "id": "TST-08",
+          "pillar": "Regression Tests",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No regression test directory. No mechanism to capture and replay bug reproducers.",
+          "remediation": "Create test/regression/ directory. For each bug fix, add a regression test first. Document in CONTRIBUTING.md."
+        },
+        {
+          "id": "TST-09",
+          "pillar": "Mock/Stub Infrastructure",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No mock framework (mockall, mockito, etc.). Tests use real implementations or ad-hoc stubs. No test doubles for clipboard or image processing.",
+          "remediation": "Add mockall or similar. Create MockClipboard, MockImageProcessor traits. Use in unit tests to isolate interceptor logic."
+        },
+        {
+          "id": "TST-10",
+          "pillar": "Test Fixtures & Factories",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some inline test fixtures exist but no dedicated helper crate or test::helpers module for reusable test setup.",
+          "remediation": "Create #[cfg(test)] mod helpers with factory functions for common test objects (test images, mock clipboard contents, sample configs)."
+        },
+        {
+          "id": "TST-11",
+          "pillar": "Coverage Reporting",
+          "status": "partial",
+          "score": 2,
+          "rationale": "grcov + Codecov configured in ci.yml but coverage is generated without blocking. No coverage threshold enforcement.",
+          "remediation": "Set codecov threshold (min 60%). Fail CI if coverage drops below threshold. Add PR comment with coverage diff."
+        },
+        {
+          "id": "TST-12",
+          "pillar": "CI Test Matrix",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "ci.yml has 3 OS \u00d7 3 Rust version matrix (stable, beta, nightly) for testing. Comprehensive OS coverage.",
+          "remediation": "None required."
+        },
+        {
+          "id": "TST-13",
+          "pillar": "Test Timeouts",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No test timeout configuration. Async tests could hang indefinitely if tokio tasks deadlock.",
+          "remediation": "Add #[tokio::test(timeout = 30000)] on all async tests. Set global nextest timeout if migrating to nextest."
+        },
+        {
+          "id": "TST-14",
+          "pillar": "Flaky Test Detection",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No flaky test detection. No retry mechanism. Rerun failures not configured in CI.",
+          "remediation": "Add '--retry 3' for flaky-prone tests. Tag known-flaky tests with #[ignore] or use nextest's flaky detection."
+        },
+        {
+          "id": "TST-15",
+          "pillar": "Test Naming Conventions",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Tests follow descriptive naming: test_<module>_<scenario> pattern. Names clearly indicate what is being tested.",
+          "remediation": "None required."
+        },
+        {
+          "id": "TST-16",
+          "pillar": "Test Data Management",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No tests/inputs/ or tests/resources/ directory. Test data is inline or generated at runtime.",
+          "remediation": "Create tests/resources/ for test images, sample clipboard data, config files. Generate reference checksums for validation."
+        },
+        {
+          "id": "TST-17",
+          "pillar": "Doc Tests",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No doctests in API documentation. Most public functions lack examples that compile as tests.",
+          "remediation": "Add /// ``` examples to all public API functions. Run doctests in CI (cargo test --doc). Ensure examples are runnable."
+        },
+        {
+          "id": "TST-18",
+          "pillar": "Error Path Testing",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some error paths tested but coverage of error conditions is uneven. No error injection framework for testing failure modes.",
+          "remediation": "Add systematic error-path tests: IO errors, permission denied, broken pipe, malformed images. Use fault injection via mock layer."
+        },
+        {
+          "id": "TST-19",
+          "pillar": "Edge Case Coverage",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some edge cases tested (empty clipboard, large images) but not systematically. No null-byte or unicode boundary tests.",
+          "remediation": "Add targeted edge-case tests: zero-byte images, unicode filenames, long paths (>4k chars), buffer overflow attempts."
+        },
+        {
+          "id": "TST-20",
+          "pillar": "Side Effect Isolation",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Tests that touch clipboard/image processing have side effects. Temporary files use tempfile crate. No full sandboxing.",
+          "remediation": "Use tempdir/tempfile for all filesystem operations in tests. Add capability to run clipboard tests in a mock environment."
+        },
+        {
+          "id": "TST-21",
+          "pillar": "Test Parallelism Safety",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Tests use #[serial_test::serial] on some shared-resource tests. Not all shared-state tests are annotated.",
+          "remediation": "Audit all tests for shared state (clipboard, filesystem, signals). Add #[serial_test::serial] where needed. Document test isolation requirements."
+        },
+        {
+          "id": "TST-22",
+          "pillar": "Nextest Runner",
+          "status": "missing",
+          "score": 0,
+          "rationale": "Tests use default cargo test runner. No nextest configuration (no .config/nextest.toml).",
+          "remediation": "Add cargo-nextest to CI. Configure nextest.toml with per-file timeouts, retries, and test partitioning."
+        },
+        {
+          "id": "TST-23",
+          "pillar": "Test Reporting",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No JUnit/XML test report generation. No test history tracking. No trend visualization.",
+          "remediation": "Add --log-junit or nextest --message-format junit for CI artifact generation. Publish test reports as CI artifacts."
+        },
+        {
+          "id": "TST-24",
+          "pillar": "Module-Level Test Count Balance",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Uneven test distribution: some modules have 5+ tests, others 0-1. No minimum test-per-module policy.",
+          "remediation": "Audit test coverage per module. Aim for minimum 2 tests per module. Create tracking issue for under-tested modules."
+        },
+        {
+          "id": "TST-25",
+          "pillar": "Smoke/Sanity Test",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "tests/smoke_test.rs provides basic smoke test for CLI startup and basic functionality.",
+          "remediation": "None required."
+        },
+        {
+          "id": "TST-26",
+          "pillar": "Test CI Gate Hardness",
+          "status": "missing",
+          "score": 0,
+          "rationale": "continue-on-error: true set on test jobs. Failing tests do not block PR merge. No test pass requirement in quality gate.",
+          "remediation": "Remove continue-on-error from test jobs. Set test pass as a hard gate in quality-gate.yml. Deploy a 'ci required' branch protection rule."
+        }
+      ]
+    },
+    {
+      "name": "Observability",
+      "pillars": 18,
+      "score": 29,
+      "max": 72,
+      "percentage": 40.3,
+      "items": [
+        {
+          "id": "OBS-01",
+          "pillar": "Structured Logging",
+          "status": "missing",
+          "score": 0,
+          "rationale": "tracing-subscriber uses fmt() subscriber only. No structured JSON output format. Logs are human-readable only.",
+          "remediation": "Add tracing-subscriber JSON format. Conditionally select fmt vs JSON based on LOG_FORMAT env var or CLI flag."
+        },
+        {
+          "id": "OBS-02",
+          "pillar": "Log Levels Convention",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Consistent use of tracing levels (error, warn, info, debug, trace). RUST_LOG environment variable controls verbosity.",
+          "remediation": "None required."
+        },
+        {
+          "id": "OBS-03",
+          "pillar": "Distributed Tracing (OpenTelemetry)",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No OpenTelemetry integration. No tracing propagation. No trace context across process boundaries.",
+          "remediation": "Add opentelemetry-otlp crate. Configure OTLP exporter for span export. Add traceparent header propagation for intercepted subprocesses."
+        },
+        {
+          "id": "OBS-04",
+          "pillar": "Metrics Collection",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No metrics system. No counters for images processed, bytes transferred, latency, error rates.",
+          "remediation": "Add metrics crate (or use tracing-metrics). Expose counters for: images_intercepted, bytes_processed, errors_by_type, operation_latency."
+        },
+        {
+          "id": "OBS-05",
+          "pillar": "Console Logging Target",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Logs to stderr by default (tracing convention) but interception mode may interfere with logging. No separate log file option.",
+          "remediation": "Add --log-file CLI flag for file output. Ensure logging never writes to stdout (intercepted stream). Add log rotation."
+        },
+        {
+          "id": "OBS-06",
+          "pillar": "Error Rate Monitoring",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No error aggregation. No error-rate computation. No alert threshold mechanism.",
+          "remediation": "Add in-memory error counter with sliding window. Emit error-rate metric. Consider integration with health endpoint."
+        },
+        {
+          "id": "OBS-07",
+          "pillar": "Health Check Endpoint",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No health check endpoint. No HTTP server for status queries. Process liveness only via PID.",
+          "remediation": "Add optional HTTP health endpoint (--health-addr 127.0.0.1:9091). Serve /healthz (liveness) and /readyz (readiness)."
+        },
+        {
+          "id": "OBS-08",
+          "pillar": "Graceful Shutdown Logging",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Signal handlers log shutdown events but no structured shutdown sequence logging. Not clear which resources are cleaned up.",
+          "remediation": "Add structured shutdown phases: 'waiting for child', 'flushing clipboard', 'cleaning temp files'. Log each with duration."
+        },
+        {
+          "id": "OBS-09",
+          "pillar": "Debug Dump Capability",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No debug dump feature for support incidents. No --dump-state or --debug CLI flag for verbose introspection.",
+          "remediation": "Add --dump-state CLI flag. On SIGUSR1, dump internal state (active sessions, pending images, config) to a temp file."
+        },
+        {
+          "id": "OBS-10",
+          "pillar": "Latency Instrumentation",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No explicit latency histograms. No p50/p95/p99 tracking for interception, image processing, clipboard ops.",
+          "remediation": "Add tracing spans with duration tracking. Record latency percentiles in metrics. Log slow operations (>500ms) at WARN level."
+        },
+        {
+          "id": "OBS-11",
+          "pillar": "Context Propagation",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No trace ID propagation across async boundaries. Spans are not connected through task lifecycle.",
+          "remediation": "Use TracingContext or tokio-rs/tracing instrumentation for async spans. Ensure trace_id flows through spawned tasks and child processes."
+        },
+        {
+          "id": "OBS-12",
+          "pillar": "Log Enrichment (Span Fields)",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some spans have fields but not systematically. Many log events lack context (operation_id, image_type, pid).",
+          "remediation": "Systematically add span fields: operation.id, image.format, image.size_bytes, child.pid, duration_ms. Use structured fields over formatted strings."
+        },
+        {
+          "id": "OBS-13",
+          "pillar": "Audit Logging",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No audit log for operations. No record of which images were intercepted, processed, or forwarded.",
+          "remediation": "Add optional audit log file. Record: timestamp, operation, image_checksum, size, source_pid. Off by default, opt-in via --audit-log."
+        },
+        {
+          "id": "OBS-14",
+          "pillar": "Panic Capture",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No panic hook for structured panic reporting. Panics print default Rust panic message to stderr.",
+          "remediation": "Install custom panic hook that logs via tracing::error! with structured fields. Include backtrace and version."
+        },
+        {
+          "id": "OBS-15",
+          "pillar": "Telemetry Backend Abstraction",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Uses tracing facade which provides vendor-neutral instrumentation. Can be switched between fmt, JSON, OTLP without code changes.",
+          "remediation": "None required."
+        },
+        {
+          "id": "OBS-16",
+          "pillar": "Observability Configuration",
+          "status": "partial",
+          "score": 2,
+          "rationale": "RUST_LOG env var configures log level. No structured config for observability (log format, output destination, sampling rate).",
+          "remediation": "Add OBSERVABILITY section to CLI args/config file: log-format (auto/json/fmt), log-file, metrics-addr, tracing-sample-rate."
+        },
+        {
+          "id": "OBS-17",
+          "pillar": "Dependency Telemetry Coverage",
+          "status": "missing",
+          "score": 0,
+          "rationale": "Third-party dependencies using log crate emit to stderr. No bridge from log to tracing. Mixed log/tracing output.",
+          "remediation": "Add tracing-log feature to capture log crate events. Use tracing-subscriber's LogTracer layer to bridge log\u2192tracing."
+        },
+        {
+          "id": "OBS-18",
+          "pillar": "Event Taxonomy",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Events use ad-hoc message strings. No structured event taxonomy (event names, event IDs, severity levels beyond tracing levels).",
+          "remediation": "Define event taxonomy document: event namespaces (klipdot.interceptor.*, klipdot.clipboard.*), event IDs, required fields per event type."
+        }
+      ]
+    },
+    {
+      "name": "Security",
+      "pillars": 32,
+      "score": 88,
+      "max": 128,
+      "percentage": 68.8,
+      "items": [
+        {
+          "id": "SEC-01",
+          "pillar": "SAST (Static Analysis)",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Clippy runs in CI. TruffleHog scans for secrets. cargo-audit runs weekly for dependency vulnerabilities.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-02",
+          "pillar": "DAST (Dynamic Analysis)",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No dynamic analysis. No runtime security testing (no cargo-fuzz, no AFL, no honggfuzz runtime).",
+          "remediation": "Set up cargo-fuzz targets for image parsing and clipboard processing. Add AFL-based fuzz harness for binary parsing."
+        },
+        {
+          "id": "SEC-03",
+          "pillar": "Supply Chain Security (SBOM)",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No SBOM generation. No CycloneDX or SPDX output. No dependency bill-of-materials artifact.",
+          "remediation": "Add cargo-cyclonedx or cargo-audit --json SBOM generation to CI. Publish SBOM as release artifact."
+        },
+        {
+          "id": "SEC-04",
+          "pillar": "Vulnerability Scanning",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "cargo-audit runs weekly in CI (cargo-deny.yml). GitHub Dependabot not configured but cargo-audit covers Rust advisory DB.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-05",
+          "pillar": "Secrets Detection",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "TruffleHog workflow runs in CI. Scans for accidentally committed secrets. Pre-commit hooks also may catch secrets.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-06",
+          "pillar": "Code Signing",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No code signing for binaries. GitHub release attestation (SLSA L2) provides provenance but no binary signing.",
+          "remediation": "Add GPG or Sigstore signing for release binaries. Configure cosign for container images."
+        },
+        {
+          "id": "SEC-07",
+          "pillar": "Dependency Pinning",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Cargo.lock is committed (pins exact versions). Git dependency on clap-ext (unpinned, may drift). deny.toml has allow/warn/deny rules.",
+          "remediation": "Pin git dep to specific commit SHA. Add cargo-deny CI check for unverified git dependencies."
+        },
+        {
+          "id": "SEC-08",
+          "pillar": "Unsafe Code Audit",
+          "status": "partial",
+          "score": 2,
+          "rationale": "4 unsafe blocks with // SAFETY comments but no formal review checklist. No 'unsafe audit' tracking issue or document.",
+          "remediation": "Create UNSAFE.md tracking all unsafe blocks with review status. Run safety checks in CI: miri test on modules containing unsafe."
+        },
+        {
+          "id": "SEC-09",
+          "pillar": "Signal Handling Safety",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Signal handlers use unsafe for sigaction. Async-signal-safety not fully verified. No signal-safety audit document.",
+          "remediation": "Audit signal handlers for async-signal-safety. Move unsafe signal logic to a signal-safe module with formal review. Consider using signal-hook crate."
+        },
+        {
+          "id": "SEC-10",
+          "pillar": "Input Validation",
+          "status": "partial",
+          "score": 2,
+          "rationale": "CLI input validated via clap derive. Image and clipboard input validated during processing. No centralized input validation layer.",
+          "remediation": "Create centralized InputValidator module. Apply validation at all entry points (CLI, config file, pipe input, clipboard data)."
+        },
+        {
+          "id": "SEC-11",
+          "pillar": "Path Traversal Protection",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No explicit path traversal checks on input filenames or paths from clipboard/content. Relies on OS-level restrictions.",
+          "remediation": "Add directory traversal detection for all file operations. Reject paths containing '..', null bytes, or absolute paths when relative expected."
+        },
+        {
+          "id": "SEC-12",
+          "pillar": "Temp File Security",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Uses tempfile crate for temporary files. Temp files are created with restricted permissions and cleaned up on drop.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-13",
+          "pillar": "Shell Injection Prevention",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Shell hooks use proper escaping. No string interpolation of user input into shell commands. Uses Command::new() not shell execution.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-14",
+          "pillar": "Deny.toml Configuration",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "deny.toml configured with bans, advisories, licenses, sources sections. CI runs cargo-deny weekly.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-15",
+          "pillar": "License Compliance",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "deny.toml has license configuration. Copyleft licenses properly managed. LICENSE files present.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-16",
+          "pillar": "OpenSSF Scorecard",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "scorecard.yml workflow in CI. OpenSSF Scorecard runs automatically.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-17",
+          "pillar": "CI/CD Action Pinning",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "All CI workflows pin actions to full-length commit SHAs (verified: actions/*@sha256...). No 'master'/'main' tag references.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-18",
+          "pillar": "Dependency Audit Cadence",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "cargo-audit runs weekly via cargo-deny.yml. Scheduled CI trigger ensures regular dependency scanning.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-19",
+          "pillar": "SLSA Level Attestation",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "release-attestation.yml generates SLSA L2 provenance attestations for release artifacts.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-20",
+          "pillar": "Security Policy Document",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "SECURITY.md present with vulnerability disclosure policy. References where to report issues.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-21",
+          "pillar": "Security Contact",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "SECURITY.md has contact information. CODEOWNERS has @KooshaPari/core for security-sensitive files.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-22",
+          "pillar": "Advisory Database Integration",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "cargo-audit uses RustSec advisory DB. Weekly scans detect known vulnerabilities in dependency tree.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-23",
+          "pillar": "Peer Review (cargo-crev)",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No cargo-crev setup. No code review trust network. No dependency review attestations.",
+          "remediation": "Consider cargo-crev for dependency trust verification. Add to CI if adopting."
+        },
+        {
+          "id": "SEC-24",
+          "pillar": "CodeQL Analysis",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No CodeQL workflow. No GitHub CodeQL query suite for Rust security analysis.",
+          "remediation": "Add codeql.yml workflow analyzing Rust sources. Configure security-extended query suite."
+        },
+        {
+          "id": "SEC-25",
+          "pillar": "Memory Safety (Miri)",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No Miri test runs. Unsafe code not checked experimentally for UB.",
+          "remediation": "Add cargo miri test to CI for modules containing unsafe. Run weekly as part of security workflow."
+        },
+        {
+          "id": "SEC-26",
+          "pillar": "File Permission Safety",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Temp files use secure defaults. No explicit umask setting. Config file permissions not enforced.",
+          "remediation": "Set restrictive umask (0077) during startup. Verify config file permissions (owner-only read/write)."
+        },
+        {
+          "id": "SEC-27",
+          "pillar": "Subprocess Security",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Subprocess execution uses Command API (no shell expansion). STDIN/STDOUT pipes controlled. No argument injection surface.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-28",
+          "pillar": "Temporal Attack Surface (TOCTOU)",
+          "status": "partial",
+          "score": 2,
+          "rationale": "File operations may be subject to TOCTOU in temp directory. No exclusive file locking for concurrent access.",
+          "remediation": "Add advisory file locking for shared resources. Use O_CREAT|O_EXCL for atomic file creation where applicable."
+        },
+        {
+          "id": "SEC-29",
+          "pillar": "Information Disclosure via Errors",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Error messages (thiserror) are user-facing safe. No path leaks in user-facing errors. File paths redacted in user output.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SEC-30",
+          "pillar": "Environment Variable Safety",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Environment variables read for config (RUST_LOG, etc.) but no validation. No env-var allowlist or size limits.",
+          "remediation": "Add maximum size limits for env var values. Validate env vars at startup. Document all recognized env vars in SECURITY.md."
+        },
+        {
+          "id": "SEC-31",
+          "pillar": "Clipboard Data Security",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Clipboard content copied to temp files. No explicit clearing of clipboard buffers from memory after use.",
+          "remediation": "Zeroize clipboard buffers after processing with zeroize crate. Use mlock to prevent sensitive data from being swapped."
+        },
+        {
+          "id": "SEC-32",
+          "pillar": "Security Regression Test Suite",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No dedicated security regression tests. Previous CVEs or security issues not captured as test cases.",
+          "remediation": "Create tests/security/ directory. Add regression tests for each security fix. Document security test scenarios."
+        }
+      ]
+    },
+    {
+      "name": "Documentation",
+      "pillars": 17,
+      "score": 39,
+      "max": 68,
+      "percentage": 57.4,
+      "items": [
+        {
+          "id": "DOC-01",
+          "pillar": "Architecture Overview",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No ARCHITECTURE.md. Module structure not documented at project level. No diagrams or data-flow documentation.",
+          "remediation": "Create ARCHITECTURE.md with: module directory, ASCII/Mermaid diagrams for interception pipeline, data flow, component responsibilities."
+        },
+        {
+          "id": "DOC-02",
+          "pillar": "API Documentation (Rustdoc)",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some public API items have doc comments. Many modules lack docstrings on functions and types. No #[warn(missing_docs)].",
+          "remediation": "Enable #[warn(missing_docs)] in lib.rs. Add docstrings to all public API items. Document panics, errors, examples in API docs."
+        },
+        {
+          "id": "DOC-03",
+          "pillar": "README Quality",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "README.md present with build instructions, usage examples, and feature description. Standard Rust project README.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DOC-04",
+          "pillar": "Contributing Guide",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "CONTRIBUTING.md present (25 lines). Covers basic contribution workflow.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DOC-05",
+          "pillar": "CHANGELOG Quality",
+          "status": "partial",
+          "score": 2,
+          "rationale": "CHANGELOG.md exists (56 lines) but is sparse with only broad entries. Not following Keep a Changelog format. Manual updates.",
+          "remediation": "Reformat CHANGELOG.md per Keep a Changelog standard. Add git-cliff for automated generation. Add version links."
+        },
+        {
+          "id": "DOC-06",
+          "pillar": "ADR Documentation",
+          "status": "partial",
+          "score": 2,
+          "rationale": "ADR.md has 10 ADRs (502 lines) but only 1 accepted. No docs/adr/ directory with individual ADR files. Cross-references from ADR.md may be broken.",
+          "remediation": "Create docs/adr/ directory. Split each ADR into its own file. Accept/reject all pending ADRs. Fix broken cross-references."
+        },
+        {
+          "id": "DOC-07",
+          "pillar": "SPEC Alignment",
+          "status": "partial",
+          "score": 2,
+          "rationale": "SPEC.md exists (2,843 lines) but is aspirational. Much of the spec describes planned features not yet implemented. Risks confusion.",
+          "remediation": "Tag unimplemented sections with '(planned)' or '(future)'. Consider splitting into SPEC.md (implemented) and ROADMAP.md (planned)."
+        },
+        {
+          "id": "DOC-08",
+          "pillar": "PRD Presence",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "PRD.md present with product requirements. Good for aligning development with product goals.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DOC-09",
+          "pillar": "Plan/Status Documents",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "PLAN.md present. AGENTS.md and CLAUDE.md for AI-agent context. SSOT.md present for single-source-of-truth references.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DOC-10",
+          "pillar": "Docs Directory Structure",
+          "status": "partial",
+          "score": 2,
+          "rationale": "docs/ directory exists but contains stubs only. Not organized (no docs/security/, docs/architecture/, docs/ops/ subdirectories).",
+          "remediation": "Organize docs/ with subdirectories: architecture/, security/, ops/, guides/, reference/. Move stubs to appropriate locations."
+        },
+        {
+          "id": "DOC-11",
+          "pillar": "llms.txt",
+          "status": "missing",
+          "score": 0,
+          "rationale": "llms.txt is referenced in AGENTS.md but file is missing. No LLM-context file for AI coding assistants.",
+          "remediation": "Create llms.txt with: project summary, architecture overview, build commands, test commands, key patterns, CI/CD info."
+        },
+        {
+          "id": "DOC-12",
+          "pillar": "Security Documentation",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "SECURITY.md present with disclosure policy. deny.toml documents dependency policies.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DOC-13",
+          "pillar": "Examples & Tutorials",
+          "status": "partial",
+          "score": 2,
+          "rationale": "README has basic usage examples. No dedicated examples/ directory with runnable example programs. No tutorial docs.",
+          "remediation": "Create examples/ with: basic-intercept.rs, custom-config.rs, shell-hooks-example.rs. Add tutorials for common workflows."
+        },
+        {
+          "id": "DOC-14",
+          "pillar": "Code Comments Quality",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some modules have good comments (interceptor: signal handling). Others lack inline documentation (service.rs, image_processor.rs).",
+          "remediation": "Add inline comments for non-obvious logic. Document why (not what) in comments. Focus on complex async flows and unsafe blocks."
+        },
+        {
+          "id": "DOC-15",
+          "pillar": "Configuration Documentation",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Config options documented in CLI help text (clap derive generates --help). README covers basic configuration.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DOC-16",
+          "pillar": "Release Notes",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No release notes. No per-version changelog section. GitHub Releases not created yet (no releases).",
+          "remediation": "Create first GitHub Release (v0.1.0) with release notes. Automate via git-cliff CHANGELOG \u2192 release workflow."
+        },
+        {
+          "id": "DOC-17",
+          "pillar": "Troubleshooting Guide",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No troubleshooting or FAQ document. Common issues and solutions not documented.",
+          "remediation": "Create TROUBLESHOOTING.md covering: installation issues, clipboard problems, signal conflicts, Docker usage, known limitations."
+        }
+      ]
+    },
+    {
+      "name": "CI/CD",
+      "pillars": 14,
+      "score": 33,
+      "max": 56,
+      "percentage": 58.9,
+      "items": [
+        {
+          "id": "CICD-01",
+          "pillar": "Multi-OS CI Matrix",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "ci.yml runs on ubuntu-latest, macos-latest, windows-latest. Full cross-platform coverage.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CICD-02",
+          "pillar": "Multi-Rust Version Matrix",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "CI runs against stable, beta, and nightly Rust channels. Early detection of regressions across toolchains.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CICD-03",
+          "pillar": "CI Pipeline Speed",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No CI caching (cargo, target directory). No incremental compilation. No test partitioning. Full rebuild each run.",
+          "remediation": "Add Swatinem/rust-cache action. Configure sccache or cargo-cache. Partition tests with nextest."
+        },
+        {
+          "id": "CICD-04",
+          "pillar": "CI Timeout Configuration",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No timeout-minutes set on any ci.yml job. Default 360 minutes could waste CI minutes on hung jobs.",
+          "remediation": "Set timeout-minutes: 30 for test jobs, 60 for build jobs, 10 for lint jobs."
+        },
+        {
+          "id": "CICD-05",
+          "pillar": "Continue-on-Error Discipline",
+          "status": "missing",
+          "score": 0,
+          "rationale": "continue-on-error: true set on nearly all jobs in ci.yml. No hard quality gates. CI always passes regardless of failures.",
+          "remediation": "Remove continue-on-error from critical jobs (test, build, clippy). Keep on experimental (nightly, benchmark) only."
+        },
+        {
+          "id": "CICD-06",
+          "pillar": "Deprecated Actions",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Uses deprecated actions: actions-rs/toolchain (migrated to dtolnay/rust-toolchain), actions/create-release (migrated to softprops/action-gh-release).",
+          "remediation": "Migrate actions-rs/toolchain \u2192 dtolnay/rust-toolchain. Migrate actions/create-release \u2192 softprops/action-gh-release. Run action updater regularly."
+        },
+        {
+          "id": "CICD-07",
+          "pillar": "CI Artifact Retention",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Build artifacts (5 targets) uploaded with explicit retention periods. Release artifacts have provenance attestations.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CICD-08",
+          "pillar": "PR Quality Gate",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No quality-gate.yml enforcement. No branch protection rules requiring CI pass before merge.",
+          "remediation": "Create required status checks in GitHub branch protection. quality-gate.yml should block PR merge on test/clippy/build failure."
+        },
+        {
+          "id": "CICD-09",
+          "pillar": "CI Workflow Count",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "11 CI workflows covering: main CI, release, release-attestation, cargo-deny, tier0-hygiene, scorecard, trufflehog, quality-gate, and more. Comprehensive coverage.",
+          "remediation": "None required."
+        },
+        {
+          "id": "CICD-10",
+          "pillar": "Workflow Reusability",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Some duplicated workflow logic across ci.yml and release.yml. No reusable workflow composition (no workflow_call).",
+          "remediation": "Extract shared steps (test, build, lint) into reusable workflows with workflow_call triggers. Reduce duplication."
+        },
+        {
+          "id": "CICD-11",
+          "pillar": "CI Notification",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No CI failure notifications. No Slack/Discord/email integration for broken builds.",
+          "remediation": "Add workflow failure notification via GitHub Actions (slack-github-action, discord-webhook, or email)."
+        },
+        {
+          "id": "CICD-12",
+          "pillar": "Concurrency Management",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No concurrency groups in CI workflows. Multiple pushes to same branch can run overlapping workflows wasting CI minutes.",
+          "remediation": "Add concurrency group per branch with cancel-in-progress: true to all CI workflows."
+        },
+        {
+          "id": "CICD-13",
+          "pillar": "Dependency Cache Verification",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No checksum verification for cached dependencies. Cache poisoning risk not addressed.",
+          "remediation": "Add cache checksum verification. Use Cargo.lock hash as cache key. Periodically invalidate cache."
+        },
+        {
+          "id": "CICD-14",
+          "pillar": "Workflow Linting",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No actionlint or similar workflow validation. Workflow syntax errors not caught before push.",
+          "remediation": "Add actionlint to pre-commit or tier0-hygiene CI workflow. Validate all .github/workflows/*.yml."
+        }
+      ]
+    },
+    {
+      "name": "Supply Chain",
+      "pillars": 20,
+      "score": 44,
+      "max": 80,
+      "percentage": 55.0,
+      "items": [
+        {
+          "id": "SUP-01",
+          "pillar": "Dependency Locking",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Cargo.lock committed to repository for reproducible builds. Git dep on clap-ext pinned (but to branch not commit).",
+          "remediation": "Pin clap-ext git dep to specific commit SHA, not branch name."
+        },
+        {
+          "id": "SUP-02",
+          "pillar": "Lock Freshness",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No Cargo.lock freshness check in CI. No validate for outdated or stale lock files.",
+          "remediation": "Add CI job checking Cargo.lock is up to date (cargo check --locked). Fail on stale lock."
+        },
+        {
+          "id": "SUP-03",
+          "pillar": "Vulnerability Database",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "cargo-audit integrates with RustSec advisory DB. Weekly CI scan.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SUP-04",
+          "pillar": "Dependency Audit Automation",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "cargo-deny.yml runs weekly on schedule. TruffleHog also scans for committed secrets.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SUP-05",
+          "pillar": "License Scanning",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "deny.toml has license configuration with allow/deny list. cargo-deny enforces license policy in CI.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SUP-06",
+          "pillar": "Git Dependency Policy",
+          "status": "partial",
+          "score": 2,
+          "rationale": "clap-ext is a git dependency (not crates.io or vendored). Git deps are mutable by nature. No policy on acceptable git deps.",
+          "remediation": "Document git dep policy in CONTRIBUTING.md. Consider vendoring clap-ext or publishing to crates.io if stable."
+        },
+        {
+          "id": "SUP-07",
+          "pillar": "Dependency Tree Cleanliness",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No cargo-udeps or cargo-deny 'unused' check. Unused dependencies may be present in Cargo.toml.",
+          "remediation": "Add cargo-udeps to CI (nightly). Remove unused dependencies. Configure cargo-deny to warn on unused."
+        },
+        {
+          "id": "SUP-08",
+          "pillar": "Dependency Version Pinning",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Cargo.lock pins exact versions. deny.toml configured for version bans/sources.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SUP-09",
+          "pillar": "Yanked Crate Detection",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "cargo-audit detects yanked crate versions. Weekly CI scan alerts on yanked dependencies.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SUP-10",
+          "pillar": "Dependency Diff Review",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No dependency diff generated on Cargo.lock changes. PRs with dep changes not flagged for supply chain review.",
+          "remediation": "Add action to comment on PRs with dependency diff when Cargo.lock changes. Flag for maintainer review."
+        },
+        {
+          "id": "SUP-11",
+          "pillar": "SBOM Generation",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No SBOM artifact in releases or CI. No CycloneDX or SPDX output.",
+          "remediation": "Add cargo-cyclonedx to release workflow. Publish SBOM alongside release artifacts."
+        },
+        {
+          "id": "SUP-12",
+          "pillar": "Vendoring Policy",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Dependencies not vendored. Standard crates.io resolution. No vendoring policy documented.",
+          "remediation": "Document vendoring policy in CONTRIBUTING.md. Consider cargo vendor for air-gapped builds if needed."
+        },
+        {
+          "id": "SUP-13",
+          "pillar": "Provenance & Attestation",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "SLSA L2 attestations generated in release-attestation.yml. Build provenance chains established.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SUP-14",
+          "pillar": "Binary Integrity Check",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No checksum file generated for release binaries. Users cannot verify binary integrity after download.",
+          "remediation": "Generate SHA-256 checksums for all release artifacts. Publish checksums as release asset. Consider GPG signing."
+        },
+        {
+          "id": "SUP-15",
+          "pillar": "Renovate/Dependabot",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No Dependabot or Renovate configuration. Dependency updates are manual. No automated update PRs.",
+          "remediation": "Add Dependabot config for Cargo and GitHub Actions. Set weekly schedule. Add auto-merge for patch updates."
+        },
+        {
+          "id": "SUP-16",
+          "pillar": "Container Image Signing",
+          "status": "missing",
+          "score": 0,
+          "rationale": "Dockerfile present but no cosign or container signing. No container image attestation.",
+          "remediation": "Add cosign to container build step. Sign images with keyless (OIDC) signing via GitHub OIDC. Attest with SLSA."
+        },
+        {
+          "id": "SUP-17",
+          "pillar": "Registry Security (crates.io)",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No crate publishing token rotation policy. No CI checks for crate metadata correctness.",
+          "remediation": "Add cargo publish dry-run in CI. Document crate publishing credentials in SECURITY.md."
+        },
+        {
+          "id": "SUP-18",
+          "pillar": "Dependency Freshness Policy",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No policy on maximum dependency age. Outdated deps may accumulate without notice.",
+          "remediation": "Add cargo-outdated or cargo-limit to CI. Alert on deps more than 6 months behind latest."
+        },
+        {
+          "id": "SUP-19",
+          "pillar": "Multiple Registry Support",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Uses default crates.io registry with cargo-deny source configuration. deny.toml controls registry sources.",
+          "remediation": "None required."
+        },
+        {
+          "id": "SUP-20",
+          "pillar": "Dependency Substitution Prevention",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Cargo.lock pinned. cargo-deny configured with source replacement checks. No [patch] section in Cargo.toml (no subversion risk).",
+          "remediation": "None required."
+        }
+      ]
+    },
+    {
+      "name": "Release Engineering",
+      "pillars": 13,
+      "score": 34,
+      "max": 52,
+      "percentage": 65.4,
+      "items": [
+        {
+          "id": "REL-01",
+          "pillar": "Release Automation",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "release.yml (295 lines) fully automates: tag-driven release, crates.io publish, Homebrew formula, AUR package, Docker image.",
+          "remediation": "None required."
+        },
+        {
+          "id": "REL-02",
+          "pillar": "Version Bumping Process",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No cargo-release or automate version bumping. Version is manual in Cargo.toml. No version consistency checks.",
+          "remediation": "Add cargo-release or release-plz for automated version bumping and publishing. Validate crate version vs tag."
+        },
+        {
+          "id": "REL-03",
+          "pillar": "Changelog Generation",
+          "status": "partial",
+          "score": 2,
+          "rationale": "CHANGELOG.md manually maintained and sparse. No automated changelog generation from commits.",
+          "remediation": "Integrate git-cliff into release workflow. Auto-generate changelog from conventional commits."
+        },
+        {
+          "id": "REL-04",
+          "pillar": "Release Signing",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No GPG or Sigstore signing of release artifacts. SLSA L2 provides provenance but not artifact signing.",
+          "remediation": "Add GPG signing of release artifacts or cosign keyless signing. Publish signing public key."
+        },
+        {
+          "id": "REL-05",
+          "pillar": "Release Notes Quality",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No automated release notes. GitHub Releases not yet created. First release pending.",
+          "remediation": "Auto-generate release notes from git-cliff or GitHub releases. Include changelog, known issues, upgrade guide."
+        },
+        {
+          "id": "REL-06",
+          "pillar": "Semantic Versioning Compliance",
+          "status": "partial",
+          "score": 2,
+          "rationale": "Cargo.toml version 0.1.0 (pre-1.0). SEMVER implied but not enforced. No major/minor/patch labeling of PRs.",
+          "remediation": "Add semantic PR labels. Integrate cargo-semver-checks to detect semver violations in public API."
+        },
+        {
+          "id": "REL-07",
+          "pillar": "Release Dry-Run",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No dry-run release step before actual release. No release preview or validation.",
+          "remediation": "Add release dry-run to CI: cargo publish --dry-run, verify all targets build, validate CHANGELOG."
+        },
+        {
+          "id": "REL-08",
+          "pillar": "Release Distribution Channels",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Multi-channel: crates.io, Homebrew, AUR, Docker. Good coverage for Rust ecosystem and package managers.",
+          "remediation": "None required."
+        },
+        {
+          "id": "REL-09",
+          "pillar": "Rollback Capability",
+          "status": "partial",
+          "score": 2,
+          "rationale": "crates.io: yank is possible. Homebrew: revert formula. Docker: tag-based rollback. AUR: version rollback. No automated rollback playbook.",
+          "remediation": "Document rollback procedures for each distribution channel. Test rollback process."
+        },
+        {
+          "id": "REL-10",
+          "pillar": "Release Tagging Convention",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "Tag-driven release workflow using v* format (semver). Tags trigger release.yml pipeline.",
+          "remediation": "None required."
+        },
+        {
+          "id": "REL-11",
+          "pillar": "Pre-Release Channels",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No pre-release (alpha/beta/rc) channel support. No canary or nightly release mechanism.",
+          "remediation": "Add pre-release workflow: publish to test-pypi equivalent, create GitHub Pre-release, tag candidates."
+        },
+        {
+          "id": "REL-12",
+          "pillar": "Release SLSA/Provenance",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "release-attestation.yml generates SLSA L2 provenance. Good supply-chain security for release artifacts.",
+          "remediation": "None required."
+        },
+        {
+          "id": "REL-13",
+          "pillar": "Release Asset Completeness",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "5 build targets across platforms. Docker image. Homebrew formula. AUR package. Comprehensive release asset catalog.",
+          "remediation": "None required."
+        }
+      ]
+    },
+    {
+      "name": "Developer Experience",
+      "pillars": 13,
+      "score": 32,
+      "max": 52,
+      "percentage": 61.5,
+      "items": [
+        {
+          "id": "DX-01",
+          "pillar": "Pre-Commit Hooks",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "8 pre-commit hooks configured in .pre-commit-config.yaml: formatting, linting, whitespace, merge-conflict detection.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DX-02",
+          "pillar": "Lefthook Hooks",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No lefthook.yml. Pre-commit is Python-native. Lefthook would provide faster, parallel hook execution.",
+          "remediation": "Add lefthook.yml equivalent to pre-commit hooks. Lefthook is faster (parallel) and Rust-native."
+        },
+        {
+          "id": "DX-03",
+          "pillar": "Dev Container",
+          "status": "missing",
+          "score": 0,
+          "rationale": "No .devcontainer directory. No VSCode dev container config for instant development environment.",
+          "remediation": "Add .devcontainer/devcontainer.json with Rust toolchain, clippy, rustfmt, pre-commit, and recommended extensions."
+        },
+        {
+          "id": "DX-04",
+          "pillar": "Justfile Usage",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "justfile present with common commands: build, test, lint, format, coverage. Good task runner for common workflows.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DX-05",
+          "pillar": "PR Template Quality",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "PULL_REQUEST_TEMPLATE.md (114 lines) with detailed checklist: testing, documentation, changelog, migration, breaking changes.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DX-06",
+          "pillar": "Issue Templates",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "4 issue templates covering: bug report, feature request, question, security. Structured forms for consistent reporting.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DX-07",
+          "pillar": "CLA/Code of Conduct",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "CODE_OF_CONDUCT.md present. CODEOWNERS present. FUNDING.yml for sponsorship.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DX-08",
+          "pillar": "AI Agent Context (CLAUDE/AGENTS)",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": "CLAUDE.md and AGENTS.md provide context for AI coding assistants. llms.txt referenced but missing.",
+          "remediation": "Create llms.txt per referenced expectations."
+        },
+        {
+          "id": "DX-09",
+          "pillar": "Editor Configuration",
+          "status": "satisfied",
+          "score": 4,
+          "rationale": ".editorconfig, .gitattributes, rustfmt.toml all present. Consistent across editors.",
+          "remediation": "None required."
+        },
+        {
+          "id": "DX-10",
+          "pillar": "Build Cache & Incremental Compilation",
+          "status": "partial",
+          "score": 2,
+          "rationale": "No CI-level caching configured. Local builds use incremental compilation (default). No sccache or cargo-cache.",
+          "remediation": "Add cargo-cache to justfile. Document sccache setup for large Rust monorepos. Add CI caching."
+        },
+        {
+          "id": "DX-11",
+          "pillar": "Local Dev Scripts",
+          "status": "partial",
+          "score": 2,
+          "rationale": "justfile covers main operations. No scripts/ directory for helper scripts (coverage, benchmark, setup).",
+          "remediation": "Create scripts/ with: setup-dev.sh, run-coverage.sh, run-benchmarks.sh, update-deps.sh."
+        },
+        {
+          "id": "DX-12",
+          "pillar": "Nextest Runner",
+          "status": "missing",
+          "score": 0,
+          "rationale": "Uses default cargo test. Nextest not configured. Slower test execution, no partitioning.",
+          "remediation": "Add cargo-nextest to dev dependencies. Create .config/nextest.toml with profiles. Add to justfile."
+        },
+        {
+          "id": "DX-13",
+          "pillar": "Quick Start Guide",
+          "status": "partial",
+          "score": 2,
+          "rationale": "README has basic build/run instructions. No dedicated GETTING_STARTED.md. No step-by-step onboarding.",
+          "remediation": "Create GETTING_STARTED.md with: prerequisites, install via each channel, first interception, configuration, troubleshooting."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "overall_score": 430,
+    "max_score": 736,
+    "overall_percentage": 65.3,
+    "grade": "C+",
+    "strengths": [
+      "Production CI/CD with 11 workflows across 3 OS \u00d7 3 Rust versions \u2014 multi-OS matrix, build (5 targets), Docker, coverage",
+      "SLSA L2 provenance attestation in release pipeline \u2014 industry-leading supply-chain security for a pre-1.0 project",
+      "Comprehensive security scanning: TruffleHog, cargo-audit, cargo-deny, OpenSSF Scorecard \u2014 all running on schedule",
+      "Well-modularized Rust architecture with clear separation of concerns (14 dedicated modules for specific functions)",
+      "Pre-commit hooks (8 checks), detailed PR template (114 lines), and comprehensive issue templates (4) \u2014 strong DX foundation",
+      "Multi-channel distribution strategy: crates.io, Homebrew, AUR, Docker \u2014 set up before first release",
+      "Error handling excellence: thiserror Error enum, proper propagation, safe user-facing messages"
+    ],
+    "weaknesses": [
+      "Testing deficit: 53 tests for ~6,600 LOC (1 test per ~125 LOC). No fuzz, proptest, benchmarks, or nextest runner",
+      "continue-on-error: true on all CI jobs \u2014 CI pipeline reports success even when tests/lint fail, no hard quality gates",
+      "Deprecated CI actions (actions-rs/toolchain, actions/create-release) \u2014 possible breakage on runner updates",
+      "No structured observability \u2014 tracing only emits unstructured human-readable logs, no JSON/OTel/metrics",
+      "Empty clippy.toml \u2014 no custom lint levels, no complexity limits, no code quality guardrails despite Rust's strong lint system",
+      "Documentation gaps: ARCHITECTURE.md missing, docs/ directory has stubs only, ADRs mostly unaccepted (1/10)",
+      "First release still pending (v0.1.0) \u2014 distribution channels configured but not battle-tested"
+    ],
+    "critical_gaps": [
+      "No hard CI quality gates (continue-on-error on all jobs makes CI near-useless as a quality barrier)",
+      "No structured observability (can't debug production issues without JSON logs, metrics, or tracing context)",
+      "No fuzz testing (image parsing and clipboard processing accept potentially untrusted input)",
+      "No dependabot/renovate (dependency updates are manual with no automated review)",
+      "No CodeQL or Miri (unsafe code in signal handling not independently verified for UB)"
+    ],
+    "top_5_priorities": [
+      "1. Remove continue-on-error from critical CI jobs and add branch protection rules",
+      "2. Add structured observability (JSON logging, metrics, health endpoint)",
+      "3. Set up fuzz testing for image parsing and clipboard input",
+      "4. Create ARCHITECTURE.md and fix ADR acceptance process",
+      "5. Add cargo-nextest, proptest, and benchmark targets"
+    ]
+  },
+  "remediation_plan": {
+    "phase_0": {
+      "title": "Quick Wins \u2014 Low Effort, High Impact (~2h)",
+      "items": [
+        {
+          "id": "QW-01",
+          "effort": "10m",
+          "pillar": "CICD-05",
+          "action": "Remove continue-on-error from test, build, and clippy jobs in ci.yml. Keep on nightly/benchmark.",
+          "rationale": "Immediately makes CI a meaningful quality gate. Prevents broken code from merging."
+        },
+        {
+          "id": "QW-02",
+          "effort": "15m",
+          "pillar": "CICD-06",
+          "action": "Migrate actions-rs/toolchain \u2192 dtolnay/rust-toolchain in all workflows.",
+          "rationale": "Removes dependency on deprecated action that could break at any time."
+        },
+        {
+          "id": "QW-03",
+          "effort": "15m",
+          "pillar": "SEC-24",
+          "action": "Add codeql.yml workflow with security-extended query suite.",
+          "rationale": "GitHub-native static analysis. No external deps. Catches common Rust security issues."
+        },
+        {
+          "id": "QW-04",
+          "effort": "20m",
+          "pillar": "SUP-15",
+          "action": "Add .github/dependabot.yml for Cargo and GitHub Actions weekly updates.",
+          "rationale": "Automated dependency update PRs. Prevents dependency drift and missed security patches."
+        },
+        {
+          "id": "QW-05",
+          "effort": "15m",
+          "pillar": "DOC-11",
+          "action": "Create llms.txt with project summary, build commands, and architecture for AI coding assistants.",
+          "rationale": "Referenced in AGENTS.md but missing. Quick win for AI-assisted development workflow."
+        },
+        {
+          "id": "QW-06",
+          "effort": "15m",
+          "pillar": "CQ-14",
+          "action": "Set clippy to deny warnings in CI tier0-hygiene.yml (remove continue-on-error, add -D warnings).",
+          "rationale": "Enforces Rust best practices. Early detection of code quality regressions."
+        }
       ],
-      "has_precommit": true
+      "total_effort": "~1.5h"
     },
-    "complexity": {
-      "long_functions": 0,
-      "nested_blocks": 0,
-      "branches": 0
+    "phase_1": {
+      "title": "Critical Infrastructure \u2014 Foundation Fixes (~4h)",
+      "items": [
+        {
+          "id": "P1-01",
+          "effort": "1h",
+          "pillar": "CICD-08",
+          "action": "Set up GitHub branch protection rules requiring CI status checks. Create quality-gate.yml that enforces test/build/clippy pass.",
+          "rationale": "Prevents merging breaking changes. Hardens repository against accidental bad merges."
+        },
+        {
+          "id": "P1-02",
+          "effort": "1.5h",
+          "pillar": "OBS-01/OBS-03/OBS-04",
+          "action": "Add structured JSON logging (tracing-subscriber JSON), basic metrics counters, and optional health endpoint.",
+          "rationale": "Minimal viable observability. JSON logging enables log aggregation. Metrics enable monitoring."
+        },
+        {
+          "id": "P1-03",
+          "effort": "1.5h",
+          "pillar": "TST-05/TST-06/TST-07",
+          "action": "Add proptest for image format detection. Set up cargo-fuzz with 3 targets (image, clipboard, config). Add criterion benchmark for image processing latency.",
+          "rationale": "Catches edge cases and input-handling bugs. Performance baseline for optimization. Essential for CLI tool processing untrusted input."
+        }
+      ],
+      "total_effort": "~4h"
     },
-    "type_safety": {
-      "annotated_funcs": 0,
-      "total_funcs": 0,
-      "dataclasses": 0,
-      "protocols": 0,
-      "typeddicts": 0,
-      "generics": 0
+    "phase_2": {
+      "title": "Quality & Documentation Hardening (~6h)",
+      "items": [
+        {
+          "id": "P2-01",
+          "effort": "2h",
+          "pillar": "DOC-01/DOC-06",
+          "action": "Write ARCHITECTURE.md (module boundaries, data flow, interception pipeline diagram). Split ADR.md into docs/adr/ individual files. Accept/reject all pending ADRs.",
+          "remediation": "Foundational documentation for contributor onboarding and architectural decision tracking."
+        },
+        {
+          "id": "P2-02",
+          "effort": "1.5h",
+          "pillar": "CQ-02/CQ-10",
+          "action": "Configure clippy.toml with cognitive-complexity limit (25), loc-per-function (100), cyclomatic-complexity (35). Add cargo-udeps to CI.",
+          "remediation": "Enforces code quality guardrails. Prevents excessive complexity before code review."
+        },
+        {
+          "id": "P2-03",
+          "effort": "1h",
+          "pillar": "SUP-14/SUP-16",
+          "action": "Add SHA-256 checksum generation for release artifacts. Sign Docker images with cosign keyless signing.",
+          "remediation": "Release integrity verification for users. Prevents supply-chain attacks on binary distribution."
+        },
+        {
+          "id": "P2-04",
+          "effort": "1.5h",
+          "pillar": "TST-11/TST-12/TST-22",
+          "action": "Add cargo-nextest configuration with per-file timeouts. Set up coverage threshold enforcement (min 60%). Add test reporting artifacts.",
+          "remediation": "Faster test execution, better failure diagnostics, coverage visibility."
+        }
+      ],
+      "total_effort": "~6h"
     },
-    "dependencies": {
-      "has_lock": false,
-      "has_requirements": false,
-      "has_constraints": false,
-      "dep_count": 0
-    },
-    "error_handling": {
-      "try_blocks": 0,
-      "bare_excepts": 0,
-      "custom_exceptions": 0,
-      "retry_decorators": 0
-    },
-    "logging": {
-      "logger_imports": 0,
-      "structured_logging": 0
-    },
-    "data_layer": {
-      "orm_refs": 0,
-      "migration_files": 0,
-      "redis_refs": 0,
-      "sqlite_refs": 0
-    },
-    "api_surface": {
-      "fastapi": 0,
-      "flask": 0,
-      "endpoints": 0,
-      "openapi": 0
-    },
-    "frontend": {
-      "html_files": 0,
-      "js_files": 8,
-      "css_files": 0,
-      "templates": 0,
-      "react_components": 0
-    },
-    "i18n_a11y": {
-      "locale_files": 0,
-      "gettext_refs": 0,
-      "aria_refs": 0
-    },
-    "concurrency": {
-      "threading_refs": 0,
-      "multiprocessing_refs": 0,
-      "lock_refs": 0,
-      "queue_refs": 0
-    },
-    "memory": {
-      "context_managers": 0,
-      "gc_refs": 0,
-      "weakref_refs": 0,
-      "cleanup_refs": 0
-    },
-    "config": {
-      "env_refs": 0,
-      "dotenv_refs": 0,
-      "pydantic_settings": 0,
-      "config_files": 17
-    },
-    "testing_depth": {
-      "parametrize": 0,
-      "fixtures": 0,
-      "mock": 0,
-      "patch": 0
-    },
-    "fuzzing": {
-      "hypothesis": 0,
-      "fuzzing": 0,
-      "property_tests": 0
-    },
-    "release": {
-      "has_version_file": false,
-      "tag_count": 1,
-      "semver_tags": 1,
-      "has_changelog": true
-    },
-    "migration": {
-      "deprecated_decorators": 0,
-      "warning_refs": 0,
-      "migration_scripts": 0
-    },
-    "vendor_lockin": {
-      "aws_refs": 0,
-      "azure_refs": 0,
-      "gcp_refs": 0,
-      "generic_refs": 0
-    },
-    "event_driven": {
-      "event_bus": 0,
-      "queue": 0,
-      "pubsub": 0,
-      "kafka": 0,
-      "celery": 0
-    },
-    "infrastructure": {
-      "dockerfile": 0,
-      "docker_compose": 0,
-      "k8s_manifests": 0,
-      "terraform_files": 0
-    },
-    "cost_efficiency": {
-      "batching_refs": 0,
-      "n_plus_one_refs": 0,
-      "bulk_refs": 0,
-      "pagination_refs": 0
-    },
-    "monitoring": {
-      "prometheus": 0,
-      "health_checks": 0,
-      "tracing": 0,
-      "metrics": 0,
-      "slo": 0
-    },
-    "onboarding": {
-      "makefile": 0,
-      "devcontainer": 0,
-      "setup_scripts": 3,
-      "readme_setup": 0
-    },
-    "all_ast": {
-      "long_functions": 0,
-      "nested_blocks": 0,
-      "branches": 0,
-      "annotated_funcs": 0,
-      "total_funcs": 0,
-      "dataclasses": 0,
-      "protocols": 0,
-      "typeddicts": 0,
-      "generics": 0,
-      "async_def": 0,
-      "await": 0,
-      "asyncio_import": 0,
-      "httpx_import": 0,
-      "aiohttp_import": 0,
-      "try_blocks": 0,
-      "bare_excepts": 0,
-      "custom_exceptions": 0,
-      "retry_decorators": 0
+    "phase_3": {
+      "title": "Advanced & Production Polish (~8h)",
+      "items": [
+        {
+          "id": "P3-01",
+          "effort": "3h",
+          "pillar": "OBS-03/OBS-11/OBS-12",
+          "action": "Integrate OpenTelemetry tracing with OTLP export. Add trace context propagation across async boundaries and subprocess spawns. Enrich span fields with operation context.",
+          "remediation": "Production-grade distributed tracing for debugging complex interception flows."
+        },
+        {
+          "id": "P3-02",
+          "effort": "2.5h",
+          "pillar": "SEC-06/SEC-08/SEC-25",
+          "action": "Create UNSAFE.md tracking all 4 unsafe blocks with review evidence. Add cargo miri test in CI for modules containing unsafe. Set up GPG/cosign signing for release binaries.",
+          "remediation": "Unsafe code accountability, UB detection, and binary authenticity verification."
+        },
+        {
+          "id": "P3-03",
+          "effort": "2.5h",
+          "pillar": "ARC-04/ARC-07/ARC-16",
+          "action": "Add Cargo feature gates (clipboard-x11, clipboard-wayland, image-processing, signal-unix). Abstract signal handling behind platform trait. Introduce trait-based DI for injectable services.",
+          "remediation": "Platform portability, compile-time feature selection, and testability via dependency injection."
+        }
+      ],
+      "total_effort": "~8h"
     }
   }
 }

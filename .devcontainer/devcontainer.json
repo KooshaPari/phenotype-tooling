@@ -1,0 +1,21 @@
+{
+  "name": "KlipDot Rust Development",
+  "image": "mcr.microsoft.com/devcontainers/rust:latest",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest",
+      "profile": "minimal"
+    }
+  },
+  "postCreateCommand": "cargo install cargo-nextest cargo-llvm-cov cargo-deny",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb",
+        "serayuzgur.crates"
+      ]
+    }
+  }
+}

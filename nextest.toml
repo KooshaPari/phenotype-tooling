@@ -1,0 +1,5 @@
+[profile.ci]
+retry = 2
+
+[profile.ci.junit]
+path = "test-results/junit.xml"

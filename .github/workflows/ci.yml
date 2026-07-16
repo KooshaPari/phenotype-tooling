@@ -141,24 +141,24 @@ jobs:
           pkg-config \
           libasound2-dev
     
-    - name: Install grcov
-      run: cargo install grcov
+    - name: Install cargo-llvm-cov
+      run: cargo install cargo-llvm-cov
     
     - name: Run tests with coverage
       run: |
-        export CARGO_INCREMENTAL=0
-        export RUSTFLAGS="-Cinstrument-coverage"
-        export LLVM_PROFILE_FILE="klipdot-%p-%m.profraw"
-        cargo test --verbose --all-features
-        grcov . --binary-path ./target/debug/deps/ -s . -t lcov --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o coverage.lcov
+        cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
-        file: ./coverage.lcov
+        file: ./lcov.info
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+
+    - name: Coverage gate
+      run: |
+        cargo llvm-cov report --fail-under-lines 70
 
   build:
     name: Build Release
