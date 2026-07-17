@@ -1,0 +1,226 @@
+# AI Orchestration System
+
+A system leveraging Oblix, Wren Engine, and MCP Auto Register for optimized multi-modal AI agents.
+
+## Components
+
+### 1. Oblix: Cloud + Edge AI Orchestration
+
+- Dynamic routing of AI workloads between cloud LLMs and edge models
+- Cost-aware routing
+- Latency optimization
+- Privacy control
+- Multi-modal support
+
+### 2. Wren Engine: Multi-Model Prompt Routing
+
+- Selects the best model based on prompt content, cost, latency, and quality
+- Supports model fallback and ensemble strategies
+- Prompt rewriting
+- Model adapters
+
+### 3. MCP Auto Register
+
+- Discovery of available MCP servers/plugins
+- Registration of new tools and resources
+- Health checks and auto-reconnect
+
+## Supported Providers
+
+### Cloud Providers
+
+- **OpenAI**: GPT-4, GPT-3.5 Turbo, and other OpenAI models
+- **Anthropic**: Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku, and other Claude models
+- **Google AI/Vertex**: Gemini 1.5 Pro, Gemini 1.5 Flash, and other Google models
+- **OpenRouter**: Access to multiple models from different providers through a single API
+
+### Edge Providers
+
+- **Ollama**: Run open-source models locally (Llama, Mistral, Gemma, etc.)
+
+## Architecture
+
+The system combines these components to create a flexible, efficient AI orchestration system:
+
+- **Oblix** handles routing between cloud and edge models
+- **Wren Engine** selects the optimal model for each request
+- **MCP Auto Register** manages plugin discovery and registration
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.8+
+- API keys for cloud LLM providers (OpenAI, Anthropic, Google, OpenRouter)
+- Ollama installed locally for edge models
+
+### Installation
+
+1. Clone the repository:
+
+   ```
+   git clone https://github.com/yourusername/ai-orchestration.git
+   cd ai-orchestration
+   ```
+
+2. Run the setup script:
+
+   ```
+   ./setup.sh
+   ```
+
+3. Edit the `.env` file with your API keys:
+
+   ```
+   # Cloud Provider API Keys
+   OPENAI_API_KEY=your_openai_api_key
+   ANTHROPIC_API_KEY=your_anthropic_api_key
+   GOOGLE_API_KEY=your_google_api_key
+   OPENROUTER_API_KEY=your_openrouter_api_key
+
+   # Google Cloud Configuration (for Vertex AI)
+   GOOGLE_CLOUD_PROJECT=your_gcp_project_id
+   GOOGLE_CLOUD_LOCATION=us-central1
+
+   # Edge Provider Configuration
+   OLLAMA_API_BASE=http://localhost:11434
+   ```
+
+4. Start the application:
+
+   ```
+   python app.py
+   ```
+
+5. Access the dashboard at http://localhost:9000
+
+### Usage
+
+#### Web Interface
+
+The web interface allows you to:
+
+- Send prompts to the AI system
+- Select routing policies (cost-optimized, performance, privacy)
+- Register and manage plugins
+- View available plugins
+
+#### API
+
+The system exposes two REST APIs:
+
+**Custom API:**
+
+- `POST /api/generate` - Generate AI responses
+- `GET /api/plugins` - List available plugins
+- `POST /api/plugins/register` - Register a new plugin
+
+**OpenAI-Compatible API:**
+
+- `POST /v1/chat/completions` - Generate chat completions (compatible with OpenAI's Chat API)
+- `GET /v1/models` - List available models (compatible with OpenAI's Models API)
+
+#### Python Client
+
+The client library supports both our custom API and the OpenAI-compatible API:
+
+**Using the Custom API:**
+
+```python
+from client import AIOrchestrationClient
+
+# Create client
+client = AIOrchestrationClient()
+
+# Generate text with default settings (cost-optimized routing)
+response = client.generate(
+    prompt="Explain how to implement a binary search algorithm in Python."
+)
+print(response)
+
+# Generate text with performance routing (cloud-first)
+response = client.generate(
+    prompt="Explain how to implement a binary search algorithm in Python.",
+    routing_policy="performance"
+)
+print(response)
+
+# Generate text with privacy routing (edge-only)
+response = client.generate(
+    prompt="Explain how to implement a binary search algorithm in Python.",
+    routing_policy="privacy"
+)
+print(response)
+
+# Generate text with a specific model
+response = client.generate(
+    prompt="Explain how to implement a binary search algorithm in Python.",
+    model="gpt-4"
+)
+print(response)
+```
+
+**Using the OpenAI-Compatible API:**
+
+```python
+from client import AIOrchestrationClient
+
+# Create client (optionally with API key)
+client = AIOrchestrationClient(api_key="your_api_key")
+
+# List available models
+models = client.list_models()
+print(models)
+
+# Generate chat completion
+response = client.chat_completions(
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain how to implement a binary search algorithm in Python."}
+    ],
+    model="gpt-4",
+    temperature=0.7
+)
+print(response)
+
+# Use the generate method with OpenAI format
+response = client.generate(
+    prompt="Explain how to implement a binary search algorithm in Python.",
+    model="gpt-4",
+    use_openai_format=True  # This will use the OpenAI-compatible API
+)
+print(response)
+```
+
+**Using with OpenAI Python Library:**
+
+Since our API is compatible with OpenAI's API, you can also use the OpenAI Python library:
+
+```python
+from openai import OpenAI
+
+# Create OpenAI client pointing to our API
+client = OpenAI(
+    api_key="your_api_key",  # Optional
+    base_url="http://localhost:9000/v1"  # Point to our API
+)
+
+# List models
+models = client.models.list()
+print(models)
+
+# Generate chat completion
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain how to implement a binary search algorithm in Python."}
+    ],
+    temperature=0.7
+)
+print(response.choices[0].message.content)
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

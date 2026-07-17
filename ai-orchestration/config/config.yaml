@@ -1,0 +1,41 @@
+oblix:
+  enabled: true
+  routing_policy:
+    default: "cost-optimized"
+    policies:
+      - name: "cost-optimized"
+        strategy: "edge-first"
+        fallback: "cloud"
+      - name: "performance"
+        strategy: "cloud-first"
+        fallback: "edge"
+      - name: "privacy"
+        strategy: "edge-only"
+        fallback: "fail"
+
+wren:
+  enabled: true
+  models:
+    - name: "gpt-4"
+      provider: "openai"
+      capabilities: ["complex-reasoning", "code", "creative"]
+      cost_per_token: 0.00006
+    - name: "claude-3-sonnet"
+      provider: "anthropic"
+      capabilities: ["complex-reasoning", "code", "creative"]
+      cost_per_token: 0.00003
+    - name: "mistral-medium"
+      provider: "mistral"
+      capabilities: ["reasoning", "code"]
+      cost_per_token: 0.00002
+    - name: "llama-3-8b"
+      provider: "local"
+      capabilities: ["basic", "code"]
+      cost_per_token: 0.000001
+
+mcp_auto_register:
+  enabled: true
+  discovery_interval: 60  # seconds
+  health_check_interval: 300  # seconds
+  plugins_directory: "./plugins"
+  remote_registry_url: "http://localhost:8080/registry"

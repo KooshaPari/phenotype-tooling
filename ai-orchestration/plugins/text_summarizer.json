@@ -1,0 +1,10 @@
+{
+  "id": "text_summarizer",
+  "name": "Text Summarizer",
+  "endpoint": "http://localhost:8002/api/summarize",
+  "capabilities": [
+    "summarization",
+    "text-processing"
+  ],
+  "description": "Summarizes long text into concise summaries"
+}

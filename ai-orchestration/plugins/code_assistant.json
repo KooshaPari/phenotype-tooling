@@ -1,0 +1,22 @@
+{
+  "id": "code_assistant",
+  "name": "Code Assistant",
+  "description": "Provides code completion, refactoring, and documentation capabilities",
+  "version": "1.0.0",
+  "endpoint": "http://localhost:8001/api/code-assistant",
+  "health_endpoint": "http://localhost:8001/health",
+  "capabilities": ["code-completion", "refactoring", "documentation"],
+  "auth_required": false,
+  "parameters": {
+    "language": {
+      "type": "string",
+      "description": "Programming language",
+      "required": true
+    },
+    "context": {
+      "type": "string",
+      "description": "Code context",
+      "required": true
+    }
+  }
+}

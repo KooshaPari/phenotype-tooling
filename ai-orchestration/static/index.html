@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Orchestration Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .plugin-card {
+            margin-bottom: 15px;
+        }
+        .response-container {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .model-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>AI Orchestration Dashboard</h1>
+        
+        <div class="row mt-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>AI Request</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="ai-form">
+                            <div class="mb-3">
+                                <label for="prompt" class="form-label">Prompt</label>
+                                <textarea class="form-control" id="prompt" rows="5" required></textarea>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="routing-policy" class="form-label">Routing Policy</label>
+                                        <select class="form-select" id="routing-policy">
+                                            <option value="default">Default</option>
+                                            <option value="cost-optimized">Cost Optimized</option>
+                                            <option value="performance">Performance</option>
+                                            <option value="privacy">Privacy</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="max-tokens" class="form-label">Max Tokens</label>
+                                        <input type="number" class="form-control" id="max-tokens" value="1000">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="temperature" class="form-label">Temperature</label>
+                                        <input type="range" class="form-range" id="temperature" min="0" max="1" step="0.1" value="0.7">
+                                        <div class="text-center" id="temperature-value">0.7</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">Generate</button>
+                        </form>
+                        
+                        <div class="response-container mt-3" id="response-container" style="display: none;">
+                            <div class="model-info mb-2" id="model-info"></div>
+                            <div id="response-text"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Available Plugins</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="plugins-container">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5>Register New Plugin</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="plugin-form">
+                            <div class="mb-3">
+                                <label for="plugin-name" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="plugin-name" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="plugin-endpoint" class="form-label">Endpoint</label>
+                                <input type="url" class="form-control" id="plugin-endpoint" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="plugin-capabilities" class="form-label">Capabilities (comma-separated)</label>
+                                <input type="text" class="form-control" id="plugin-capabilities" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="plugin-description" class="form-label">Description</label>
+                                <textarea class="form-control" id="plugin-description" rows="2"></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-success">Register</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Update temperature value display
+        document.getElementById('temperature').addEventListener('input', function() {
+            document.getElementById('temperature-value').textContent = this.value;
+        });
+        
+        // Load plugins
+        async function loadPlugins() {
+            try {
+                const response = await fetch('/api/plugins');
+                const data = await response.json();
+                const plugins = data.plugins || [];
+                
+                const pluginsContainer = document.getElementById('plugins-container');
+                pluginsContainer.innerHTML = '';
+                
+                if (plugins.length === 0) {
+                    pluginsContainer.innerHTML = '<div class="text-center">No plugins available</div>';
+                    return;
+                }
+                
+                plugins.forEach(plugin => {
+                    const pluginCard = document.createElement('div');
+                    pluginCard.className = 'plugin-card';
+                    pluginCard.innerHTML = `
+                        <div class="form-check">
+                            <input class="form-check-input plugin-checkbox" type="checkbox" value="${plugin.id}" id="plugin-${plugin.id}">
+                            <label class="form-check-label" for="plugin-${plugin.id}">
+                                <strong>${plugin.name}</strong>
+                                <span class="badge bg-${plugin.status === 'healthy' ? 'success' : 'warning'} ms-2">${plugin.status}</span>
+                                <div class="small text-muted">${plugin.description}</div>
+                                <div class="small">
+                                    ${plugin.capabilities.map(cap => `<span class="badge bg-info me-1">${cap}</span>`).join('')}
+                                </div>
+                            </label>
+                        </div>
+                    `;
+                    pluginsContainer.appendChild(pluginCard);
+                });
+            } catch (error) {
+                console.error('Error loading plugins:', error);
+                document.getElementById('plugins-container').innerHTML = '<div class="text-center text-danger">Error loading plugins</div>';
+            }
+        }
+        
+        // Handle AI form submission
+        document.getElementById('ai-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const prompt = document.getElementById('prompt').value;
+            const routingPolicy = document.getElementById('routing-policy').value;
+            const maxTokens = parseInt(document.getElementById('max-tokens').value);
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            
+            // Get selected plugins
+            const selectedPlugins = Array.from(document.querySelectorAll('.plugin-checkbox:checked')).map(cb => cb.value);
+            
+            // Show loading state
+            const responseContainer = document.getElementById('response-container');
+            responseContainer.style.display = 'block';
+            responseContainer.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2">Generating response...</div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt,
+                        routing_policy: routingPolicy,
+                        max_tokens: maxTokens,
+                        temperature,
+                        plugins: selectedPlugins
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Display response
+                const responseContainer = document.getElementById('response-container');
+                document.getElementById('model-info').textContent = `Source: ${data.source || 'Unknown'} | Model: ${data.model || 'Unknown'}`;
+                document.getElementById('response-text').textContent = data.text || 'No response';
+                responseContainer.style.display = 'block';
+            } catch (error) {
+                console.error('Error generating response:', error);
+                responseContainer.innerHTML = '<div class="text-danger">Error generating response</div>';
+            }
+        });
+        
+        // Handle plugin form submission
+        document.getElementById('plugin-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('plugin-name').value;
+            const endpoint = document.getElementById('plugin-endpoint').value;
+            const capabilities = document.getElementById('plugin-capabilities').value.split(',').map(c => c.trim());
+            const description = document.getElementById('plugin-description').value;
+            
+            try {
+                const response = await fetch('/api/plugins/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        endpoint,
+                        capabilities,
+                        description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'registered') {
+                    alert('Plugin registered successfully!');
+                    document.getElementById('plugin-form').reset();
+                    loadPlugins();
+                } else {
+                    alert('Error registering plugin: ' + JSON.stringify(data));
+                }
+            } catch (error) {
+                console.error('Error registering plugin:', error);
+                alert('Error registering plugin: ' + error.message);
+            }
+        });
+        
+        // Load plugins on page load
+        document.addEventListener('DOMContentLoaded', loadPlugins);
+    </script>
+</body>
+</html>

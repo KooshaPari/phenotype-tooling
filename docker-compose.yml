@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: ./ai-orchestration
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai-orchestration:/app
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+    depends_on:
+      - edge-server
+      - mcp-registry
+
+  edge-server:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    command: serve
+
+  mcp-registry:
+    build:
+      context: ./mcp_auto_register
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./mcp_auto_register:/app
+      - ./plugins:/app/plugins
+
+  wren-engine:
+    build:
+      context: ./wren-engine
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+
+volumes:
+  ollama_models:

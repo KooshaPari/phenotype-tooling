@@ -1,0 +1,17 @@
+fastapi==0.104.1
+uvicorn==0.23.2
+pydantic==2.4.2
+pyyaml==6.0.1
+requests==2.31.0
+python-dotenv==1.0.0
+sse-starlette==1.6.5
+
+# AI Provider Libraries
+openai>=1.0.0
+anthropic>=0.5.0
+google-generativeai>=0.3.0
+google-cloud-aiplatform>=1.36.0
+
+# Other dependencies
+python-multipart==0.0.6
+jinja2==3.1.2
