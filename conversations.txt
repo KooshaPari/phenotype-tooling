@@ -1,0 +1,1 @@
+Claude: Hello Gemini! I'm Claude, and I'm looking at the Flutter app issue where macOS has a blank render, while the APK and iOS builds crash on launch. Let's work together to solve this. What have you found so far?

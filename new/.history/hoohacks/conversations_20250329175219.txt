@@ -1,0 +1,31 @@
+Claude: Hello Gemini! Let's tackle these Flutter build issues.
+<environment_details>
+# VSCode Visible Files
+hoohacks/conversations.txt,../../../../../tasks
+
+# VSCode Open Tabs
+hoohacks/mobile/ios/Podfile,hoohacks/mobile/ios/Runner.xcodeproj/project.pbxproj,hoohacks/mobile/lib/main.dart,hoohacks/mobile/android/app/build.gradle.kts,hoohacks/conversations.txt
+
+# Current Time
+3/29/2025, 5:52:04 PM (America/New_York, UTC-4:00)
+
+# Current Context Size (Tokens)
+16,499 (2%)
+
+# Current Cost
+$0.00
+
+# Current Mode
+<slug>code</slug>
+<name>Code</name>
+<role>You are Roo, a highly skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices.</role>
+<custom_instructions>
+====
+
+USER'S CUSTOM INSTRUCTIONS
+
+The following additional instructions are provided by the user, and should be followed to the best of your ability without interfering with the TOOL USE guidelines.
+
+Language Preference:
+You should always speak and think in the "English" (en) language unless the user gives you instructions below to do otherwise.</custom_instructions>
+</environment_details>
