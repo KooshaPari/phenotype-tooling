@@ -1,0 +1,16 @@
+{
+  "npmName": "@smartcp/bifrost-extensions",
+  "npmVersion": "2.0.0",
+  "npmRepository": "https://www.npmjs.com/package/@smartcp/bifrost-extensions",
+  "npmAuthor": "SmartCP Team",
+  "npmAuthorEmail": "team@smartcp.ai",
+  "gitUserId": "smartcp",
+  "gitRepoId": "bifrost-extensions",
+  "hideGenerationTimestamp": true,
+  "generateAliasAsModel": false,
+  "enumPropertyNaming": "PascalCase",
+  "typescriptThreePlus": true,
+  "supportsES6": true,
+  "modelPackage": "models",
+  "apiPackage": "api"
+}
