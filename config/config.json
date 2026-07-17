@@ -1,0 +1,330 @@
+{
+  "mcpServers": {
+    "Office-PowerPoint-MCP-Server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "@GongRzhe/Office-PowerPoint-MCP-Server"
+      ]
+    },
+    "mcp-installer": {
+      "command": "npx",
+      "args": [
+        "@anaisbetts/mcp-installer"
+      ]
+    },
+    "server-memory": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "playwright-mcp-server": {
+      "command": "npx",
+      "args": [
+        "@executeautomation/playwright-mcp-server",
+        "-y"
+      ]
+    },
+    "server-sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "server-puppeteer": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-puppeteer",
+        "-y"
+      ]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "REDACTED_AIRLOCK"
+      }
+    },
+    "server-everything": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-everything"
+      ]
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git"
+      ]
+    },
+    "server-github": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-github"
+      ]
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ]
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://localhost/mydb"
+      ]
+    },
+    "gemini": {
+      "command": "npx",
+      "args": [
+        "github:aliargun/mcp-server-gemini",
+        "-y"
+      ],
+      "env": {
+        "GEMINI_API_KEY": "REDACTED_AIRLOCK"
+      }
+    },
+    "manus-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/kooshapari/manus-mcp",
+        "run",
+        "mcp_server.py"
+      ]
+    },
+    "playwright-server": {
+      "command": "npx",
+      "args": [
+        "playwright-server"
+      ]
+    },
+    "Context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "mcp-server-everything-search": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-everything-search"
+      ]
+    },
+    "memorymesh": {
+      "command": "node",
+      "args": [
+        "/Users/kooshapari//memorymesh/dist/index.js"
+      ]
+    },
+    "mcp-summarizer": {
+      "command": "npx",
+      "args": [
+        "mcp-summarizer"
+      ]
+    },
+    "osp_marketing_tools": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/open-strategy-partners/osp_marketing_tools@main",
+        "osp_marketing_tools"
+      ]
+    },
+    "mcp-package-version": {
+      "command": "npx",
+      "args": [
+        "mcp-package-version"
+      ]
+    },
+    "postman": {
+      "command": "node",
+      "args": [
+        "/Users/kooshapari/postman-mcp-server/build/index.js"
+      ],
+      "env": {
+        "POSTMAN_API_KEY": "REDACTED_AIRLOCK"
+      }
+    },
+    "mcp-pandoc": {
+      "command": "uvx",
+      "args": [
+        "mcp-pandoc"
+      ]
+    },
+    "website-downloader": {
+      "command": "node",
+      "args": [
+        "/Users/kooshapari/website-downloader/build/index.js"
+      ]
+    },
+    "sql-analyzer": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/kooshapari/mcp-server-sql-analyzer",
+        "run",
+        "mcp-server-sql-analyzer"
+      ]
+    },
+    "excel-mcp-server": {
+      "command": "npx",
+      "args": [
+        "excel-mcp-server"
+      ]
+    },
+    "mindmap": {
+      "command": "uvx",
+      "args": [
+        "mindmap-mcp-server",
+        "--return-type",
+        "html"
+      ]
+    },
+    "mcp-git-ingest": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/adhikasp/mcp-git-ingest",
+        "mcp-git-ingest"
+      ]
+    },
+    "mcp-server": {
+      "command": "npx",
+      "args": [
+        "@makehq/mcp-server"
+      ]
+    },
+    "mcp-sequentialthinking-tools": {
+      "command": "npx",
+      "args": [
+        "mcp-sequentialthinking-tools"
+      ]
+    },
+    "todoist": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@abhiz123/todoist-mcp-server"
+      ],
+      "env": {
+        "TODOIST_API_TOKEN": "REDACTED_AIRLOCK"
+      }
+    },
+    "server-aws-kb-retrieval": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-aws-kb-retrieval"
+      ]
+    },
+    "mcp-server-taskwarrior": {
+      "command": "npx",
+      "args": [
+        "mcp-server-taskwarrior"
+      ]
+    },
+    "magic": {
+      "command": "npx",
+      "args": [
+        "@21st-dev/magic"
+      ]
+    },
+    "wcgw": {
+      "command": "uvx",
+      "args": [
+        "wcgw"
+      ]
+    },
+    "mcp-simple-timeserver": {
+      "command": "uvx",
+      "args": [
+        "mcp-simple-timeserver"
+      ]
+    },
+    "godoc": {
+      "command": "/Users/kooshapari/godoc-mcp",
+      "args": [],
+      "env": {
+        "GOPATH": "/Users/kooshapari/go",
+        "GOMODCACHE": "/Users/kooshapari/go/pkg/mod"
+      }
+    },
+    "mcp-server-kubernetes": {
+      "command": "npx",
+      "args": [
+        "mcp-server-kubernetes"
+      ]
+    },
+    "mcp-server-sqlite": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-sqlite"
+      ]
+    },
+    "docker-mcp": {
+      "command": "uvx",
+      "args": [
+        "docker-mcp"
+      ]
+    },
+    "google_kit": {
+      "command": "google-kit",
+      "args": [
+        "-env",
+        "/Users/kooshapari/.env"
+      ]
+    },
+    "fetch_kit": {
+      "command": "fetch-kit",
+      "args": [
+        "-env",
+        "/Users/kooshapari/.env"
+      ]
+    },
+    "research_kit": {
+      "command": "research-kit",
+      "args": [
+        "-env",
+        "/Users/kooshapari/.env"
+      ]
+    },
+    "dev_kit": {
+      "command": "dev-kit",
+      "args": [
+        "-env",
+        "/Users/kooshapari/.env",
+        "-protocol",
+        "stdio"
+      ]
+    },
+    "agent-management": {
+      "command": "python",
+      "args": [
+        "scripts/run_agent_management_server.py"
+      ],
+      "transport": "stdio",
+      "autoApprove": [
+        "create_agent",
+        "get_agent",
+        "list_agents",
+        "update_agent",
+        "delete_agent",
+        "invoke_agent",
+        "send_message",
+        "broadcast_message",
+        "get_messages",
+        "receive_messages"
+      ]
+    }
+  }
+}

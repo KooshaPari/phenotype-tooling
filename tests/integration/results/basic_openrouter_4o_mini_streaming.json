@@ -1,0 +1,15 @@
+{
+  "test_name": "basic_openrouter_4o_mini_streaming",
+  "prompt": "Hello! What is 1+1?",
+  "response": {
+    "id": "mock-openrouter/gpt-4o-mini-True",
+    "model": "openrouter/gpt-4o-mini",
+    "content": "This is a mock response for Hello! What is 1+1?",
+    "streaming": true
+  },
+  "evaluation": {
+    "content_length": 47,
+    "has_expected_content": false,
+    "critique": ""
+  }
+}

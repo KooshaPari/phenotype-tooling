@@ -1,0 +1,17 @@
+{
+  "mcp_servers": [
+    {
+      "name": "server-sequential-thinking",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "auto_approve": [
+        "sequentialthinking"
+      ],
+      "timeout": 60
+    }
+  ],
+  "mcp_tools": []
+}

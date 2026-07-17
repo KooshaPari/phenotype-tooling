@@ -1,0 +1,18 @@
+{
+  "test_name": "tool_check_openrouter_4o_mini_non_streaming",
+  "prompt": "What MCP tools do you have access to?",
+  "config_tools": [
+    "sequentialthinking"
+  ],
+  "response": {
+    "id": "mock-openrouter/gpt-4o-mini-False",
+    "model": "openrouter/gpt-4o-mini",
+    "content": "This is a mock response for What MCP tools do you have access to?",
+    "streaming": false
+  },
+  "evaluation": {
+    "content_length": 65,
+    "has_expected_content": false,
+    "critique": ""
+  }
+}

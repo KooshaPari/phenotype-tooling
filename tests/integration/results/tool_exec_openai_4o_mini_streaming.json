@@ -1,0 +1,20 @@
+{
+  "test_name": "tool_exec_openai_4o_mini_streaming",
+  "prompt": "Use Sequential Thinking to solve this problem: How would you design a system to automatically categorize and tag incoming customer support tickets?",
+  "sequential_thinking_tool_info": {
+    "name": "sequentialthinking",
+    "description": "A tool for breaking down complex problems into sequential steps of thinking.",
+    "server": "server-sequential-thinking"
+  },
+  "response": {
+    "id": "mock-gpt-4o-mini-True",
+    "model": "gpt-4o-mini",
+    "content": "This is a mock response for Use Sequential Thinking to solve this problem: How would you design a system to automatically categorize and tag incoming customer support tickets?",
+    "streaming": true
+  },
+  "evaluation": {
+    "content_length": 175,
+    "has_expected_content": false,
+    "critique": ""
+  }
+}

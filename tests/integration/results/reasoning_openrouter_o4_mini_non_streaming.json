@@ -1,0 +1,15 @@
+{
+  "test_name": "reasoning_openrouter_o4_mini_non_streaming",
+  "prompt": "Explain the concept of recursion in programming and provide a simple example.",
+  "response": {
+    "id": "mock-openrouter/gpt-4o-False",
+    "model": "openrouter/gpt-4o",
+    "content": "This is a mock response for Explain the concept of recursion in programming and provide a simple example.",
+    "streaming": false
+  },
+  "evaluation": {
+    "content_length": 105,
+    "has_expected_content": false,
+    "critique": ""
+  }
+}

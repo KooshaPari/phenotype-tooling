@@ -1,0 +1,262 @@
+{
+  "mcpServers": {
+    "server-memory": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "playwright-mcp-server": {
+      "command": "npx",
+      "args": [
+        "@executeautomation/playwright-mcp-server",
+        "-y"
+      ]
+    },
+    "server-sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "server-puppeteer": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-puppeteer",
+        "-y"
+      ]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "REDACTED_AIRLOCK"
+      }
+    },
+    "server-everything": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-everything"
+      ]
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git"
+      ]
+    },
+    "server-github": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-github"
+      ]
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ]
+    },
+    "manus-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/kooshapari/manus-mcp",
+        "run",
+        "mcp_server.py"
+      ]
+    },
+    "memorymesh": {
+      "command": "node",
+      "args": [
+        "/Users/kooshapari//memorymesh/dist/index.js"
+      ]
+    },
+    "osp_marketing_tools": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/open-strategy-partners/osp_marketing_tools@main",
+        "osp_marketing_tools"
+      ]
+    },
+    "mcp-package-version": {
+      "command": "npx",
+      "args": [
+        "mcp-package-version"
+      ]
+    },
+    "postman": {
+      "command": "node",
+      "args": [
+        "/Users/kooshapari/postman-mcp-server/build/index.js"
+      ],
+      "env": {
+        "POSTMAN_API_KEY": "REDACTED_AIRLOCK"
+      }
+    },
+    "mcp-pandoc": {
+      "command": "uvx",
+      "args": [
+        "mcp-pandoc"
+      ]
+    },
+    "mindmap": {
+      "command": "uvx",
+      "args": [
+        "mindmap-mcp-server",
+        "--return-type",
+        "html"
+      ]
+    },
+    "mcp-git-ingest": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/adhikasp/mcp-git-ingest",
+        "mcp-git-ingest"
+      ]
+    },
+    "mcp-sequentialthinking-tools": {
+      "command": "npx",
+      "args": [
+        "mcp-sequentialthinking-tools"
+      ]
+    },
+    "mcp-server-taskwarrior": {
+      "command": "npx",
+      "args": [
+        "mcp-server-taskwarrior"
+      ]
+    },
+    "wcgw": {
+      "command": "uvx",
+      "args": [
+        "wcgw"
+      ]
+    },
+    "agent-management": {
+      "command": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/fastmcp_wrapper.sh",
+      "args": [
+        "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/central_agent_server.py"
+      ],
+      "transport": "stdio",
+      "autoApprove": [
+        "create_agent",
+        "get_agent",
+        "list_agents",
+        "update_agent",
+        "delete_agent",
+        "check_agent_health",
+        "get_conversation_history",
+        "list_prompts",
+        "get_prompt",
+        "create_prompt",
+        "push_prompt_to_agent",
+        "send_message_to_agent",
+        "get_agent_messages"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new",
+        "PYTHONIOENCODING": "utf-8",
+        "MCP_MODE": "stdio",
+        "PYTHONUNBUFFERED": "1",
+        "HOME": "/Users/kooshapari",
+        "AGENT_REGISTRY_DB": "/Users/kooshapari/.agent_manager/agent_registry.db"
+      }
+    },
+    "agent-communication": {
+      "command": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/fastmcp_wrapper.sh",
+      "args": [
+        "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/agent_communication.py"
+      ],
+      "transport": "stdio",
+      "autoApprove": [
+        "send_message_to_agent",
+        "get_agent_messages",
+        "get_conversation_history",
+        "assign_task_to_agent",
+        "submit_task_result"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new",
+        "PYTHONIOENCODING": "utf-8",
+        "MCP_MODE": "stdio",
+        "PYTHONUNBUFFERED": "1",
+        "HOME": "/Users/kooshapari",
+        "AGENT_REGISTRY_DB": "/Users/kooshapari/.agent_manager/agent_registry.db"
+      }
+    },
+    "task-management": {
+      "command": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/fastmcp_wrapper.sh",
+      "args": [
+        "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/task_management.py"
+      ],
+      "transport": "stdio",
+      "autoApprove": [
+        "create_task",
+        "get_task",
+        "update_task",
+        "create_wbs",
+        "get_wbs",
+        "list_tasks"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new",
+        "PYTHONIOENCODING": "utf-8",
+        "MCP_MODE": "stdio",
+        "PYTHONUNBUFFERED": "1",
+        "HOME": "/Users/kooshapari",
+        "AGENT_REGISTRY_DB": "/Users/kooshapari/.agent_manager/agent_registry.db"
+      }
+    },
+    "swe-agent": {
+      "command": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/fastmcp_wrapper.sh",
+      "args": [
+        "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/swe_agent.py"
+      ],
+      "transport": "stdio",
+      "autoApprove": [
+        "create_swe_agent",
+        "create_swe_team"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new",
+        "PYTHONIOENCODING": "utf-8",
+        "MCP_MODE": "stdio",
+        "PYTHONUNBUFFERED": "1",
+        "HOME": "/Users/kooshapari",
+        "AGENT_REGISTRY_DB": "/Users/kooshapari/.agent_manager/agent_registry.db"
+      }
+    },
+    "team-communication": {
+      "command": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/fastmcp_wrapper.sh",
+      "args": [
+        "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new/scripts/team_communication.py"
+      ],
+      "transport": "stdio",
+      "autoApprove": [
+        "send_message_to_agent",
+        "send_message_to_thread",
+        "broadcast_message",
+        "get_messages",
+        "create_thread",
+        "join_thread",
+        "get_thread_details",
+        "check_new_messages",
+        "transfer_file"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/kooshapari/Downloads/home-2/ubuntu/swe_agent_project/new/new",
+        "PYTHONIOENCODING": "utf-8",
+        "MCP_MODE": "stdio",
+        "PYTHONUNBUFFERED": "1",
+        "HOME": "/Users/kooshapari",
+        "AGENT_REGISTRY_DB": "/Users/kooshapari/.agent_manager/agent_registry.db"
+      }
+    }
+  }
+}
