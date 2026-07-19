@@ -1,0 +1,12 @@
+[package]
+name = "benchora"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Eval/perf harness boundary — Benchora absorb home for suite-facing Harbor soft-eval and perf harness layers"
+publish = false
+readme = "README.md"
+repository.workspace = true
+
+[lib]
+path = "src/lib.rs"

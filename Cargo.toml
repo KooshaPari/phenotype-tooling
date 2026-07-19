@@ -11,6 +11,7 @@ members = [
     "crates/agent-orchestrator",
     "crates/audit-privacy",
     "crates/bench-guard",
+    "crates/benchora",
     "crates/commit-msg-check",
     "crates/doc-link-check",
     "crates/fr-coverage",
