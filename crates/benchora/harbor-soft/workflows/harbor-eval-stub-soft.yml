@@ -1,0 +1,30 @@
+name: Harbor eval stub (soft)
+
+# Suite home: phenotype-tooling/crates/benchora/harbor-soft
+# Harbor fork/env: https://github.com/KooshaPari/portage-temp
+# sharecli no longer owns Harbor soft CI — wire this workflow from phenotype-tooling.
+# Corpus preflight requires SHARECLI_ROOT (sharecli checkout with run-corpus.sh).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/benchora/harbor-soft/**'
+      - 'crates/benchora/**'
+
+permissions:
+  contents: read
+
+jobs:
+  harbor-stub:
+    name: Harbor eval stub (corpus preflight)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run Harbor eval stub
+        env:
+          # Required: point at a checked-out sharecli tree with scripts/eval/run-corpus.sh
+          SHARECLI_ROOT: ${{ env.SHARECLI_ROOT }}
+        run: bash crates/benchora/harbor-soft/scripts/harbor_stub.sh

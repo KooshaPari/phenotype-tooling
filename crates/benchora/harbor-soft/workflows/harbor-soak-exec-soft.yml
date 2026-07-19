@@ -1,0 +1,32 @@
+name: Harbor soak exec (soft)
+
+# Suite home: phenotype-tooling/crates/benchora/harbor-soft
+# Harbor fork/env: https://github.com/KooshaPari/portage-temp
+# C08 L76 — Phase 3 soak execution scaffold (continue-on-error).
+# Complements harbor-eval-stub-soft.yml; records local parity in CI logs.
+# sharecli no longer owns Harbor soft CI.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/benchora/harbor-soft/**'
+      - 'crates/benchora/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harbor-soak-exec:
+    name: Harbor soak exec (local parity)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run Harbor soak execution scaffold
+        env:
+          SHARECLI_ROOT: ${{ env.SHARECLI_ROOT }}
+          BENCHORA_HARBOR_SOAK_SOURCE: github-actions
+        run: bash crates/benchora/harbor-soft/scripts/harbor_soak.sh
