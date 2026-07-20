@@ -22,7 +22,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # RSS / process-info sampling (cross-platform)
-sysinfo = "0.33"
+sysinfo = "0.39"
 
 [dev-dependencies]
 tempfile = "3"
