@@ -19,6 +19,10 @@ npm install
 
 See [SPEC.md](SPEC.md) for the full specification and [llms.txt](llms.txt) for machine-readable metadata.
 
+## Design system (`@phenotype/design`)
+
+The former `packages/design/` package has moved to the canonical **[phenoDesign](https://github.com/KooshaPari/phenoDesign)** repository. See [`packages/design/ARCHIVED.md`](packages/design/ARCHIVED.md) for dependency instructions.
+
 
 Copy this entire directory into a new repository root (or use `hexakit genesis init` when available).
 
