@@ -175,8 +175,7 @@ jobs:
           TOTAL_MISSED=0
           > mutants-summary-all.txt
           if [ -d mutants-out ]; then
-            for f in mutants-out/mutants-summary.txt mutants-out/*/mutants-summary.txt; do
-              [ -f "$f" ] || continue
+            while IFS= read -r f; do
               while IFS= read -r line; do
                 echo "$line" >> mutants-summary-all.txt
                 # Lines look like:  "<crate> caught=N missed=M pct=XX.XX%"
@@ -185,7 +184,7 @@ jobs:
                   TOTAL_MISSED=$((TOTAL_MISSED + ${BASH_REMATCH[2]}))
                 fi
               done < "$f"
-            done
+            done < <(find mutants-out -type f -name mutants-summary.txt -print)
           fi
           GRAND_TOTAL=$((TOTAL_CAUGHT + TOTAL_MISSED))
           if [ "$GRAND_TOTAL" -eq 0 ]; then
@@ -197,7 +196,7 @@ jobs:
           {
             echo "## Mutation score (workspace aggregate)"
             echo ""
-            echo "- crates: $(grep -c 'caught=' mutants-summary-all.txt 2>/dev/null || echo 0)"
+            echo "- crates: $(awk '/caught=[0-9]+ missed=[0-9]+/{count++} END{print count+0}' mutants-summary-all.txt)"
             echo "- caught: ${TOTAL_CAUGHT}"
             echo "- missed: ${TOTAL_MISSED}"
             echo "- caught-pct: ${PCT}%"
