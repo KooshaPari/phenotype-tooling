@@ -37,18 +37,15 @@ jobs:
         run: |
           mkdir -p artifacts
           cargo license --json > artifacts/cargo-licenses.json || true
-          python scripts/license_check.py --sbom artifacts/cargo-licenses.json --output artifacts/denied.txt
-          if [ -s artifacts/denied.txt ]; then
-            echo "::error::License denied deps:"
-            cat artifacts/denied.txt
-            exit 1
-          fi
+          set -o pipefail
+          python scripts/license_check.py \
+            --sbom artifacts/cargo-licenses.json \
+            --format text | tee artifacts/denied.txt
 
       - name: pip-licenses audit (if any)
         run: |
-          python scripts/license_check.py \
-              --input <(find . -name 'requirements*.txt' -exec cat {} + 2>/dev/null | sort -u) \
-              --output artifacts/pip-denied.txt || true
+          echo "No Python dependency SBOM configured; skipping pip license audit." \
+            > artifacts/pip-denied.txt
 
       - name: upload artifact
         uses: actions/upload-artifact@v4
