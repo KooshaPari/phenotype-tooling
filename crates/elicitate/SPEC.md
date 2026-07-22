@@ -229,7 +229,47 @@ If the daemon dies, the inbox directory is still the source of truth. The
 next daemon instance re-reads it on startup and re-notifies any request
 older than `--retry-after` that hasn't been answered.
 
-### 10.4 Install
+### 10.4 Tray icon (v0.4.0)
+
+`elicitate daemon` shows a persistent tray icon while it runs, behind the
+`--features tray-native` Cargo feature. The feature is **off by default** so
+the default build stays portable (no `objc2`, no `windows-sys`, no GTK).
+
+API surface (`elicitate::tray`):
+
+```rust
+pub trait Tray: Send {
+    fn update_badge(&self, pending: usize);
+    fn update_tooltip(&self, text: &str);
+    fn poll_menu_action(&self, timeout: Duration) -> Option<MenuAction>;
+    fn shutdown(&self);
+}
+
+pub enum MenuAction { OpenInbox, OpenLatest(String), ToggleQuiet, Quit }
+
+pub fn build_tray(cfg: &TrayConfig) -> Result<Arc<dyn Tray>, TrayError>;
+```
+
+`NoopTray` is always compiled and used when `tray-native` is not enabled.
+`NativeTray` wraps `tray-icon 0.24`, which under the hood uses
+`objc2-app-kit` on macOS, `windows-sys` `Shell_NotifyIconW` on Windows,
+and `libappindicator` on Linux.
+
+Why an owning-thread + channel architecture: `tray-icon`'s `TrayIcon` is
+`!Sync` (it holds `NSStatusItem` on macOS). The trait is therefore
+`Send`-only (not `Sync`); the `TrayIcon` lives on a dedicated OS thread
+that owns it for its lifetime, and `poll_menu_action` does a non-blocking
+`try_recv` on a `crossbeam_channel` from any other thread.
+
+Daemon CLI additions for v0.4.0:
+
+- `elicitate daemon --no-tray` — skip tray initialization (silently
+  no-ops if the feature isn't compiled in).
+- The tray badge updates whenever the inbox transitions
+  (`enqueue` / `answer` / `purge`) via a `NotifierHandle` callback
+  wired into `run_notifier_loop`.
+
+### 10.5 Install
 
 `elicitate install` is a one-shot setup that:
 
@@ -270,3 +310,10 @@ A reviewer should be able to:
     `elicitate uninstall --prefix /tmp/test --yes` and confirm they're gone.
 12. Run `elicitate daemon --inbox-dir /tmp/test --port 0` (random port) and confirm it serves
     `GET /health` returning 200.
+13. With `cargo build -p elicitate --features tray-native`, run
+    `elicitate daemon --port 0 --inbox-dir /tmp/test` on macOS / Windows and verify
+    a tray icon appears with a pending count badge. The badge increments when
+    `elicitate ask --async` enqueues a request and decrements when
+    `elicitate answer` resolves it.
+14. `cargo test -p elicitate --features tray-native` and `cargo test -p elicitate`
+    (default features) both pass — same test count, same test IDs.

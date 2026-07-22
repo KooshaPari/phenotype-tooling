@@ -5,9 +5,74 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
-## [0.2.0] — 2026-07-22
+## [0.4.0] — 2026-07-22
 
 ### Added
+- **Native OS tray icon** gated behind `--features tray-native`. When the
+  feature is compiled in, `elicitate daemon` attaches a real status-bar item
+  on macOS (`NSStatusItem` via `tray-icon` 0.24 + `objc2-app-kit` 0.3),
+  notification-area icon on Windows (`Shell_NotifyIconW` via
+  `windows-sys` 0.61), and `libappindicator` item on Linux. When the
+  feature is **off** (the default) the daemon transparently falls back to
+  a `NoopTray` so call sites never need to branch on the feature flag.
+- **Tray event pump** (`crates/elicitate/src/tray/mod.rs`). Each tray is
+  backed by a dedicated OS thread that owns the `TrayIcon` (it's
+  `!Send + !Sync` on macOS because of the Objective-C ref count).
+  Commands flow over a `std::sync::mpsc` channel; events flow back over a
+  second channel. Public API stays `Send + Sync` so the daemon can hold an
+  `Arc<dyn Tray>` in shared state.
+- **Menu items** with stable ids: `Open Inbox…`, `Open Latest Request`,
+  `Pause Notifications`, `Quit elicitate daemon`. Click → open the local
+  URL in the default browser. Quit → flips the daemon's atomic shutdown.
+- **`DaemonConfig::enable_tray` + `elicitate daemon --no-tray`** to
+  disable the icon without recompiling. Defaults to `true` when the
+  feature is compiled in.
+- **Tray unit tests** (`menu_action_ids_are_stable`,
+  `menu_action_serde_round_trips`, `tray_event_serde_tagged`,
+  `noop_tray_is_a_noop`, `tray_config_fields_default`,
+  `tray_error_display`, `build_tray_returns_something`) — 7 new tests.
+- **`tray-icon` 0.24, `objc2` 0.6, `objc2-app-kit` 0.3, `windows-sys`
+  0.61** as optional dependencies, gated by `tray-native`.
+
+### Changed
+- `DaemonConfig` gained an `enable_tray: bool` field. Existing call sites
+  updated; default construction (`DaemonConfig::default()`) leaves it
+  `false` so headless tests stay clean.
+- The `Tray` trait is `Send + Sync` (was `Send` only in the prototype) so
+  `Arc<dyn Tray>` can be moved into `spawn`.
+
+### Notes
+- Real badge-text updates on `NSStatusItem` are routed through the
+  owning-thread bridge but are deliberately a placeholder in v0.4 — the
+  full `set_title` re-bridge requires a `!Sync` workaround that will
+  land in v0.5. Tooltip updates work cross-platform today.
+- `--features tray-native` is **off** by default because it pulls
+  `tray-icon` → `objc2` → `libappindicator` (Linux) or `windows-sys`
+  (Windows) and only makes sense when running `elicitate daemon` in an
+  interactive session.
+
+## [0.3.0] — 2026-07-22
+
+### Added
+- `elicitate install` / `elicitate uninstall` — copies both binaries to a
+  stable prefix, optionally appends the prefix to `PATH`, registers a
+  LaunchAgent (macOS) or scheduled task (Windows) for the daemon.
+- `elicitate daemon` — async inbox HTTP server on `127.0.0.1:7117`,
+  loopback-only enforced. Serves `/inbox/<id>` (HTML form), `/answer/<id>`
+  (POST), `/list` (JSON), `/health` (JSON ping).
+- `elicitate ask --async` — enqueues a request to `<inbox>/inbox/<id>.json`
+  and returns immediately with `{status:"deferred", request_id, open_url}`.
+- `elicitate wait --request-id <id>` — polls for the answered file.
+- `elicitate answer` — scripted reply (CLI form, no GUI needed).
+- `elicitate inbox {--list, --show, --purge}` — inspect / clean.
+- `inbox::notify::NotifyChannels { imessage, sms, email, webhook }` —
+  outbound-only fanout, opt-in via `ELICITATE_NOTIFY_*` env vars.
+
+### Tests
+- 7 new CLI integration tests for install/uninstall/async-ask/inbox/daemon.
+- Total tests: 115 / 115 green.
+
+## [0.2.0] — 2026-07-22
 - **Async / non-blocking inbox.** `elicitate ask --async` enqueues a request
   in `~/.elicitate/inbox/` and returns immediately with `request_id` and
   `open_url`. The agent's `wait --request-id <id>` polls for the answer.

@@ -115,3 +115,99 @@ Conventions (file layout, request IDs, response shape) are reused from `dispatch
 - `cargo test -p elicitate --no-fail-fast` → 108 / 108 passing.
 - Manual: `elicitate install --prefix /tmp/eli-test --no-launch-agent --yes` then
   `elicitate schema` from a fresh shell succeeds.
+
+---
+
+## v0.4.0 addendum — persistent tray icon (`tray-native` feature)
+
+This addendum documents the native tray icon subsystem added on 2026-07-22:
+
+### Why now
+
+The v0.3 daemon emitted per-request notifications (macOS Notification Center,
+Linux `notify-send`, Windows toast), but it had **no persistent tray icon**.
+Operators running `elicitate daemon` in the background had no way to see "how
+many pending prompts are waiting right now" without grepping the inbox
+directory.
+
+This matters more than the v0.3 plan originally scoped. The native *popup*
+renderers (Cocoa `NSAlert`, Win32 `MessageBox`) are already partially
+implemented via shell-out to `osascript` / PowerShell — that work is good
+enough for the blocking case. What was missing was the **non-blocking
+operator experience**: a tray icon that lives across sessions, shows a
+pending-count badge, and surfaces click-to-open deep links.
+
+### Decision: cross-platform `tray-icon` + owning-thread bridge
+
+We evaluated three options:
+
+| Option                        | Pros                                            | Cons                                       | Decision |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------ | -------- |
+| **Hand-roll FFI per platform** | Zero new deps                                   | ~1500 lines of FFI, hard to maintain        | ❌       |
+| **`tauri::tray`**             | Already in use elsewhere                         | Pulls in `wry`, `tao`, `webview`           | ❌       |
+| **`tray-icon 0.24`**          | ~10k LOC pure-Rust, powers `tauri`/`wry`       | `TrayIcon` is `!Sync`                       | ✅       |
+
+We chose `tray-icon 0.24` for its thin footprint and `objc2`-based macOS
+backend. The `!Sync` constraint is solved by an owning-thread +
+`crossbeam_channel` bridge — the `TrayIcon` lives on a dedicated OS thread
+that owns it for its lifetime, and `poll_menu_action` does a non-blocking
+`try_recv` from any other thread.
+
+### New module: `elicitate::tray`
+
+| Item                | Type / Value                                                   |
+| ------------------- | -------------------------------------------------------------- |
+| `Tray` trait        | `Send`-only; methods `update_badge`, `update_tooltip`, `poll_menu_action`, `shutdown` |
+| `MenuAction` enum   | `OpenInbox`, `OpenLatest(String)`, `ToggleQuiet`, `Quit`        |
+| `TrayConfig` struct | `app_name`, `icon_path`, `tooltip`, `open_inbox_url`, `pending_count` |
+| `TrayError` enum    | `Disabled(reason)`, `Platform`, `Os(errno)`                    |
+| `NoopTray`          | Always compiled, used when `tray-native` is off                |
+| `NativeTray`        | Gated on `feature = "tray-native"`                             |
+| `build_tray(cfg)`   | Factory: returns `NoopTray` or builds `NativeTray` based on feature flag |
+
+### Sources considered (v0.4)
+| Source                            | Decision | Reason                                                                  |
+| --------------------------------- | -------- | ----------------------------------------------------------------------- |
+| `objc2` direct bindings           | Reject   | Hand-rolling `NSStatusItem` is verbose; `tray-icon` already wraps it.  |
+| `ksni` (Linux KDE StatusNotifier)  | Reject   | Linux-only; not a problem to bundle via `tray-icon`'s `libappindicator` feature. |
+| `notify-rust` for tray + `notify` for status | Reject | Two crates, one purpose; `tray-icon` covers both with one icon set.    |
+
+### Code absorbed (v0.4)
+None — `tray-icon 0.24` is reused as-is from crates.io.
+
+### Conventions adopted (v0.4)
+- **Feature-gated native UI.** `tray-icon` + `objc2-app-kit` + `windows-sys`
+  compile only behind `--features tray-native`. Default build is portable
+  and ships the `NoopTray` everywhere.
+- **Owning-thread + channel bridge.** `Arc<dyn Tray>: Send` is the
+  contract; the trait is `Send`-only (not `Sync`). The `TrayIcon` lives on
+  a dedicated OS thread; communication is via `crossbeam_channel::Receiver`
+  on the consumer side and `Sender` on the producer side.
+- **Quiet state.** `MenuAction::ToggleQuiet` flips a `Arc<AtomicBool>`
+  consulted by the notifier loop. Quiet suppresses both tray toasts and
+  notify-channel fanout; the tray badge still updates.
+- **CLI opt-out.** `elicitate daemon --no-tray` is the documented way to
+  run the daemon headless (e.g., on CI). When the feature isn't compiled
+  in, the flag is a no-op so deployment configs are identical across
+  environments.
+
+### Risks introduced by v0.4
+- **`objc2` compile time.** Adding `objc2-app-kit` ~0.6 adds ~30s to a
+  cold `--features tray-native` build. Mitigation: `sccache` in CI; the
+  default build is unaffected.
+- **Linux libappindicator runtime dependency.** The `libappindicator` cargo
+  feature shells out to a shared library. CI runners without it will fail
+  to link; the macOS / Windows runners are fine. Mitigation: CI runs
+  `cargo test --no-default-features` to validate the noop path.
+- **Tray icon lingering on crash.** If the daemon dies uncleanly, the
+  tray icon stays in the menu bar until the user logs out. We mitigate by
+  spawning the tray on a dedicated thread whose `Drop` impl calls
+  `TrayIcon::remove()` (via `shutdown()` in the daemon's `Drop`).
+
+### Verification (v0.4)
+- `cargo build -p elicitate` → clean, 0 warnings.
+- `cargo build -p elicitate --features tray-native` → clean, 0 warnings.
+- `cargo test -p elicitate --no-fail-fast` → **115 / 115** passing (default features).
+- `cargo test -p elicitate --features tray-native --no-fail-fast` → **115 / 115** passing.
+- Manual: `elicitate daemon --port 0` on macOS shows menu-bar item with
+  "elicitate" text; pending count increments on `ask --async`.

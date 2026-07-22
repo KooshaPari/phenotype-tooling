@@ -173,6 +173,7 @@ pub fn build_tray(cfg: TrayConfig) -> TrayResult<Arc<dyn Tray>> {
 /// 3. The daemon was launched with `--no-tray`.
 #[derive(Debug)]
 pub struct NoopTray {
+    #[allow(dead_code)]
     cfg: TrayConfig,
 }
 

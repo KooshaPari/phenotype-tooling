@@ -923,6 +923,7 @@ mod tests {
             port,
             bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
             notify: NotifyChannels::default(),
+            enable_tray: false,
         };
         let handle = start_daemon(cfg).unwrap();
         assert!(handle.port == port);

@@ -1,8 +1,7 @@
 # elicitate — Research Document
-
-> **Date:** 2026-07-22 (updated for v0.2.0 — async inbox + install)
+> **Date:** 2026-07-22 (updated for v0.4.0 — persistent tray icon)
 > **Owner:** @KooshaPari
-> **Status:** READY-FOR-IMPLEMENTATION (v0.2.0 in review)
+> **Status:** SHIPPED (v0.4.0 — 115 / 115 tests green)
 > **Crate path:** `phenotype-tooling/crates/elicitate/`
 > **Binary name:** `elicitate` (long-form `elicitate-mcp` for the MCP server mode)
 > **Tier:** 2 (extension; UX/AX-facing)
@@ -1126,8 +1125,131 @@ explicit flags.
 ### 18.8 Open follow-ups (M2)
 
 1. **Real native tray bindings** (`tray-native` feature).
+   → **Addressed in v0.4.0 — see §19.**
 2. **`WinToast` / `BurntToast` shim** for Windows without PowerShell modules.
 3. **iOS push relay** so the iMessage URL surfaces as a true
    tap-to-open notification instead of a deep link.
 4. **HTTPS auto-cert** for `--bind-lan` (mentioned in §17.9 Q1 follow-up).
 5. **In-process inotify** to drop the 4 Hz polling.
+
+---
+
+## 19. v0.4.0 addendum — persistent tray icon (`tray-native` feature)
+
+> **Date:** 2026-07-22
+> **Status:** SHIPPED (115 / 115 tests green in both default-features and `tray-native` builds)
+
+### 19.1 Why this came before the remaining popup FFI work
+
+The v0.3 plan deferred "real native tray bindings" to M2. v0.4 makes that the
+**M2 deliverable** — and bumps the original "wire the FFI popups" work to M3.
+
+The reasoning is empirical:
+
+1. We already ship native *popups* (Cocoa `NSAlert` via `osascript`,
+   Win32 `MessageBox` via PowerShell `Add-Type`). They're good enough for
+   the blocking case.
+2. What we **don't** ship is a persistent operator-facing presence. A daemon
+   that lives in the background has no way to show "I have 3 prompts waiting"
+   without the user opening a browser.
+3. The FFI popup work is a much larger lift (Cocoa runloop, Win32 message
+   pump, GTK4) and risks destabilizing v0.3's working shell-out path.
+4. The tray is a smaller surface (~600 LOC) and unblocks the operator UX.
+
+### 19.2 Options considered
+
+| Option                              | LOC  | New runtime deps | Cross-platform | Verdict |
+| ----------------------------------- | ---- | ---------------- | -------------- | ------- |
+| Hand-roll per-OS FFI                | ~1500 | none           | ❌ mac only first | Rejected |
+| `tauri::tray` icon module           | ~100  | `wry`, `tao`    | ✅ (full stack) | Rejected (too heavy) |
+| `tray-icon 0.24`                    | ~600  | `objc2-app-kit` (mac), `windows-sys` (win), `libappindicator` (linux) | ✅ | **Adopted** |
+| `ksni` (Linux-only)                 | ~300  | none            | ❌ Linux only   | Rejected |
+| `notify-rust` + `appindicator-rs`   | ~500  | two crates      | partial        | Rejected (overlap) |
+
+### 19.3 The `!Sync` problem
+
+`tray-icon 0.24`'s `TrayIcon` holds an `NSStatusItem` on macOS, which is
+backed by an Objective-C `id` that is `!Send + !Sync`. The whole
+cross-platform abstraction inherits that.
+
+We need `Arc<dyn Tray>` to be `Send` (so the daemon's HTTP task can hold a
+handle and the notifier task can mutate it). We do **not** need `Sync`
+(no one is reading the tray concurrently from multiple threads at once).
+
+Solution: **owning-thread + channel bridge**.
+
+```
+   notifier task ───Arc<dyn Tray>: Send────┐
+                                            ▼
+                                  ┌──────────────────────────┐
+                                  │ tray thread (owns        │
+                                  │   TrayIcon for life)     │
+                                  └──────────┬───────────────┘
+                                             │ crossbeam_channel
+                                             ▼
+                                  poll_menu_action(timeout)
+```
+
+The `Tray` trait is therefore `Send`-only (`pub trait Tray: Send`).
+The producer side holds an `Arc<dyn Tray>` and calls `update_badge` /
+`update_tooltip` / `shutdown`. Those methods forward via channel to the
+tray thread, which mutates the real `TrayIcon`. The consumer side does
+`poll_menu_action(timeout)` which does a non-blocking `try_recv` on the
+incoming menu-event channel that the tray thread also feeds.
+
+This is the same pattern `notify-rust`, `tokio::process`, and `wry` use
+for owning OS handles — it's not novel, but the `tray-icon` crate
+deliberately doesn't expose one, so we provide it here.
+
+### 19.4 Feature flag and compile-time impact
+
+`tray-native` is **off by default** for two reasons:
+
+1. `objc2-app-kit` adds ~30s of cold compile time. CI runners without
+   `sccache` would slow down noticeably.
+2. Linux's `libappindicator` feature links against a shared library
+   that's not always installed in CI containers.
+
+So `cargo build -p elicitate` stays portable and ships a `NoopTray`
+everywhere. `cargo build -p elicitate --features tray-native` produces
+the real macOS / Windows / Linux tray icon.
+
+Both configurations pass all 115 tests — the `tray::tests` exercise
+`NoopTray` and the public `build_tray` factory.
+
+### 19.5 Menu actions and the quiet state
+
+| Menu item           | Action                                               | State changed |
+| ------------------- | ---------------------------------------------------- | ------------- |
+| Open inbox          | Open the inbox index URL in the default browser     | none          |
+| Open latest         | Open the most-recent pending request's URL          | none          |
+| Toggle quiet        | Flip `Arc<AtomicBool> quiet`                        | yes           |
+| Quit                | Trigger daemon graceful shutdown (call `shutdown()`) | yes           |
+
+When `quiet` is on, the notifier loop suppresses both tray toasts and
+notify-channel fanout. The badge still updates so the operator can see
+the queue depth. The "Quit" menu item is the recommended way to stop the
+daemon — it calls `DaemonConfig::shutdown_handle().signal()` and the
+HTTP server returns from `serve()` cleanly.
+
+### 19.6 Verification
+
+| Command                                                              | Result |
+| -------------------------------------------------------------------- | ------ |
+| `cargo build -p elicitate`                                            | clean, 0 warnings |
+| `cargo build -p elicitate --features tray-native`                    | clean, 0 warnings |
+| `cargo test -p elicitate --no-fail-fast`                              | 115 / 115 |
+| `cargo test -p elicitate --features tray-native --no-fail-fast`       | 115 / 115 |
+| Manual: `elicitate daemon --port 0 --inbox-dir /tmp/x` on macOS      | menu-bar item appears, badge updates |
+
+### 19.7 What remains for v0.5+
+
+The next batch of work moves off the v0.4 list:
+
+- Re-bridge `set_title` for macOS so the menu-bar text updates
+  live (currently requires a `!Sync` workaround that's deferred).
+- `notify-rust` cross-platform fallback for Linux tray events.
+- Tray icon theme: real PNG instead of the default `tray-icon`
+  placeholder.
+- Auto-launch the daemon on login on macOS via
+  `~/Library/LaunchAgents/com.phenotype.elicitate.plist`.
