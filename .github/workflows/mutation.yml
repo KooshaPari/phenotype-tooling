@@ -119,8 +119,11 @@ jobs:
             echo "::error::cargo-mutants produced no output for ${{ matrix.crate }}"
             exit 1
           fi
-          CAUGHT=$(awk '/^caught:/{c++} END{print c+0}' "$OUT"/*.json 2>/dev/null || echo 0)
-          MISSED=$(awk '/^missed:/{m++} END{print m+0}' "$OUT"/*.json 2>/dev/null || echo 0)
+          count_lines() {
+            [ -f "$1" ] && wc -l < "$1" || echo 0
+          }
+          CAUGHT=$(count_lines "$OUT/caught.txt")
+          MISSED=$(($(count_lines "$OUT/missed.txt") + $(count_lines "$OUT/timeout.txt")))
           TOTAL=$((CAUGHT + MISSED))
           if [ "$TOTAL" -eq 0 ]; then
             PCT="0.00"
