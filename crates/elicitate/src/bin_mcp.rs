@@ -12,7 +12,7 @@ use rmcp::ServiceExt;
 async fn main() -> ExitCode {
     init_tracing();
 
-    let server = ElicitateMcp::default();
+    let server = ElicitateMcp::new();
     let transport = rmcp::transport::io::stdio();
 
     let result: Result<(), Box<dyn std::error::Error>> = async {

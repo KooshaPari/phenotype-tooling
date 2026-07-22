@@ -25,6 +25,9 @@ pub mod platform;
 pub mod render;
 pub mod schema;
 pub mod tracing_setup;
+pub mod inbox;
+pub mod installer;
+pub mod views;
 
 #[cfg(feature = "mcp")]
 pub mod mcp;
@@ -33,9 +36,15 @@ pub mod mcp;
 pub mod metrics;
 
 pub use error::ElicitError;
+pub use inbox::notify::{NotifyAttempt, NotifyChannels, inbox_open_url, inbox_open_url_for};
+pub use inbox::{
+    PendingRequest, RequestOrigin, RequestState,
+    load as inbox_load, list_pending as inbox_list_pending, wait_for_response,
+};
 pub use options::{ElicitOptions, RendererPreference};
 pub use platform::Platform;
 pub use spec::{ButtonSpec, ChoiceOption, DateTimeKind, ElicitResponse, FieldSpec, FieldValue, NotesSpec, PromptSpec, Urgency};
+pub use views::{render_form_html, render_full_html, render_plain_text, render_summary};
 
 /// Render a popup and block until the user responds (or the popup times out).
 ///

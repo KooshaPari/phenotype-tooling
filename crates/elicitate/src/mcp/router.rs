@@ -76,9 +76,11 @@ pub struct ElicitateMcp {
 
 #[tool_router]
 impl ElicitateMcp {
-    /// Create a new server instance.
+    /// Create a new server instance with the `#[tool_router]`-populated router.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            tool_router: Self::tool_router(),
+        }
     }
 
     /// The single tool: render a native popup and block until the user responds.

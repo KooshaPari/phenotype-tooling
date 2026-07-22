@@ -1,0 +1,457 @@
+//! Async inbox subsystem for non-blocking elicitation.
+//!
+//! When an agent runs in a context where blocking the user's terminal on a
+//! modal popup is unacceptable (background workers, CI, SSH without X
+//! forwarding, long-running services), [`crate::elicit`] would either hang
+//! or fail silently. The **inbox** turns that into an async workflow:
+//!
+//! 1. The agent calls `elicitate ask --async --json <spec>`. Instead of
+//!    blocking on a popup, the spec is persisted to an on-disk queue,
+//!    surfaced via tray notification / iMessage / email, and the CLI
+//!    returns immediately with the new `request_id`.
+//! 2. The user opens the inbox (`elicitate inbox` or `elicitate inbox
+//!    --web`) at their leisure, reads the queued prompt, and submits
+//!    an answer through the inbox UI.
+//! 3. The agent's next call to `elicitate wait --request-id <id>`
+//!    (or `--block-on <id>`) returns the now-answered response.
+//!
+//! ## File layout
+//!
+//! ```text
+//! ~/.local/share/elicitate/
+//! ├── inbox/<request_id>.json     # pending spec + state
+//! ├── answered/<request_id>.json  # answered response (kept for audit)
+//! └── daemon.lock                 # pidfile of running inbox daemon
+//! ```
+//!
+//! The inbox is platform-independent — every backend just JSON-encodes a
+//! [`PendingRequest`] to disk. The native popup path is only used when the
+//! agent explicitly opts in.
+
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
+
+use crate::error::ElicitError;
+use crate::spec::{ElicitResponse, PromptSpec};
+
+pub mod daemon;
+pub mod notify;
+
+/// State of a request in the inbox.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequestState {
+    /// Spec is queued and waiting for the user.
+    #[default]
+    Pending,
+    /// User has viewed the spec (e.g. via iMessage deep link) but not yet
+    /// answered.
+    Seen,
+    /// User submitted an answer; the response is in [`PendingRequest::response`].
+    Answered,
+    /// User dismissed / declined.
+    Cancelled,
+    /// Request exceeded its TTL without a response.
+    Expired,
+}
+
+/// Surface that surfaced this request to the user.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationKind {
+    /// No external notification — the user will see it in the inbox UI.
+    None,
+    /// macOS `NSUserNotification` / `osascript display notification`.
+    NativeNotification,
+    /// Sent via iMessage.
+    #[serde(rename = "imessage")]
+    IMessage,
+    /// Sent via email (mailto: deep link with rendered form in the body).
+    Email,
+    /// Pushed via NTFY / Pushover / generic webhook.
+    Webhook,
+}
+
+/// One queued request — the on-disk artifact.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingRequest {
+    /// Stable identifier; mirrors [`PromptSpec::request_id`].
+    pub request_id: String,
+
+    /// Originating agent (hostname + process name + arbitrary tag).
+    pub origin: RequestOrigin,
+
+    /// The prompt payload.
+    pub spec: PromptSpec,
+
+    /// When the spec was queued (ms since epoch).
+    pub queued_at_ms: u64,
+
+    /// When the queue entry will expire if unanswered.
+    pub expires_at_ms: u64,
+
+    /// Current state.
+    #[serde(default)]
+    pub state: RequestState,
+
+    /// The user's response, if [`RequestState::Answered`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response: Option<ElicitResponse>,
+
+    /// Where (if anywhere) the request was surfaced.
+    #[serde(default)]
+    pub notified_via: Vec<NotificationKind>,
+
+    /// Free-form metadata for the agent's bookkeeping.
+    #[serde(default)]
+    pub metadata: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Information about the agent that enqueued the request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestOrigin {
+    pub hostname: String,
+    pub process: String,
+    pub pid: u32,
+    /// Optional deep link (e.g. `imessage://…` or `mailto:…`) the inbox
+    /// can use to reply from the same channel.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub callback: Option<String>,
+}
+
+/// Default per-request TTL when the prompt didn't set one.
+const DEFAULT_TTL_MS: u64 = 24 * 60 * 60 * 1000;
+
+impl PendingRequest {
+    /// Construct a new pending request from a spec, populating `queued_at_ms`
+    /// and `expires_at_ms` from the current clock + spec TTL.
+    pub fn new(spec: PromptSpec, origin: RequestOrigin) -> Self {
+        let now_ms = unix_now_ms();
+        let ttl_ms = if spec.timeout_secs == 0 {
+            DEFAULT_TTL_MS
+        } else {
+            (spec.timeout_secs as u64).saturating_mul(1000)
+        };
+        Self {
+            request_id: spec
+                .request_id
+                .clone()
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            origin,
+            spec,
+            queued_at_ms: now_ms,
+            expires_at_ms: now_ms.saturating_add(ttl_ms),
+            state: RequestState::Pending,
+            response: None,
+            notified_via: Vec::new(),
+            metadata: serde_json::Map::new(),
+        }
+    }
+
+    /// Whether the request has expired against the current wall clock.
+    #[must_use]
+    pub fn is_expired_now(&self) -> bool {
+        unix_now_ms() >= self.expires_at_ms
+    }
+
+    /// Whether the state is terminal (Answered / Cancelled / Expired).
+    #[must_use]
+    pub fn is_terminal(&self) -> bool {
+        matches!(
+            self.state,
+            RequestState::Answered | RequestState::Cancelled | RequestState::Expired
+        )
+    }
+
+    /// Path on disk for this request inside `inbox_dir`.
+    #[must_use]
+    pub fn path_in(&self, inbox_dir: &Path) -> PathBuf {
+        inbox_dir.join(format!("{}.json", self.request_id))
+    }
+}
+
+/// Compute the current wall-clock millisecond timestamp.
+#[must_use]
+pub fn unix_now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Where the inbox data lives on disk.
+///
+/// Honours `ELICITATE_INBOX_DIR` (overrides everything), falls back to
+/// `$XDG_DATA_HOME/elicitate` / `~/Library/Application Support/elicitate` /
+/// `%LOCALAPPDATA%\elicitate` depending on platform.
+pub fn default_inbox_root() -> PathBuf {
+    if let Ok(p) = std::env::var("ELICITATE_INBOX_DIR") {
+        return PathBuf::from(p);
+    }
+    if let Some(home) = std::env::var_os("XDG_DATA_HOME") {
+        return PathBuf::from(home).join("elicitate");
+    }
+    if cfg!(target_os = "macos") {
+        if let Some(home) = std::env::var_os("HOME") {
+            return PathBuf::from(home).join("Library/Application Support/elicitate");
+        }
+    }
+    if cfg!(target_os = "windows") {
+        if let Ok(p) = std::env::var("LOCALAPPDATA") {
+            return PathBuf::from(p).join("elicitate");
+        }
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home).join(".local/share/elicitate");
+    }
+    // last-resort fallback (CI without $HOME): a per-process temp dir.
+    std::env::temp_dir().join("elicitate-inbox")
+}
+
+/// Subdirectory for pending entries.
+#[must_use]
+pub fn inbox_pending_dir(root: &Path) -> PathBuf {
+    root.join("inbox")
+}
+
+/// Subdirectory for answered/terminal entries (audit trail).
+#[must_use]
+pub fn answered_dir(root: &Path) -> PathBuf {
+    root.join("answered")
+}
+
+/// Persist a pending request to disk. Creates parent dirs if missing.
+pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
+    let dir = inbox_pending_dir(root);
+    std::fs::create_dir_all(&dir)?;
+    let path = req.path_in(&dir);
+    let json = serde_json::to_vec_pretty(req).map_err(ElicitError::Json)?;
+    // Atomic write: stage in <id>.tmp, rename over final.
+    let tmp = dir.join(format!("{}.tmp", req.request_id));
+    std::fs::write(&tmp, &json)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(path)
+}
+
+/// Move a request from the pending directory to the answered directory
+/// after the user has responded. Returns the new path.
+pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
+    let pending = inbox_pending_dir(root).join(format!("{}.json", req.request_id));
+    let answered_dir = answered_dir(root);
+    std::fs::create_dir_all(&answered_dir)?;
+    let dst = answered_dir.join(format!("{}.json", req.request_id));
+    if pending.exists() {
+        // Move + rewrite so the new state is captured on disk.
+        std::fs::remove_file(&dst).ok();
+        std::fs::rename(&pending, &dst)?;
+    } else {
+        let json = serde_json::to_vec_pretty(req).map_err(ElicitError::Json)?;
+        std::fs::write(&dst, &json)?;
+    }
+    Ok(dst)
+}
+
+/// Load a single request by id from `dir` (pending OR answered).
+pub fn load(root: &Path, request_id: &str) -> Result<PendingRequest, ElicitError> {
+    let candidates = [
+        inbox_pending_dir(root).join(format!("{request_id}.json")),
+        answered_dir(root).join(format!("{request_id}.json")),
+    ];
+    for path in candidates {
+        if path.exists() {
+            let text = std::fs::read_to_string(&path)?;
+            return serde_json::from_str(&text).map_err(ElicitError::Json);
+        }
+    }
+    Err(ElicitError::InvalidSpec(format!(
+        "no inbox entry for request_id '{request_id}'"
+    )))
+}
+
+/// List all pending (non-terminal) requests, newest first.
+pub fn list_pending(root: &Path) -> Result<Vec<PendingRequest>, ElicitError> {
+    let dir = inbox_pending_dir(root);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(&dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)?;
+        let req: PendingRequest = match serde_json::from_str(&text) {
+            Ok(r) => r,
+            Err(_) => continue, // skip corrupt entries
+        };
+        out.push(req);
+    }
+    // Newest first
+    out.sort_by(|a, b| b.queued_at_ms.cmp(&a.queued_at_ms));
+    Ok(out)
+}
+
+/// Wait until `req.request_id` reaches a terminal state or the wait times out.
+pub fn wait_for_response(
+    root: &Path,
+    request_id: &str,
+    poll_interval: Duration,
+    overall_timeout: Duration,
+) -> Result<PendingRequest, ElicitError> {
+    let start = std::time::Instant::now();
+    let deadline = start.checked_add(overall_timeout).unwrap_or(start);
+    loop {
+        match load(root, request_id) {
+            Ok(req) if req.is_terminal() => return Ok(req),
+            Ok(_req) => {}
+            Err(e) => return Err(e),
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(ElicitError::Timeout(
+                std::time::Instant::now()
+                    .saturating_duration_since(start),
+            ));
+        }
+        std::thread::sleep(poll_interval);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_origin() -> RequestOrigin {
+        RequestOrigin {
+            hostname: "h".into(),
+            process: "p".into(),
+            pid: 1,
+            callback: None,
+        }
+    }
+
+    #[test]
+    fn new_fills_request_id_and_timestamps() {
+        let spec = crate::spec::PromptSpec {
+            title: "t".into(),
+            question: "?".into(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "?".into(),
+                default: Some(true),
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::Info,
+            timeout_secs: 60,
+            request_id: None,
+        };
+        let req = PendingRequest::new(spec.clone(), sample_origin());
+        assert!(!req.request_id.is_empty());
+        assert!(req.expires_at_ms > req.queued_at_ms);
+        assert!(!req.is_terminal());
+
+        let mut spec2 = spec;
+        spec2.request_id = Some("my-id".into());
+        let req2 = PendingRequest::new(spec2, sample_origin());
+        assert_eq!(req2.request_id, "my-id");
+    }
+
+    #[test]
+    fn path_in_is_stable() {
+        let req = PendingRequest {
+            request_id: "abc".into(),
+            origin: sample_origin(),
+            spec: crate::spec::PromptSpec {
+                title: "t".into(),
+                question: "?".into(),
+                field: crate::spec::FieldSpec::Boolean {
+                    label: "?".into(),
+                    default: None,
+                },
+                notes: None,
+                buttons: None,
+                urgency: crate::spec::Urgency::Info,
+                timeout_secs: 60,
+                request_id: Some("abc".into()),
+            },
+            queued_at_ms: 0,
+            expires_at_ms: u64::MAX,
+            state: RequestState::Pending,
+            response: None,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        let dir = Path::new("/x/inbox");
+        assert_eq!(req.path_in(dir), PathBuf::from("/x/inbox/abc.json"));
+    }
+
+    #[test]
+    fn enqueue_and_load_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let req = PendingRequest {
+            request_id: "rt-1".into(),
+            origin: sample_origin(),
+            spec: crate::spec::PromptSpec {
+                title: "t".into(),
+                question: "?".into(),
+                field: crate::spec::FieldSpec::Boolean {
+                    label: "?".into(),
+                    default: Some(false),
+                },
+                notes: None,
+                buttons: None,
+                urgency: crate::spec::Urgency::Info,
+                timeout_secs: 60,
+                request_id: Some("rt-1".into()),
+            },
+            queued_at_ms: unix_now_ms(),
+            expires_at_ms: unix_now_ms() + 60_000,
+            state: RequestState::Pending,
+            response: None,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        enqueue(tmp.path(), &req).unwrap();
+        let loaded = load(tmp.path(), "rt-1").unwrap();
+        assert_eq!(loaded.request_id, "rt-1");
+        assert_eq!(loaded.state, RequestState::Pending);
+    }
+
+    #[test]
+    fn finalize_moves_to_answered_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let req = PendingRequest {
+            request_id: "fn-1".into(),
+            origin: sample_origin(),
+            spec: crate::spec::PromptSpec {
+                title: "t".into(),
+                question: "?".into(),
+                field: crate::spec::FieldSpec::Boolean {
+                    label: "?".into(),
+                    default: None,
+                },
+                notes: None,
+                buttons: None,
+                urgency: crate::spec::Urgency::Info,
+                timeout_secs: 60,
+                request_id: Some("fn-1".into()),
+            },
+            queued_at_ms: unix_now_ms(),
+            expires_at_ms: unix_now_ms() + 60_000,
+            state: RequestState::Answered,
+            response: Some(ElicitResponse::Answered {
+                value: crate::spec::FieldValue::Boolean(true),
+                notes: None,
+            }),
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        enqueue(tmp.path(), &req).unwrap();
+        finalize(tmp.path(), &req).unwrap();
+        let loaded = load(tmp.path(), "fn-1").unwrap();
+        assert_eq!(loaded.state, RequestState::Answered);
+    }
+}

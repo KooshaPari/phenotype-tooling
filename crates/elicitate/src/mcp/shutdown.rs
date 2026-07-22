@@ -15,6 +15,9 @@ use tokio::sync::{oneshot, Mutex};
 
 #[derive(Debug, Default)]
 pub struct ShutdownCoordinator {
+    /// Map of request_id -> cancel-sender. Reserved for the future
+    /// graceful-cancellation path; not yet wired into `ElicitateMcp`.
+    #[allow(dead_code)]
     inflight: Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>,
 }
 

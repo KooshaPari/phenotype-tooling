@@ -276,6 +276,12 @@ pub(crate) fn map_inquire_error(e: InquireError) -> ElicitError {
         InquireError::OperationCanceled
         | InquireError::OperationInterrupted
         | InquireError::NotTTY => ElicitError::InvalidSpec(CANCELLED_SENTINEL.into()),
+        // inquire returns a generic IO error if it can't init the reader
+        // (e.g., stdin is closed in a child process). For the purposes of
+        // this library, that's also a "no response" condition — treat it
+        // as cancellation so callers see a typed Cancelled response
+        // instead of an opaque IO failure.
+        InquireError::IO(_) => ElicitError::InvalidSpec(CANCELLED_SENTINEL.into()),
         other => ElicitError::RendererFailed(format!("inquire: {other}")),
     }
 }

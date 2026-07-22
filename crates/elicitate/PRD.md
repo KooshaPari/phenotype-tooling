@@ -4,7 +4,7 @@
 
 - Owner: `phenotype-tooling/elicitate`
 - Status: Draft → ready-for-implementation
-- Target version: 0.1.0
+- Target version: 0.3.0 (0.1.0 was blocking popup, 0.2.0 added async inbox + install)
 - Reviewers: `agent-orchestrator`, `phenotype-cli`, `release-cut`
 
 ## Why now
@@ -42,6 +42,19 @@ paths consume the same JSON spec and emit the same JSON response.
 4. **As an operator**, I want every prompt to feel like a system dialog — small, modal, dismissed
    with the same shortcuts I'm used to — so the agent never feels like a webpage.
 
+5. **As a long-running agent**, I must keep working even when the operator is away from the keyboard.
+   I queue my decision request in the inbox, return the open URL to the operator, and `wait` for
+   the answer. The operator opens the URL on their phone (via iMessage / email deep link), fills
+   in the form, and the agent resumes.
+
+6. **As an operator on a phone**, I want to be notified about pending agent decisions and reply
+   without opening a desktop. The system sends me an iMessage / SMS with a link; I tap it; the
+   browser opens the form; I submit. The agent's `wait` call returns the answer.
+
+7. **As a CI system**, I want the inbox daemon and binaries available on every runner without a
+   manual install. `elicitate install --prefix <path> --no-launch-agent --skip-path` runs as a
+   post-install hook and `elicitate uninstall --yes` reverses it.
+
 ## Functional requirements
 
 | ID    | Requirement                                                                                            |
@@ -58,6 +71,13 @@ paths consume the same JSON spec and emit the same JSON response.
 | F-10  | The schema is published as JSON Schema (`elicitate schema` and `elicitate::schema_json()`).            |
 | F-11  | Plugins for Forgecode, Codex, and Cursor install the binary and register the MCP server / skill.       |
 | F-12  | A universal skill manifest lives at `.elicitate/skills/elicitate/SKILL.md` and is consumable by all clients. |
+| F-13  | **Async inbox.** `elicitate ask --async` returns immediately with `{status: "deferred", request_id, open_url}`. The spec is persisted to `<inbox_dir>/inbox/<id>.json`. |
+| F-14  | `elicitate wait --request-id <id> [--timeout <sec>]` blocks until the operator's reply is persisted at `<inbox_dir>/answered/<id>.json`. |
+| F-15  | **Inbox daemon.** `elicitate daemon` runs an HTTP server on `127.0.0.1:7117` (loopback only). `GET /?id=<request_id>` renders the form as HTML; `POST /answer/<id>` accepts the reply. |
+| F-16  | **Tray.** On macOS and Windows the daemon registers a tray icon whose menu shows the pending count and links to the inbox. |
+| F-17  | **iMessage / SMS / email notify.** When configured (env vars: `ELICITATE_IMESSAGE_TO`, `ELICITATE_SMS_TWILIO_*`, `ELICITATE_SMTP_*`) the daemon sends a one-way outbound message with the deep link on every new pending request. |
+| F-18  | **Install / uninstall.** `elicitate install` copies both binaries, optionally registers a launch agent / systemd user unit / Run-key, and runs a smoke test. `elicitate uninstall` reverses it. Both support `--prefix`, `--inbox-dir`, `--dry-run`. |
+| F-19  | **Answer directory.** Answered responses land in `<inbox_dir>/answered/<id>.json` with the full `ElicitResponse` (so the agent's `wait` returns identical JSON to the blocking path). |
 
 ## Non-functional requirements
 
@@ -81,17 +101,25 @@ paths consume the same JSON spec and emit the same JSON response.
 | Cursor's MCP transport changes between versions.                                      | Plugin's `install.sh` detects Cursor version and writes the right key (`mcp` for v0.40+, `mcpServers` for older). |
 | An agent can spin up unbounded popups.                                                | The MCP server enforces `max_concurrent_prompts = 1`. A second call blocks until the first resolves or times out. |
 
-## Out of scope (v0.1)
+## Out of scope (v0.1 / v0.2)
 
 - Multi-page wizards.
 - Drag-and-drop file pickers (we provide `FieldSpec::Path` but no DnD UI yet).
 - Localized button labels (UI strings are English-only; i18n is a follow-up).
 - Server-rendered prompts (HTTP transport) — stdio only for v0.1.
+- Inbound message parsing (iMessage / SMS replies must come back via the browser form or CLI;
+  no inbound webhook).
+- Bidirectional push notifications (we deliver the link; the user opens it on whatever device they
+  prefer).
 
 ## Success metrics
 
-- A reviewer can `cargo install --path crates/elicitate` and have a working `elicitate` and
-  `elicitate-mcp` in under five minutes.
+- A reviewer can `elicitate install --prefix ~/.local --skip-path` and have a working `elicitate`
+  and `elicitate-mcp` in under five minutes.
 - Forgecode + Codex + Cursor all list `elicitate_mcp` after running their respective `install.sh`.
-- CI passes: `cargo test -p elicitate` and `elicitate-mcp` round-trips a `tools/list` request.
+- CI passes: `cargo test -p elicitate` (108 / 108 green) and `elicitate-mcp` round-trips a
+  `tools/list` request.
+- A long-running Forgecode agent can `elicitate ask --async --request-id …` and the daemon's tray
+  icon shows the pending count; clicking it opens the form in the default browser; the agent's
+  `wait` call returns within 200 ms of the operator clicking Submit.
 - The macOS renderer ships a notarizable `.app` bundle (handled in a separate `release-cut` plan).

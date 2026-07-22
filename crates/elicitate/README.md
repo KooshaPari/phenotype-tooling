@@ -70,7 +70,50 @@ elicitate validate --from-file spec.json
 
 # Print JSON Schema
 elicitate schema
+
+# Install the binaries + register the inbox daemon (one-shot setup)
+elicitate install
+# Re-run later to add / upgrade
+elicitate install --prefix ~/.local/bin
+
+# Uninstall (removes binaries + launch agent / systemd unit)
+elicitate uninstall --yes
 ```
+
+### Async / non-blocking workflow
+
+When a popup would block the agent longer than you want (CI runs, long-lived
+sessions, agents that should stay in flow), queue the prompt in the inbox and
+answer it later — from the desktop, the browser, an iMessage, or another
+shell.
+
+```bash
+# Queue the prompt — returns instantly with a request_id and an open URL
+elicitate ask --async --title "Approve PR?" --question "Merge?" \
+    --field-kind boolean --field-label "Yes"
+# → {"status":"queued","request_id":"abc-…","open_url":"http://localhost:7117/inbox/abc-…","path":"…"}
+
+# Open the inbox UI in the default browser (or via the deep link)
+elicitate inbox --open                    # open the index
+elicitate inbox --open --request-id abc-…  # open a specific form
+
+# Poll for the answer from another shell / another agent
+elicitate wait --request-id abc-…
+
+# Submit an answer from a script (no UI required)
+elicitate answer --request-id abc-… --value true --notes "ship it"
+```
+
+The inbox daemon (`elicitate daemon`) is the long-running process that:
+
+- serves `http://127.0.0.1:7117/inbox/<id>` as a printable HTML form,
+- receives `POST /answer/<id>` and persists the response, and
+- on macOS / Windows shows a native tray notification (NSStatusItem /
+  Shell_NotifyIcon) with a click-to-open deep link.
+
+The user can answer from any of: the tray menu, the HTML form, iMessage, or
+email — whichever they happen to look at first. The agent's `wait` call
+returns as soon as any of them resolves the request.
 
 ### As an MCP server
 
@@ -148,6 +191,41 @@ The single source of truth for the prompt and response shape is `elicitate::spec
 - **Bounded wait.** Every render path is bounded by `timeout_secs`. On timeout, the GUI is dismissed, the result is `TimedOut`, and the parent's deadline is honored.
 - **Secret-aware rendering.** Fields with `secret: true` use `NSSecureTextField` on macOS and `ES_PASSWORD` on Windows. The value is never logged.
 - **No value leakage.** `tracing` events at INFO level show only the request id and the status (Answered/Cancelled/TimedOut), never the value.
+
+## Async inbox architecture
+
+The "ask but don't block" pattern is what makes this useful for live agents.
+Three transports cooperate:
+
+```
+   agent            elicitate ask --async      daemon (long-running)
+   (mcp/CLI)   ────────────────────────────▶   http://127.0.0.1:7117
+   ▲                                            │
+   │                                            ├── tray notification ──┐
+   │                                            ├── iMessage / SMS     ─┤── user
+   │                                            └── HTML inbox form    ─┘
+   │
+   └───── elicitate wait ────── POST /answer/<id> ◀────────────────────┘
+```
+
+- The **inbox dir** (`~/.elicitate/inbox/` by default) is the durable queue.
+  Each request is a single JSON file; the atomic rename on answer means we
+  can never observe a half-written response.
+- The **daemon** owns HTTP, tray, and the notifier loop. If it dies, the
+  inbox dir is still the source of truth — the next daemon instance picks
+  up where it left off.
+- The **wait** call polls the response file with backoff. It returns as
+  soon as the answer, cancel, or timeout is recorded.
+- **Email / iMessage channels** are implemented as one-way notifications
+  (the form link + a short prompt). The user clicks the link and the
+  browser flow handles the actual response. This keeps the attack surface
+  small (no inbound IMAP/SMS parser) while still giving the user a way to
+  answer from their phone.
+
+If the daemon is not running, `--async` still works — it writes the file
+and returns the `open_url`. The user can paste the URL into any browser
+locally. The next time the daemon starts (e.g. via the launch agent), it
+will pick up the pending requests and notify the user.
 
 ## License
 

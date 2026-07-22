@@ -1,8 +1,8 @@
 # elicitate — Research Document
 
-> **Date:** 2026-07-21
+> **Date:** 2026-07-22 (updated for v0.2.0 — async inbox + install)
 > **Owner:** @KooshaPari
-> **Status:** READY-FOR-IMPLEMENTATION
+> **Status:** READY-FOR-IMPLEMENTATION (v0.2.0 in review)
 > **Crate path:** `phenotype-tooling/crates/elicitate/`
 > **Binary name:** `elicitate` (long-form `elicitate-mcp` for the MCP server mode)
 > **Tier:** 2 (extension; UX/AX-facing)
@@ -769,8 +769,7 @@ inspiration from:
 | PowerShell execution policy blocks script | medium | Spawn with `-ExecutionPolicy Bypass -NoProfile` |
 | macOS sandbox restrictions on `osascript` (some MDM profiles) | medium | Detect and fall back to TUI with clear error |
 | User never sees popup because session is locked | low | Document; recommend `--renderer=force-tty` for headless workflows |
-
-## 15. Linkage
+## 15. Linkage:
 
 - Charter: `phenotype-tooling/charter.md` (will be updated; see plan §6)
 - SPEC: `phenotype-tooling/SPEC.md` (will be updated; see plan §6)
@@ -806,3 +805,181 @@ What does **not** ship in v0.1.0 (deferred to v0.2):
 - Persistent popup history.
 - Custom icons beyond the built-in 4 (info/warning/error/secret).
 - Linux Wayland native protocol (X11/XWayland/`zenity` covers it).
+
+## 17. Async inbox + install (v0.2.0 addendum)
+
+The v0.1.0 design is purely **blocking**: an agent calls `elicit()`, a popup
+appears, the user replies, the call returns. That breaks down the moment the
+agent runs unattended — the operator may be away from the keyboard, on
+another device, or simply not watching the screen. v0.2.0 adds a non-blocking
+inbox path so the agent can keep working and the operator can reply at their
+own pace.
+
+### 17.1 Design goals
+
+1. **Agent never blocks waiting on the user.** `elicitate ask --async` must
+   return in single-digit milliseconds with a `request_id` and an `open_url`.
+2. **Single artifact path.** The answer that comes back from the inbox must be
+   **byte-for-byte identical** to what the blocking path would have returned.
+3. **Cross-device.** The operator must be able to reply from a phone, a tablet,
+   or another laptop — not just the host running the agent.
+4. **Zero inbound attack surface.** The agent is usually on a corporate
+   laptop with a public IP. We must not open a listener that accepts
+   unauthenticated input from the internet.
+5. **Reuse, don't replace.** v0.1.0's blocking path stays the default.
+   `--async` is the opt-in.
+
+### 17.2 The three coordinated surfaces
+
+| Surface | Runs where | Lifetime | Role |
+|---|---|---|---|
+| `elicitate ask --async` | On the agent's host | One-shot subprocess | Enqueues spec, returns `request_id` + `open_url` |
+| `elicitate daemon` | On the agent's host | Long-running background | Serves the HTML form, watches the inbox dir, emits tray notifications |
+| `elicitate wait --request-id <id>` | On the agent's host | One-shot subprocess (blocking) | Polls `<inbox>/answered/<id>.json`, returns the response |
+
+The agent's loop is:
+
+```rust
+let request_id = elicit_async_deferred(spec)?;  // non-blocking
+// ... agent continues doing other work ...
+let response = elicit_wait(&request_id, Duration::from_secs(3600))?;  // blocks
+match response {
+    Answered { values, notes } => proceed(),
+    Cancelled => fallback(),
+    TimedOut => escalate(),
+    _ => error(),
+}
+```
+
+### 17.3 Why an HTTP listener on loopback
+
+The phone must reach the form. Options considered:
+
+| Option | Verdict | Reason |
+|---|---|---|
+| Cloud relay (server we host) | Reject | Inbound network exposure; vendor lock-in; outages |
+| WebRTC P2P | Reject | NAT traversal complexity; needs signaling server anyway |
+| Cloudflare Tunnel | Defer | Good ergonomics but adds dependency for v0.2 |
+| **Loopback HTTP + LAN-broadcast deep link** | **Accept** | Zero inbound exposure; phone reaches via QR or LAN IP |
+| Email-only (no live form) | Reject | Reply latency 30+ seconds; user has to type JSON by hand |
+
+The chosen design: the daemon binds to `127.0.0.1:7117` (rejects any non-loopback
+bind). The `open_url` returned to the agent is `http://127.0.0.1:7117/?id=<id>`
+for the host itself, or `http://<lan-ip>:7117/?id=<id>` if `--bind-lan` is set.
+For v0.2 we ship loopback only; LAN mode is gated behind `--bind-lan` and a
+warning banner.
+
+The iMessage / SMS / email notification carries the deep link. The phone's
+browser hits the LAN URL (or the loopback URL via SSH tunnel / Tailscale /
+ngrok). The form posts to the daemon's `POST /answer/<id>` endpoint, which
+writes the `ElicitResponse` to `<inbox>/answered/<id>.json`. The agent's
+`wait` subprocess notices the file and returns.
+
+### 17.4 File-system as the IPC substrate
+
+We deliberately avoid a database. Every state transition is a file move:
+
+```
+<inbox_dir>/inbox/<id>.json     # created by `ask --async` (the spec)
+<inbox_dir>/answered/<id>.json  # created by the daemon when user replies
+```
+
+**Why no DB?** Two reasons: (1) the agent's `wait` subprocess is a tiny
+~250 KB static binary that may run in a sandbox with no DB drivers; (2) the
+filesystem is inspectable with `cat` and `ls`, which is invaluable when
+debugging "why didn't my agent resume?".
+
+Atomicity is achieved with `write-to-temp-then-rename`. The daemon fsync's
+the parent directory. The `wait` subprocess polls every 250 ms (configurable
+via `--poll-ms`).
+
+### 17.5 The HTML form is the cross-device UX
+
+The form is rendered by `elicitate::views::render_full_html`, a single
+self-contained HTML file (~6 KB) with embedded CSS and a tiny vanilla-JS
+submit handler. No frameworks, no external assets, no CDN. The form posts
+to `/answer/<id>` via `fetch()` and redirects to a `/done` confirmation
+page. The page is `<meta name="viewport">`-aware so it lays out correctly on
+iOS / Android browsers.
+
+This is the *only* HTML we ever render. We deliberately do not webview-wrap
+the agent's host application.
+
+### 17.6 Tray integration — out-of-process, not FFI
+
+We considered linking `objc2` + `cocoa` for `NSStatusItem` and
+`windows-sys` for `Shell_NotifyIcon`. Decision: **don't link**. The daemon
+spawns `osascript -e 'tell application "System Events" to ...'` on macOS or
+`powershell -Command '... BurntToast ...'` on Windows for each notification.
+The tray *icon* itself is opt-in via the `--tray` flag, and on macOS it
+launches a tiny helper process that uses the dock icon as a proxy (we
+avoid `LSUIElement` Info.plist requirements for the dev binary).
+
+This is the same trade-off we made in §6 for the popup itself: **shell out,
+don't FFI**. It keeps the daemon pure Rust, cross-compiles cleanly, and
+isolates the GUI code so a buggy tray implementation can't crash the
+daemon's notification loop.
+
+### 17.7 Why iMessage first (not Slack, not email)
+
+iMessage is the lowest-friction channel for the developer persona: it's
+already on their phone, already authenticated, already set to receive
+notifications. We deliver via two complementary paths:
+
+1. **Local Messages.app deep link** (zero-config on macOS):
+   `messages://open?message-text=<url>` opens a pre-filled new message
+   window. The user picks the recipient, hits send.
+2. **Twilio SMS bridge** (cross-platform):
+   `ELICITATE_SMS_TWILIO_ACCOUNT_SID=...` + `_TOKEN` + `_FROM=+15551234567`
+   env vars; daemon POSTs to Twilio's REST API. Outbound only.
+
+Email (SMTP via `lettre`-style config or `sendmail`) is the fallback for
+when neither iMessage nor Twilio is configured.
+
+**Inbound: zero.** The user always replies via the form, not by replying
+to the SMS / email. This eliminates an entire class of prompt-injection
+attacks (no one can trick the agent by sending it a fake "approved" SMS).
+
+### 17.8 Install / uninstall flow
+
+`elicitate install --prefix ~/.local --inbox-dir ~/.elicitate --no-launch-agent`
+copies both binaries, generates the launch agent (macOS plist, Linux systemd
+unit, Windows Run-key), and runs `elicitate ask --from-file <fixture> --renderer
+json` as a smoke test.
+
+`elicitate uninstall --prefix ~/.local --yes` reverses it. Both write a
+`elicitate-install.log` to `<prefix>/logs/` so a CI failure can be
+triaged.
+
+The install path is **user-local** by design. No `/usr/local/bin`, no sudo.
+The launch agent runs as the current user, binds loopback only, and exits
+cleanly on SIGTERM.
+
+### 17.9 Trade-offs accepted
+
+- **Polling vs inotify.** v0.2 uses 250 ms polling for the `wait`
+  subprocess. Inotify/FSEvents would be cleaner but adds a dependency and
+  makes the binary larger. We can revisit when the daemon itself uses
+  inotify (planned for v0.3).
+- **No end-to-end encryption.** The form is HTTP, not HTTPS, because it's
+  loopback. If a future `--bind-lan` flag is enabled, we'll add an
+  auto-generated self-signed cert + cert-pin in the QR code. For v0.2 LAN
+  is documented as "trusted network only".
+- **One popup at a time per inbox dir.** Two parallel `--async` requests
+  queue; the operator answers them in order. v0.3 may add per-request tray
+  icons.
+- **Tray icon is a stub.** The `elicitate daemon --tray` flag registers a
+  tray entry that opens the inbox URL on click. The full NSStatusItem
+  binding (right-click menu, count badge, animations) is on the M2 roadmap.
+
+### 17.10 Alternatives considered
+
+| Alternative | Why we rejected it |
+|---|---|
+| Use `tokio::sync::mpsc` + an in-process broker instead of files | Breaks the "agent spawns subprocess" model; harder to inspect |
+| Use SQLite for the inbox | Adds a native dep; harder to debug from the shell |
+| Use `notify` crate for inotify | Defer to v0.3 — polling is good enough at 4 Hz |
+| Use a cloud-hosted message broker | Vendor lock-in + inbound exposure |
+| Use webview for the popup (Tauri / wry) | Defeats the whole point — we want OS-native controls |
+| Have the daemon stay alive permanently via launchctl | What we ship; documented in ABSORPTION.md |
+| Use `tokio::task` for everything instead of subprocesses | Subprocesses are inspectable + killable from outside |

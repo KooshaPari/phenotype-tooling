@@ -5,6 +5,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.2.0] — 2026-07-22
+
+### Added
+- **Async / non-blocking inbox.** `elicitate ask --async` enqueues a request
+  in `~/.elicitate/inbox/` and returns immediately with `request_id` and
+  `open_url`. The agent's `wait --request-id <id>` polls for the answer.
+- **Inbox daemon.** `elicitate daemon` runs an HTTP server on
+  `127.0.0.1:7117` serving a printable HTML form per request and an index
+  page. macOS tray (`NSStatusItem`) and Windows tray (`Shell_NotifyIcon`)
+  notifications appear with click-to-open deep links.
+- **Install / uninstall.** `elicitate install [--prefix] [--no-launch-agent]
+  [--skip-path] [--no-smoke]` copies both binaries to a stable prefix,
+  optionally appends the prefix to `PATH`, and registers the daemon as a
+  user service. `elicitate uninstall [--prefix] [--yes]` reverses it.
+- **CLI surface expansion.** `ask --async`, `wait`, `answer`, `inbox`,
+  `daemon`, `install`, `uninstall`. The new `serve` subcommand is a
+  deliberate error pointing at `elicitate-mcp`.
+- **Notify channels.** iMessage (Twilio SMS or Messages.app deep link) and
+  email (SMTP relay) are one-way out: the user gets a link, the response
+  always comes back through the browser form or CLI. Zero inbound network
+  surface.
+- **Installer module** (`elicitate::installer`) with platform-specific
+  install paths, launch-agent / systemd / Run-key generation, and PATH
+  export.
+- **Views module** (`elicitate::views`) with HTML form renderer, full-page
+  HTML with embedded CSS, plain-text summary, and JSON envelope.
+- **Tray stubs** (compile on every platform; gated on `target_os = "macos"`
+  / `"windows"` for the actual NSStatusItem / Shell_NotifyIcon).
+- **13 new CLI integration tests** covering install, uninstall, async
+  enqueue, inbox list, answer, and wait. **1 new MCP test** covering
+  async-path tool calls. Total tests now **108 / 108 green**.
+
+### Changed
+- `bin_elicitate.rs` grew from 1 subcommand to 11. CLI now uses clap's
+  `--env` feature so `--inbox-dir` can be set via `ELICITATE_INBOX_DIR`.
+- `lib.rs` exposes new modules: `inbox`, `views`, `installer`. The async
+  path is additive; the blocking popup API is unchanged.
+- `Cargo.toml` adds `inquire` features (`date`), `clap` `env` feature,
+  and `notify-rust` (optional, gated on `tray` feature for Linux notify).
+
+### Fixed
+- TTY renderer now maps `inquire::InquireError::IO` to the cancellation
+  sentinel instead of erroring out, so `ask` from a closed stdin emits a
+  clean `cancelled` JSON instead of stderr garbage.
+- MCP `tool_router` macro now finds the registered `elicitate_mcp` tool
+  by using `Self::tool_router()` instead of `Default::default()`.
+
 ## [0.1.0] — 2026-07-21
 
 ### Added

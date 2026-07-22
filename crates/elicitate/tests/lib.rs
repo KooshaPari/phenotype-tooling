@@ -76,7 +76,7 @@ fn schema_roundtrip_datetime() {
         field: FieldSpec::DateTime {
             label: "at".into(),
             default: Some("2026-07-21T10:00:00Z".into()),
-            kind: DateTimeKind::DateTime,
+            picker_kind: DateTimeKind::DateTime,
         },
         notes: None,
         buttons: None,
@@ -86,8 +86,8 @@ fn schema_roundtrip_datetime() {
     };
     let json = serde_json::to_string(&spec).unwrap();
     let back: PromptSpec = serde_json::from_str(&json).unwrap();
-    if let FieldSpec::DateTime { kind, .. } = &back.field {
-        assert!(matches!(kind, DateTimeKind::DateTime));
+    if let FieldSpec::DateTime { picker_kind, .. } = &back.field {
+        assert!(matches!(picker_kind, DateTimeKind::DateTime));
     } else {
         panic!("lost variant");
     }
