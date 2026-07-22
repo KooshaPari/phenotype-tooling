@@ -47,6 +47,105 @@ def extract_component_licenses(sbom: dict[str, Any] | list[dict[str, Any]]) -> l
     return out
 
 
+def _strip_outer_parens(expression: str) -> str:
+    """Remove balanced outer parentheses from an SPDX expression."""
+    expression = expression.strip()
+    while expression.startswith("(") and expression.endswith(")"):
+        depth = 0
+        balanced = True
+        for index, char in enumerate(expression):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0 and index != len(expression) - 1:
+                    balanced = False
+                    break
+        if not balanced or depth != 0:
+            break
+        expression = expression[1:-1].strip()
+    return expression
+
+
+def _split_expression(expression: str, operator: str) -> list[str]:
+    """Split an SPDX expression on a top-level boolean operator."""
+    parts: list[str] = []
+    start = 0
+    depth = 0
+    marker = f" {operator} "
+    index = 0
+    while index < len(expression):
+        char = expression[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif depth == 0 and expression.startswith(marker, index):
+            parts.append(expression[start:index].strip())
+            start = index + len(marker)
+            index = start
+            continue
+        index += 1
+    if parts:
+        parts.append(expression[start:].strip())
+    return parts
+
+
+def classify_license(
+    expression: str,
+    allowed: set[str],
+    denied: set[str],
+    review_required: set[str],
+) -> str:
+    """Classify an SPDX expression as allowed, denied, review, or unknown.
+
+    For ``OR`` expressions, one approved option is sufficient. For ``AND``
+    expressions every term must be approved. This handles the composite SPDX
+    strings emitted by cargo-license without weakening deny/review semantics.
+    """
+    expression = _strip_outer_parens(expression.upper().strip())
+    if expression in denied:
+        return "denied"
+    if expression in review_required:
+        return "review"
+    if expression in allowed:
+        return "allowed"
+
+    # SPDX WITH expressions retain the base license's policy classification.
+    if " WITH " in expression:
+        return classify_license(expression.split(" WITH ", 1)[0], allowed, denied, review_required)
+
+    disjunction = _split_expression(expression, "OR")
+    if disjunction:
+        classifications = [
+            classify_license(part, allowed, denied, review_required)
+            for part in disjunction
+        ]
+        if "allowed" in classifications:
+            return "allowed"
+        if "review" in classifications:
+            return "review"
+        if all(item == "denied" for item in classifications):
+            return "denied"
+        return "unknown"
+
+    conjunction = _split_expression(expression, "AND")
+    if conjunction:
+        classifications = [
+            classify_license(part, allowed, denied, review_required)
+            for part in conjunction
+        ]
+        if "denied" in classifications:
+            return "denied"
+        if "review" in classifications:
+            return "review"
+        if all(item == "allowed" for item in classifications):
+            return "allowed"
+        return "unknown"
+
+    return "unknown"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sbom", required=True, help="Path to CycloneDX JSON SBOM")
@@ -89,13 +188,13 @@ def main() -> int:
     review: list[dict[str, str]] = []
     for comp in components:
         lic = comp["license"].upper().strip()
-        if lic in denied:
+        classification = classify_license(lic, allowed, denied, review_required)
+        if classification == "denied":
             violations.append({**comp, "reason": "denied license"})
-        elif lic not in allowed:
-            if lic in review_required:
-                review.append({**comp, "reason": "review-required license"})
-            else:
-                violations.append({**comp, "reason": "not in allowlist"})
+        elif classification == "review":
+            review.append({**comp, "reason": "review-required license"})
+        elif classification != "allowed":
+            violations.append({**comp, "reason": "not in allowlist"})
 
     if args.format == "json":
         print(
