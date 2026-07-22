@@ -1,0 +1,30 @@
+# Forge plugin manifest for elicitate.
+#
+# Drop this file into your host repo's `.forgecode/plugins/elicitate/`
+# directory (or run `./install.sh` from this directory).
+
+[plugin]
+name = "elicitate"
+version = "0.1.0"
+description = "Native OS popup elicitation tool — pause the agent and ask the human a structured question"
+author = "Phenotype Contributors"
+license = "MIT"
+homepage = "https://github.com/KooshaPari/phenotype-tooling/tree/main/crates/elicitate"
+
+[skill]
+path = "../../.elicitate/skills/elicitate/SKILL.md"
+auto_load = true
+register_name = "elicitate"
+
+# MCP server registration — Forge discovers this on next launch
+[[mcp_servers]]
+name = "elicitate_mcp"
+command = "elicitate-mcp"
+args = ["serve"]
+transport = "stdio"
+env = []
+auto_register = true
+
+# Optional: pin the minimum elicitate version this plugin requires
+[compatibility]
+elicitate_min = "0.1.0"

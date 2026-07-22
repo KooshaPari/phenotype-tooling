@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "elicitate_mcp": {
+      "command": "elicitate-mcp",
+      "args": ["serve"],
+      "transport": "stdio",
+      "trustLevel": "trusted"
+    }
+  }
+}
