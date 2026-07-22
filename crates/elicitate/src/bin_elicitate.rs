@@ -229,6 +229,15 @@ struct DaemonArgs {
     /// Fire an OS-native notification (Notification Center / Toast).
     #[arg(long, env = "ELICITATE_NOTIFY_NATIVE")]
     native: bool,
+    /// Disable the OS tray icon even if the `tray-native` feature is on.
+    /// Default: tray enabled when the feature is compiled in.
+    #[arg(long)]
+    no_tray: bool,
+    /// Force-enable the tray even when running in a context where
+    /// `build_tray` would otherwise skip the native backend
+    /// (e.g. CI, SSH). Off by default.
+    #[arg(long, hide = true)]
+    force_tray: bool,
 }
 
 // ---- inbox ------------------------------------------------------------
@@ -613,6 +622,7 @@ fn cmd_daemon(args: DaemonArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         port: args.port,
         bind,
         notify,
+        enable_tray: !args.no_tray,
     };
     let handle = elicitate::inbox::daemon::start_daemon(cfg)
         .map_err(|e| e.to_string())?;

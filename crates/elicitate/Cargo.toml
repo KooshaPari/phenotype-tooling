@@ -1,6 +1,6 @@
 [package]
 name = "elicitate"
-version = "0.2.0"
+version = "0.4.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -44,10 +44,35 @@ which = "6"
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, optional = true }
 prometheus = { version = "0.14", optional = true }
 
+# FFI for native tray — only compiled when the `tray-native` feature is on.
+# tray-icon handles its own platform backends; the objc2/windows-sys crates
+# here are for the badge-text and message-pump extras that tray-icon does not
+# expose directly.
+tray-icon = { version = "0.24", optional = true, default-features = false }
+objc2 = { version = "0.6", optional = true }
+objc2-app-kit = { version = "0.3", optional = true, default-features = false }
+objc2-foundation = { version = "0.3", optional = true }
+windows-sys = { version = "0.61", optional = true, features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
 [features]
 default = ["mcp"]
 observability = ["dep:phenotype-tooling-observability", "dep:prometheus"]
 mcp = ["dep:rmcp"]
+# Real OS tray icon (NSStatusItem on mac, Shell_NotifyIcon on win,
+# libappindicator on linux) with badge counts and menu. Off by default
+# because it pulls platform-specific dependencies and only makes sense
+# when running `elicitate daemon` interactively.
+tray-native = [
+    "dep:tray-icon",
+    "dep:objc2",
+    "dep:objc2-foundation",
+    "dep:objc2-app-kit",
+    "dep:windows-sys",
+]
 
 [dev-dependencies]
 tempfile = "3.8"

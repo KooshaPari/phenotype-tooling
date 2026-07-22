@@ -35,6 +35,13 @@ pub mod mcp;
 #[cfg(feature = "observability")]
 pub mod metrics;
 
+/// OS tray icon (status bar item / notification area / libappindicator).
+///
+/// Always available — when `tray-native` is disabled (the default) the
+/// module exposes a `NoopTray` so the daemon doesn't need conditional
+/// compilation at every call site.
+pub mod tray;
+
 pub use error::ElicitError;
 pub use inbox::notify::{NotifyAttempt, NotifyChannels, inbox_open_url, inbox_open_url_for};
 pub use inbox::{
@@ -44,6 +51,7 @@ pub use inbox::{
 pub use options::{ElicitOptions, RendererPreference};
 pub use platform::Platform;
 pub use spec::{ButtonSpec, ChoiceOption, DateTimeKind, ElicitResponse, FieldSpec, FieldValue, NotesSpec, PromptSpec, Urgency};
+pub use tray::{build_tray, MenuAction, Tray, TrayConfig, TrayError, TrayEvent, TrayResult};
 pub use views::{render_form_html, render_full_html, render_plain_text, render_summary};
 
 /// Render a popup and block until the user responds (or the popup times out).
