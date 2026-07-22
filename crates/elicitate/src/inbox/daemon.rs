@@ -109,6 +109,8 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
     let listener = TcpListener::bind(bind_addr).map_err(|e| {
         ElicitError::RendererFailed(format!("bind {bind_addr}: {e}"))
     })?;
+    // The default accept is blocking. Use non-blocking so the wakeup
+    // loop can poll `shutdown` frequently without a separate timer thread.
     listener
         .set_nonblocking(true)
         .map_err(|e| ElicitError::RendererFailed(format!("set_nonblocking: {e}")))?;
@@ -231,7 +233,9 @@ fn run_http_loop(
                 });
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                thread::sleep(Duration::from_millis(100));
+                // Non-blocking + no incoming connection; check shutdown
+                // flag at a reasonable cadence (50ms ≈ 20 Hz).
+                thread::sleep(Duration::from_millis(50));
             }
             Err(e) => {
                 warn!(error = %e, "accept failed");
@@ -761,6 +765,9 @@ mod tests {
     fn start_stop_roundtrip() {
         let tmp = tempfile::tempdir().unwrap();
         let port = portpicker::pick_unused_port().expect("pick port");
+        // Brief settling time to avoid the kernel's TIME_WAIT race when
+        // re-binding the port immediately after `pick_unused_port`.
+        thread::sleep(Duration::from_millis(50));
         let cfg = DaemonConfig {
             inbox_root: tmp.path().to_path_buf(),
             port,
@@ -784,11 +791,13 @@ mod tests {
         }
         let mut stream = stream.expect("daemon did not start listening within 5s");
         stream
-            .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
             .unwrap();
+        stream.flush().unwrap();
         let mut reader = BufReader::new(&stream);
         let mut status = String::new();
-        reader.read_line(&mut status).unwrap();
+        let n = reader.read_line(&mut status).unwrap();
+        assert!(n > 0, "no response from daemon: empty read");
         assert!(status.contains("200"), "expected HTTP/1.1 200, got: {status}");
         handle.stop().unwrap();
         thread::sleep(Duration::from_millis(200));

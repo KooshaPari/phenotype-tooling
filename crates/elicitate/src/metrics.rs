@@ -76,13 +76,15 @@ pub mod metrics {
         }
         if status == "timed_out" {
             if let Some(c) = TIMEOUTS.get() {
-                c.with_label_values(&[crate::platform()])
+                let platform = format!("{:?}", crate::platform());
+                c.with_label_values(&[platform])
                     .inc_by(1.0);
             }
         }
         if status == "failed" {
             if let Some(c) = FAILURES.get() {
-                c.with_label_values(&[crate::platform()])
+                let platform = format!("{:?}", crate::platform());
+                c.with_label_values(&[platform])
                     .inc_by(1.0);
             }
         }

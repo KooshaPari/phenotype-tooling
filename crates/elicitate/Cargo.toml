@@ -1,6 +1,6 @@
 [package]
 name = "elicitate"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -41,7 +41,7 @@ schemars = "0.8"
 rmcp = { version = "0.2", features = ["server", "transport-io", "macros"], optional = true }
 inquire = { version = "0.7", features = ["date"] }
 which = "6"
-phenotype-tooling-observability = { path = "../phenotype-tooling-observability", version = "0.1.0", default-features = false, optional = true }
+phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, optional = true }
 prometheus = { version = "0.14", optional = true }
 
 [features]
