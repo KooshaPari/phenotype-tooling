@@ -70,8 +70,10 @@ jobs:
             const tomlRaw = fs.readFileSync('coverage.toml', 'utf8');
             const lineMin = parseFloat((tomlRaw.match(/line_coverage_min\s*=\s*([0-9.]+)/) || [])[1] || '80');
             const criticalMin = parseFloat((tomlRaw.match(/critical_coverage_min\s*=\s*([0-9.]+)/) || [])[1] || '90');
-            const criticalCrates = (tomlRaw.match(/critical_crates\s*=\s*\[(.*?)\]/s) || [])[1]
-              .split(',').map(s => s.trim().replace(/["']/g, '')).filter(Boolean);
+            const criticalMatch = tomlRaw.match(/critical_crates\s*=\s*\[(.*?)\]/s);
+            const criticalCrates = criticalMatch
+              ? criticalMatch[1].split(',').map(s => s.trim().replace(/["']/g, '')).filter(Boolean)
+              : [];
 
             const coverage = JSON.parse(fs.readFileSync('coverage-workspace.json', 'utf8'));
             const data = coverage.data || [];
