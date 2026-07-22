@@ -47,8 +47,8 @@ jobs:
 
           # Scheduled and manually-dispatched runs are the full workspace
           # quality sweep. Pull requests only need this expensive gate when
-          # Rust/Cargo inputs changed; CI/docs-only changes must not inherit
-          # an unrelated baseline score from the entire workspace.
+          # Rust source or build/test configuration changed; CI/docs-only
+          # changes must not inherit an unrelated workspace baseline score.
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "required=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -57,7 +57,6 @@ jobs:
           changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           if printf '%s\n' "$changed" | awk '
             /(^|\/)Cargo\.toml$/ ||
-            /(^|\/)Cargo\.lock$/ ||
             /(^|\/)rust-toolchain(\.toml)?$/ ||
             /(^|\/)clippy\.toml$/ ||
             /(^|\/)\.cargo\// ||
@@ -65,7 +64,7 @@ jobs:
             END { exit(found ? 0 : 1) }
           '; then
             echo "required=true" >> "$GITHUB_OUTPUT"
-            echo "Rust/Cargo changes detected; mutation gate required."
+            echo "Rust/build configuration changes detected; mutation gate required."
           else
             echo "required=false" >> "$GITHUB_OUTPUT"
             echo "No Rust/Cargo changes detected; mutation gate is not applicable."
@@ -219,8 +218,8 @@ jobs:
           {
             echo "## Mutation score (workspace aggregate)"
             echo ""
-            echo "No Rust/Cargo inputs changed in this pull request; mutation testing is not applicable."
-            echo "The 60.00% threshold remains enforced for Rust/Cargo changes and scheduled/manual sweeps."
+            echo "No Rust source or build/test configuration changed in this pull request; mutation testing is not applicable."
+            echo "The 60.00% threshold remains enforced for Rust/build configuration changes and scheduled/manual sweeps."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download all mutants-summary.txt files
