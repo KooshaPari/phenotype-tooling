@@ -237,19 +237,27 @@ pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError
 
 /// Move a request from the pending directory to the answered directory
 /// after the user has responded. Returns the new path.
+///
+/// The mutated `req` (with `state` / `response` populated by the caller) is
+/// serialized to the new path *before* the original pending file is removed.
+/// Renaming alone would carry the pre-answer state forward and the waiter
+/// would never observe the response.
 pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
     let pending = inbox_pending_dir(root).join(format!("{}.json", req.request_id));
     let answered_dir = answered_dir(root);
     std::fs::create_dir_all(&answered_dir)?;
     let dst = answered_dir.join(format!("{}.json", req.request_id));
-    if pending.exists() {
-        // Move + rewrite so the new state is captured on disk.
-        std::fs::remove_file(&dst).ok();
-        std::fs::rename(&pending, &dst)?;
-    } else {
-        let json = serde_json::to_vec_pretty(req).map_err(ElicitError::Json)?;
-        std::fs::write(&dst, &json)?;
+    if let Some(parent) = dst.parent() {
+        std::fs::create_dir_all(parent).ok();
     }
+    // 1. Write the *updated* req (new state/response) to the answered path.
+    let json = serde_json::to_vec_pretty(req).map_err(ElicitError::Json)?;
+    let tmp = answered_dir.join(format!("{}.tmp", req.request_id));
+    std::fs::write(&tmp, &json)?;
+    std::fs::rename(&tmp, &dst)?;
+    // 2. Best-effort remove the original pending file (no-op if it was
+    //    already removed by another worker).
+    std::fs::remove_file(&pending).ok();
     Ok(dst)
 }
 
