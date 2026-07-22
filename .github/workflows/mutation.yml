@@ -26,8 +26,55 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  scope:
+    name: mutation-scope
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether Rust mutation testing is in scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # Scheduled and manually-dispatched runs are the full workspace
+          # quality sweep. Pull requests only need this expensive gate when
+          # Rust/Cargo inputs changed; CI/docs-only changes must not inherit
+          # an unrelated baseline score from the entire workspace.
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          if printf '%s\n' "$changed" | awk '
+            /(^|\/)Cargo\.toml$/ ||
+            /(^|\/)Cargo\.lock$/ ||
+            /(^|\/)rust-toolchain(\.toml)?$/ ||
+            /(^|\/)clippy\.toml$/ ||
+            /(^|\/)\.cargo\// ||
+            /\.rs$/ { found=1 }
+            END { exit(found ? 0 : 1) }
+          '; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "Rust/Cargo changes detected; mutation gate required."
+          else
+            echo "required=false" >> "$GITHUB_OUTPUT"
+            echo "No Rust/Cargo changes detected; mutation gate is not applicable."
+          fi
+
   mutation:
     name: cargo-mutants (nightly correctness check)
+    needs: scope
+    if: ${{ needs.scope.outputs.required == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
@@ -119,8 +166,11 @@ jobs:
             echo "::error::cargo-mutants produced no output for ${{ matrix.crate }}"
             exit 1
           fi
-          CAUGHT=$(awk '/^caught:/{c++} END{print c+0}' "$OUT"/*.json 2>/dev/null || echo 0)
-          MISSED=$(awk '/^missed:/{m++} END{print m+0}' "$OUT"/*.json 2>/dev/null || echo 0)
+          count_lines() {
+            [ -f "$1" ] && wc -l < "$1" || echo 0
+          }
+          CAUGHT=$(count_lines "$OUT/caught.txt")
+          MISSED=$(($(count_lines "$OUT/missed.txt") + $(count_lines "$OUT/timeout.txt")))
           TOTAL=$((CAUGHT + MISSED))
           if [ "$TOTAL" -eq 0 ]; then
             PCT="0.00"
@@ -157,17 +207,30 @@ jobs:
 
   summarize:
     name: mutation-score
+    needs: [scope, mutation]
     runs-on: ubuntu-latest
-    needs: mutation
     if: always()
     steps:
       - uses: actions/checkout@v4
+
+      - name: Report mutation gate not applicable
+        if: ${{ needs.scope.outputs.required != 'true' }}
+        run: |
+          {
+            echo "## Mutation score (workspace aggregate)"
+            echo ""
+            echo "No Rust/Cargo inputs changed in this pull request; mutation testing is not applicable."
+            echo "The 60.00% threshold remains enforced for Rust/Cargo changes and scheduled/manual sweeps."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Download all mutants-summary.txt files
+        if: ${{ needs.scope.outputs.required == 'true' }}
         uses: actions/download-artifact@v4
         with:
           path: mutants-out
           pattern: mutants-*
       - name: Aggregate mutation score across workspace
+        if: ${{ needs.scope.outputs.required == 'true' }}
         id: agg
         run: |
           set -euo pipefail
@@ -211,7 +274,7 @@ jobs:
           echo "AGGREGATE_CAUGHT_PCT=${PCT}" >> "$GITHUB_ENV"
 
       - name: Threshold gate (fail if caught-pct < 60.00%)
-        if: always()
+        if: ${{ needs.scope.outputs.required == 'true' }}
         env:
           PCT: ${{ steps.agg.outputs.mutation_score }}
         run: |
@@ -224,7 +287,7 @@ jobs:
           }'
 
       - name: Upload aggregate mutation summary
-        if: always()
+        if: ${{ needs.scope.outputs.required == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: mutation-summary

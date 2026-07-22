@@ -57,8 +57,9 @@ jobs:
       - name: cargo llvm-cov (line coverage)
         run: |
           set -euo pipefail
-          cargo llvm-cov --workspace --all-features --lcov --output-path lcov-workspace.info
-          cargo llvm-cov report --workspace --json > coverage-workspace.json
+          IGNORE_REGEX='(^|/)crates/.*/(tests|benches)/|(^|/)crates/ptx/src/main.rs$|(^|/)crates/.*/src/bin/'
+          cargo llvm-cov --workspace --all-features --ignore-filename-regex "$IGNORE_REGEX" --lcov --output-path lcov-workspace.info
+          cargo llvm-cov report --ignore-filename-regex "$IGNORE_REGEX" --json > coverage-workspace.json
 
       - name: parse coverage.json + check threshold
         id: parse
@@ -70,12 +71,15 @@ jobs:
             const tomlRaw = fs.readFileSync('coverage.toml', 'utf8');
             const lineMin = parseFloat((tomlRaw.match(/line_coverage_min\s*=\s*([0-9.]+)/) || [])[1] || '80');
             const criticalMin = parseFloat((tomlRaw.match(/critical_coverage_min\s*=\s*([0-9.]+)/) || [])[1] || '90');
-            const criticalCrates = (tomlRaw.match(/critical_crates\s*=\s*\[(.*?)\]/s) || [])[1]
-              .split(',').map(s => s.trim().replace(/["']/g, '')).filter(Boolean);
+            const criticalMatch = tomlRaw.match(/critical_crates\s*=\s*\[(.*?)\]/s);
+            const criticalCrates = criticalMatch
+              ? criticalMatch[1].split(',').map(s => s.trim().replace(/["']/g, '')).filter(Boolean)
+              : [];
 
             const coverage = JSON.parse(fs.readFileSync('coverage-workspace.json', 'utf8'));
             const data = coverage.data || [];
-            const workspaceRate = data.find(d => d.name === 'Workspace')?.totals?.lines?.percent;
+            const workspaceData = data.find(d => d.name === 'Workspace') || data[0];
+            const workspaceRate = workspaceData?.totals?.lines?.percent;
             const lines = [`### line coverage`, `* threshold: ${lineMin}%`];
             if (typeof workspaceRate !== 'undefined') {
               lines.push(`* workspace: ${workspaceRate.toFixed(2)}%`);
@@ -157,9 +161,19 @@ jobs:
         run: |
           set -euo pipefail
           for crate in phenotype-cli phenotype-config phenotype-diff phenotype-tooling-observability ptx; do
-            cargo llvm-cov --package "$crate" --no-default-features --json --output-path "lcov-$crate.info" || true
-            cargo llvm-cov report --package "$crate" --json > "coverage-$crate.json"
-            rate=$(python3 -c "import json; d=json.load(open('coverage-$crate.json'))['data']; w=next(x for x in d if x['name']=='Workspace'); print(f'{w[\"totals\"][\"lines\"][\"percent\"]:.2f}')")
+            IGNORE_REGEX='(^|/)crates/.*/(tests|benches)/|(^|/)crates/ptx/src/main.rs$|(^|/)crates/.*/src/bin/'
+            cargo llvm-cov --package "$crate" --no-default-features --ignore-filename-regex "$IGNORE_REGEX" --json --output-path "lcov-$crate.info" || true
+            cargo llvm-cov report --package "$crate" --ignore-filename-regex "$IGNORE_REGEX" --json > "coverage-$crate.json"
+            rate=$(python3 - "$crate" <<'PY'
+import json
+import sys
+
+data = json.load(open(f"coverage-{sys.argv[1]}.json")).get("data", [])
+record = next((item for item in data if item.get("name") == "Workspace"), data[0] if data else {})
+percent = record.get("totals", {}).get("lines", {}).get("percent", 0.0)
+print(f"{percent:.2f}")
+PY
+            )
             echo "$crate: $rate%"
             if python3 -c "import sys; sys.exit(0 if float('$rate') >= float('$THRESHOLD') else 1)"; then
               echo "  PASS (>= $THRESHOLD%)"
