@@ -842,6 +842,7 @@ dependencies = [
  "inquire",
  "phenotype-tooling-observability",
  "predicates",
+ "prometheus",
  "regex",
  "rmcp",
  "schemars",

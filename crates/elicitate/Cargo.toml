@@ -42,10 +42,11 @@ rmcp = { version = "0.2", features = ["server", "transport-io", "macros"], optio
 inquire = { version = "0.7", features = ["date"] }
 which = "6"
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", version = "0.1.0", default-features = false, optional = true }
+prometheus = { version = "0.14", optional = true }
 
 [features]
 default = ["mcp"]
-observability = ["dep:phenotype-tooling-observability"]
+observability = ["dep:phenotype-tooling-observability", "dep:prometheus"]
 mcp = ["dep:rmcp"]
 
 [dev-dependencies]
