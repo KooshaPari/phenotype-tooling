@@ -282,3 +282,75 @@ This addendum documents the TUI viewer added on 2026-07-22:
   `q` quits cleanly.
 - `TERM=dumb elicitate inbox --tui --inbox-dir <dir>` → exits 0 with
   plain-text summary, no raw-mode side effects.
+
+---
+
+## v0.5.1 addendum — open-in-box discoverability fixes
+
+User-reported gap: after v0.4 the tray icon and inbox URL existed, but
+no surface made "open the inbox" obvious from the CLI. v0.5.1 closes
+that gap with five coordinated changes.
+
+### New subcommand
+- `elicitate open [--latest] [--spawn-if-missing] [--print-only] [--inbox-dir DIR] [--port N]`
+  - Without flags: open the live daemon's inbox index in the default browser.
+  - `--latest`: deep-link to the most recently enqueued pending form.
+  - `--spawn-if-missing`: launch a detached `elicitate daemon` if none
+    is running, then open.
+  - `--print-only`: skip the `xdg-open` / `open` shell-out, just print the
+    URL (useful for `$(elicitate open --print-only)` in shell scripts).
+
+### Daemon flag
+- `elicitate daemon --auto-open-browser` (+ `ELICITATE_AUTO_OPEN_BROWSER=1`)
+  opens the inbox index in the default browser as soon as the daemon
+  finishes binding. Off by default.
+
+### Fixed bugs
+1. **Tray badge/tooltip never updated** (regression from v0.4). The
+   owning-thread channel dropped `TrayCmd::SetBadge` /
+   `TrayCmd::SetTooltip` with a "placeholder" comment. Fixed: the
+   owner thread now routes them through
+   `tray_icon::TrayIcon::set_title(...)` and `set_tooltip(...)` so the
+   menu-bar text and tooltip reflect live state on macOS.
+2. **Tray click opened `http://127.0.0.1:7117` hardcoded** (regression
+   from v0.4). The daemon now threads its bound URL through
+   `TrayConfig::inbox_url` and `Tray::inbox_url(&self)` reads it back;
+   left-click and `OpenInbox` menu action open whatever the daemon is
+   actually serving.
+3. **`inbox --open` and `ask --async` ignored the live daemon port**.
+   Same root cause; fixed by routing through the new
+   `inbox::daemon::live_url(root, bind_filter)` helper which reads the
+   daemon's lockfile and verifies the port is accepting connections.
+
+### New public API
+- `pub fn elicitate::inbox_live_url(inbox_dir, bind_filter) -> Option<String>`
+- `pub fn elicitate::open_in_default_browser(url: &str) -> Result<()>`
+- `pub fn elicitate::inbox_read_lockfile(inbox_dir) -> Option<LockfilePayload>`
+- `pub struct elicitate::LockfilePayload { pub booted_at_ms: u64 }`
+
+### New tests (4, regression for the v0.5.1 fixes)
+- `live_url_returns_none_when_no_lockfile`
+- `live_url_rejects_stale_lockfile`
+- `live_url_accepts_running_daemon`
+- `live_url_respects_bind_filter`
+
+Bumped test count: **133 / 133 green** (96 lib + 13 bin + 14 cli + 6
+lib intg + 4 mcp stdio).
+
+### Risks
+- `open_in_default_browser` shells out, which means a malicious
+  `ELICITATE_*` env var or lockfile could in theory direct it elsewhere.
+  Mitigation: the URL is constructed from the daemon's actual bind
+  address (validated against `IsLoopback`) and the open helper does not
+  honor additional env-var overrides.
+- `elicitate open --spawn-if-missing` launches a daemon. We use
+  `std::process::Command` with `Daemon` stdio redirected to the parent's
+  stdout, so the daemon stays co-resident with the user's shell; the
+  `uninstall` subcommand removes the registered launchd unit as before.
+
+### Sign-off (v0.5.1)
+- Bumps `[package] version = "0.5.1"` in `Cargo.toml`.
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod`.
+- Reviewer checklist: re-run `cargo test -p elicitate --no-fail-fast`
+  and verify `elicitate open --print-only` against a daemon on
+  `--port 8118` returns `http://127.0.0.1:8118/inbox`.

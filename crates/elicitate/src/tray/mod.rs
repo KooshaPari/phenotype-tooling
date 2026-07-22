@@ -132,6 +132,12 @@ pub trait Tray: Send + Sync {
     fn shutdown(&self) -> TrayResult<()>;
     /// Backend name for diagnostics.
     fn backend_name(&self) -> &'static str;
+    /// The URL the daemon is bound to (used by click handlers to open
+    /// the right inbox in the default browser). Defaults to `None`
+    /// for `NoopTray` — the daemon falls back to its own bind URL.
+    fn inbox_url(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// Construct a tray matching the compile-time feature set.
@@ -171,6 +177,9 @@ pub fn build_tray(cfg: TrayConfig) -> TrayResult<Arc<dyn Tray>> {
 /// 1. `tray-native` feature is off (default).
 /// 2. The native backend couldn't attach (headless, no GUI session).
 /// 3. The daemon was launched with `--no-tray`.
+///
+/// `NoopTray` preserves the daemon's URL so the click handler still
+/// works in `--no-tray` mode.
 #[derive(Debug)]
 pub struct NoopTray {
     #[allow(dead_code)]
@@ -201,6 +210,9 @@ impl Tray for NoopTray {
     }
     fn backend_name(&self) -> &'static str {
         "noop"
+    }
+    fn inbox_url(&self) -> Option<&str> {
+        Some(&self.cfg.inbox_url)
     }
 }
 
@@ -236,6 +248,10 @@ mod native {
         cmd_tx: Sender<TrayCmd>,
         ev_rx: std::sync::Mutex<std::sync::mpsc::Receiver<TrayEvent>>,
         backend: &'static str,
+        /// Stable URL the daemon serves on. Captured here so `try_recv`
+        /// consumers (the daemon's tray event loop) can resolve click
+        /// targets without a separate getter on the Tray trait.
+        inbox_url: String,
     }
 
     impl NativeTray {
@@ -251,6 +267,10 @@ mod native {
                 { "unsupported" }
             };
 
+            // Capture the URL + inbox root for the click handler and
+            // for the menu callbacks. Must clone *before* `cfg` is
+            // moved into the owning-thread closure.
+            let inbox_url = cfg.inbox_url.clone();
             let tooltip = cfg.tooltip.clone();
             let initial = cfg.initial_badge.clone();
 
@@ -264,7 +284,7 @@ mod native {
             std::thread::Builder::new()
                 .name("elicitate-tray".into())
                 .spawn(move || {
-                    let result = Self::run_owning_thread(cfg, tooltip, initial, cmd_rx, ev_tx);
+                    let result = Self::run_owning_thread(tooltip, initial, cmd_rx, ev_tx);
                     if let Err(e) = result {
                         tracing::warn!(error = %e, "tray owner thread exited with error");
                     }
@@ -275,11 +295,11 @@ mod native {
                 cmd_tx,
                 ev_rx: std::sync::Mutex::new(ev_rx),
                 backend,
+                inbox_url,
             })
         }
 
         fn run_owning_thread(
-            cfg: TrayConfig,
             tooltip: String,
             initial: String,
             cmd_rx: std::sync::mpsc::Receiver<TrayCmd>,
@@ -330,11 +350,11 @@ mod native {
             if !initial.is_empty() {
                 builder = builder.with_title(initial);
             }
-            let _tray = builder
+            // Bind the tray-icon instance so the event loop can mutate
+            // it (set_title / set_tooltip) on every command.
+            let tray = builder
                 .build()
                 .map_err(|e| TrayError::NotAvailable(e.to_string()))?;
-
-            let _ = cfg; // keep until future artwork-loading use
 
             // Event + command loop. We poll both ends without blocking
             // because the OS message pump is running on the main thread
@@ -346,21 +366,24 @@ mod native {
                 loop {
                     match cmd_rx.try_recv() {
                         Ok(TrayCmd::SetBadge { text }) => {
-                            // We can't reach `tray` from here because tray-icon's
-                            // set_tooltip/set_title need a borrowed reference;
-                            // easier: just translate and ignore. The real badge
-                            // text is set at construction. Subsequent updates
-                            // are surfaced via the tooltip.
-                            let _ = text;
+                            // On macOS the menu-bar title IS the badge.
+                            // On Win/Linux we also set the tooltip so
+                            // the count is visible on hover.
+                            let _ = tray.set_title(Some(text.clone()));
+                            let tooltip = format!("elicitate inbox · {} pending", text);
+                            let _ = tray.set_tooltip(Some(tooltip));
                         }
                         Ok(TrayCmd::SetTooltip { text }) => {
-                            let _ = text;
+                            let _ = tray.set_tooltip(Some(text));
                         }
                         Ok(TrayCmd::Shutdown) => {
+                            // Drop the TrayIcon to remove the status bar item.
+                            drop(tray);
                             return Ok(());
                         }
                         Err(std::sync::mpsc::TryRecvError::Empty) => break,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                            drop(tray);
                             return Ok(());
                         }
                     }
@@ -394,25 +417,23 @@ mod native {
     }
 
     impl Tray for NativeTray {
-        fn set_badge(&self, _text: &str) -> TrayResult<()> {
-            // We deliberately do not forward to the owning thread's TrayIcon
-            // because the SetBadge handling there is a placeholder — real
-            // badge updates require re-implementing the bridge with a
-            // shared `Mutex<TrayIcon>` that bypasses Sync, which is
-            // deliberately out of scope for v0.4. The tooltip + (when
-            // available) NSStatusItem title are the user-visible surfaces;
-            // both are set at construction time and updated by set_tooltip.
-            let _ = self.cmd_tx.send(TrayCmd::SetBadge {
-                text: _text.to_string(),
-            });
-            Ok(())
+        fn set_badge(&self, text: &str) -> TrayResult<()> {
+            // Forward to the owning thread; the OS tray icon's title and
+            // tooltip are updated there (tray-icon's TrayIcon is !Send on
+            // macOS because of Objective-C refs).
+            self.cmd_tx
+                .send(TrayCmd::SetBadge {
+                    text: text.to_string(),
+                })
+                .map_err(|e| TrayError::Backend(format!("tray channel closed: {e}")))
         }
 
         fn set_tooltip(&self, text: &str) -> TrayResult<()> {
-            let _ = self.cmd_tx.send(TrayCmd::SetTooltip {
-                text: text.to_string(),
-            });
-            Ok(())
+            self.cmd_tx
+                .send(TrayCmd::SetTooltip {
+                    text: text.to_string(),
+                })
+                .map_err(|e| TrayError::Backend(format!("tray channel closed: {e}")))
         }
 
         fn notify(&self, _title: &str, _body: &str) -> TrayResult<()> {
@@ -435,6 +456,10 @@ mod native {
 
         fn backend_name(&self) -> &'static str {
             self.backend
+        }
+
+        fn inbox_url(&self) -> Option<&str> {
+            Some(&self.inbox_url)
         }
     }
 

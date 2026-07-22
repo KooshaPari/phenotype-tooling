@@ -145,6 +145,44 @@ browser.
       `tray-icon::TrayIcon::set_title()` is called from the owning thread.
       Verified on macOS.
 
+### M2.6 — Open-in-box discoverability fixes (v0.5.1, addendum)
+
+On 2026-07-22 the user reported: "have yet to see open inbox app/tray".
+After v0.4 the tray icon and the daemon's inbox URL both existed, but
+no CLI surface made "open the inbox in my browser" discoverable. v0.5.1
+closes that gap and patches the v0.4 regressions that prevented the
+existing surfaces from actually working.
+
+- [x] **`elicitate open`** — standalone subcommand with `--latest`,
+      `--spawn-if-missing`, `--print-only`, `--inbox-dir`, `--port`.
+      Resolves the live daemon URL via the new
+      `inbox::daemon::live_url(root, bind_filter)` helper (no more
+      hardcoded `:7117`).
+- [x] **`elicitate daemon --auto-open-browser`** — opens the inbox index
+      in the default browser as soon as the daemon finishes binding
+      (also controllable via `ELICITATE_AUTO_OPEN_BROWSER=1`).
+- [x] **Fix #1**: tray badge/tooltip now actually update — the v0.4
+      owner-thread channel was dropping `SetBadge`/`SetTooltip`. Re-routed
+      through `tray_icon::TrayIcon::set_title` + `set_tooltip` on the
+      owning thread.
+- [x] **Fix #2**: tray click URL is read from `TrayConfig::inbox_url`,
+      not hardcoded `http://127.0.0.1:7117`.
+- [x] **Fix #3**: `elicitate inbox --open` and `ask --async` now use
+      `inbox::daemon::live_url()` so they correctly point at whatever
+      port the daemon is bound to.
+- [x] **New public API** for downstream crates:
+      `elicitate::inbox_live_url`,
+      `elicitate::inbox_read_lockfile`,
+      `elicitate::open_in_default_browser`,
+      `elicitate::LockfilePayload`.
+- [x] **4 new regression tests** in `daemon::tests`:
+      `live_url_returns_none_when_no_lockfile`,
+      `live_url_rejects_stale_lockfile`,
+      `live_url_accepts_running_daemon`,
+      `live_url_respects_bind_filter`.
+- [x] Test count grew from 129 → **133** (96 lib + 13 bin + 14 cli + 6
+      lib intg + 4 mcp stdio).
+
 ### M3 — Native popup renderers (next, deferred from M2)
 
 The M2 scope was originally "wire the macOS / Windows / Linux GUI renderers"

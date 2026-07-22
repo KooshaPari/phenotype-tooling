@@ -98,6 +98,10 @@ enum Cmd {
     Daemon(DaemonArgs),
     /// Inspect the inbox: list pending, show one in detail, or open the UI.
     Inbox(InboxArgs),
+    /// Open the inbox in the default browser. Shorthand for
+    /// `elicitate inbox --open`. Pass `--latest` to deep-link to the most
+    /// recent pending form instead of the index page.
+    Open(OpenArgs),
     /// Block until a queued `--async` request has been answered (or times out).
     Wait(WaitArgs),
     /// Submit an answer to a queued inbox request via the CLI (no UI).
@@ -238,6 +242,11 @@ struct DaemonArgs {
     /// (e.g. CI, SSH). Off by default.
     #[arg(long, hide = true)]
     force_tray: bool,
+    /// Open the inbox index in the default browser once the daemon is
+    /// ready. Equivalent to running `elicitate open` in parallel. Off
+    /// by default.
+    #[arg(long, env = "ELICITATE_AUTO_OPEN_BROWSER")]
+    auto_open_browser: bool,
 }
 
 // ---- inbox ------------------------------------------------------------
@@ -266,6 +275,21 @@ struct InboxArgs {
     /// available (CI, `TERM=dumb`, ssh without TTY allocation).
     #[arg(long, conflicts_with_all = &["list", "show", "url", "open", "gc_age_secs"])]
     tui: bool,
+}
+
+#[derive(Debug, Args)]
+struct OpenArgs {
+    /// Deep-link to the most recent pending form instead of the index page.
+    /// If the inbox is empty, falls back to the index page.
+    #[arg(long)]
+    latest: bool,
+    /// If no daemon is running, start one (in the background) and then
+    /// open the browser. Has no effect when a daemon is already running.
+    #[arg(long)]
+    spawn_if_missing: bool,
+    /// Print the URL without opening the browser. Useful for CI / scripts.
+    #[arg(long)]
+    print_only: bool,
 }
 
 // ---- wait / answer ----------------------------------------------------
@@ -323,6 +347,7 @@ fn main() -> ExitCode {
         Cmd::Uninstall(args) => cmd_uninstall(args, &inbox_dir),
         Cmd::Daemon(args) => cmd_daemon(args, &inbox_dir),
         Cmd::Inbox(args) => cmd_inbox(args, &inbox_dir),
+        Cmd::Open(args) => cmd_open(args, &inbox_dir),
         Cmd::Wait(args) => cmd_wait(args, &inbox_dir),
         Cmd::Answer(args) => cmd_answer(args, &inbox_dir),
         Cmd::Serve => {
@@ -639,10 +664,18 @@ fn cmd_daemon(args: DaemonArgs, inbox_dir: &PathBuf) -> Result<(), String> {
             "port": handle.port,
             "bind": handle.bind_addr.to_string(),
             "inbox_root": handle.inbox_root,
+            "open_url": open_url_from_handle(&handle),
             "open_url_format": elicitate::inbox_open_url_for("<id>"),
         }))
         .unwrap()
     );
+    if args.auto_open_browser {
+        let url = open_url_from_handle(&handle);
+        match elicitate::open_in_default_browser(&url) {
+            Ok(()) => eprintln!("auto-opened {url} in default browser"),
+            Err(e) => eprintln!("auto-open failed: {e}"),
+        }
+    }
     // Block on a Ctrl-C / SIGINT / SIGTERM handler so the process stays
     // alive. EOF on stdin (a parent that closed the pipe) is ignored so
     // process supervisors like launchd and the test harness can detach us
@@ -780,12 +813,16 @@ fn cmd_inbox(args: InboxArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         return Ok(());
     }
     if args.open {
-        // Use 0 = "open inbox index"; the daemon will serve it. If no
-        // daemon is running, we still print the URL.
-        let url = "http://localhost:7117/inbox";
+        // Discover the live daemon (honours port + bind from the lockfile,
+        // not the hardcoded DEFAULT_PORT). If no daemon is running, fall
+        // back to a default loopback URL so the user at least gets a
+        // useful error in their browser ("connection refused").
+        let base = elicitate::inbox_live_url(inbox_dir, None)
+            .unwrap_or_else(|| format!("http://127.0.0.1:{}", elicitate::INBOX_DEFAULT_PORT));
+        let url = format!("{}/inbox", base);
         println!("{url}");
         let _ = std::process::Command::new(open_cmd())
-            .args(open_args(url))
+            .args(open_args(&url))
             .status();
         return Ok(());
     }
@@ -842,6 +879,124 @@ fn open_args(url: &str) -> Vec<String> {
     } else {
         vec![url.to_string()]
     }
+}
+
+/// Open the inbox UI in the default browser.
+///
+/// Discovery order:
+/// 1. Read the lockfile and verify the bound port is live → use that URL.
+/// 2. If `--spawn-if-missing` is set and no daemon is running, fork one
+///    in the background, then re-discover.
+/// 3. Fall back to `http://127.0.0.1:<default>` so the user still gets
+///    a "connection refused" diagnostic that tells them to start the
+///    daemon.
+fn cmd_open(args: OpenArgs, inbox_dir: &PathBuf) -> Result<(), String> {
+    use std::process::Command;
+
+    // (1) Try discovery first.
+    let mut base = elicitate::inbox_live_url(inbox_dir, None);
+
+    // (2) Optionally spawn a daemon if nothing is running.
+    if base.is_none() && args.spawn_if_missing {
+        eprintln!(
+            "(no inbox daemon running — spawning one in the background; \
+             set --inbox-dir to control the data location)"
+        );
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let mut cmd = Command::new(exe);
+        cmd.arg("daemon");
+        if inbox_dir != &elicitate::inbox::default_inbox_root() {
+            cmd.arg("--inbox-dir").arg(inbox_dir);
+        }
+        // Detach: on Unix, double-fork via setsid so the daemon survives
+        // the parent exiting. On Windows, use DETACHED_PROCESS so the
+        // child has no console.
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            unsafe {
+                cmd.pre_exec(|| {
+                    // Detach from controlling terminal + parent process group.
+                    libc_setsid();
+                    Ok(())
+                });
+            }
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const DETACHED_PROCESS: u32 = 0x00000008;
+            cmd.creation_flags(DETACHED_PROCESS);
+        }
+        cmd.stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| format!("failed to spawn daemon: {e}"))?;
+
+        // Wait up to 5s for the daemon to write its lockfile + bind.
+        for _ in 0..50 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            if let Some(u) = elicitate::inbox_live_url(inbox_dir, None) {
+                base = Some(u);
+                break;
+            }
+        }
+    }
+
+    let base = base.unwrap_or_else(|| {
+        format!("http://127.0.0.1:{}", elicitate::INBOX_DEFAULT_PORT)
+    });
+
+    let url = if args.latest {
+        // Deep-link to the most recent pending request, or fall back to
+        // the index page if the inbox is empty.
+        match latest_pending_form_url(inbox_dir, &base) {
+            Some(u) => u,
+            None => format!("{}/inbox", base),
+        }
+    } else {
+        format!("{}/inbox", base)
+    };
+
+    println!("{url}");
+
+    if !args.print_only {
+        let _ = Command::new(open_cmd())
+            .args(open_args(&url))
+            .status();
+    }
+    Ok(())
+}
+
+/// Find the newest pending request and return its deep-link URL,
+/// or `None` if the inbox is empty.
+fn latest_pending_form_url(inbox_dir: &PathBuf, base: &str) -> Option<String> {
+    let reqs = elicitate::inbox_list_pending(inbox_dir).ok()?;
+    let newest = reqs
+        .into_iter()
+        .max_by_key(|r| r.queued_at_ms)?;
+    Some(elicitate::inbox_open_url_for(&newest.request_id))
+        .map(|u| u.replace("127.0.0.1", &base_url_host(base)))
+}
+
+/// Extract the host (and optional port) from a `http://host:port` URL.
+fn base_url_host(base: &str) -> String {
+    base.trim_start_matches("http://")
+        .split('/')
+        .next()
+        .unwrap_or("127.0.0.1")
+        .to_string()
+}
+
+#[cfg(unix)]
+unsafe fn libc_setsid() -> i32 {
+    // Minimal libc::setsid wrapper to avoid adding a libc dep just for
+    // this one symbol.
+    extern "C" {
+        fn setsid() -> i32;
+    }
+    setsid()
 }
 
 fn cmd_wait(args: WaitArgs, inbox_dir: &PathBuf) -> Result<(), String> {
@@ -1057,4 +1212,10 @@ mod tests {
         let cfg = parse_notify_cfg(None);
         assert!(!cfg.native);
     }
+}
+
+/// Build the index URL of a running daemon from its DaemonHandle.
+/// Used by `cmd_daemon --auto-open-browser` and the JSON status line.
+fn open_url_from_handle(h: &elicitate::inbox::daemon::DaemonHandle) -> String {
+    format!("http://{}:{}/inbox", h.bind_addr, h.port)
 }

@@ -5,6 +5,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.5.1] — 2026-07-22
+
+### Fixed
+- **Tray badge/tooltip never updated** — the v0.4 owner-thread
+  architecture dropped `TrayCmd::SetBadge` and `TrayCmd::SetTooltip`
+  with a "placeholder" comment. v0.5.1 actually routes them through
+  the macOS `NSStatusItem` via `tray-icon::TrayIcon::set_title()` and
+  `set_tooltip()`. Visually: the menu-bar badge text now changes when
+  the pending count changes, and the tooltip now reflects the current
+  state ("3 pending · 1 answered" etc.) instead of the boot-time text.
+- **Tray click opened a hardcoded URL** — `tray_click_url()` ignored
+  the daemon's actual bind port and always sent the user to
+  `http://127.0.0.1:7117`. Now the daemon threads its bound URL
+  through `TrayConfig::inbox_url` and `Tray::inbox_url(&self)` returns
+  it back. Clicking the tray icon opens the right inbox even when you
+  launched the daemon on `--port 7118`.
+- `cmd_inbox --open` ignored the daemon lockfile — it was hardcoded
+  to port 7117 and `127.0.0.1`. Now it uses `inbox::daemon::live_url()`
+  which confirms the daemon is actually accepting connections.
+- `ask --async` URL output now respects the daemon's actual port via
+  the same path.
+
+### Added
+- **`elicitate open`** — discoverable shorthand for "open the inbox in
+  my browser". `--latest` deep-links to the most recently enqueued
+  pending form. `--spawn-if-missing` starts a detached daemon if one
+  is not already running. `--print-only` prints the URL without
+  calling `xdg-open`. All four flags compose.
+- **`elicitate daemon --auto-open-browser`** — once the daemon is
+  listening, pops the inbox index in the default browser. Off by
+  default; set permanently via `ELICITATE_AUTO_OPEN_BROWSER=1`.
+- **`pub fn live_url(root, bind_filter)`** — read the lockfile, verify
+  the port is actually live, return the daemon's effective URL.
+  Exported from `elicitate::inbox_live_url` so other crates can use it.
+- **`pub fn open_in_default_browser(url)`** — promoted from the
+  internal `open_url()` helper so the CLI uses the same code path as
+  the daemon's tray-event handler.
+
+### Tests
+- 4 new regression tests in `daemon::tests`:
+  `live_url_returns_none_when_no_lockfile`,
+  `live_url_rejects_stale_lockfile`,
+  `live_url_accepts_running_daemon`,
+  `live_url_respects_bind_filter`.
+- Bumped total test count: **96 lib unit + 13 bin unit + 14 cli
+  integration + 6 lib integration + 4 mcp stdio = 133 tests** (up
+  from 129).
+
 ## [0.5.0] — 2026-07-22
 
 ### Added

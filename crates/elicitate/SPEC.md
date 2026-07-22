@@ -377,3 +377,81 @@ A reviewer should be able to:
     to open the form URL in the default browser, or `q` to quit cleanly.
     Repeat with `TERM=dumb` and observe the same `--tui` invocation exits 0
     and prints a plain-text summary instead of entering raw mode.
+16. Run `elicitate open` (no daemon running) and observe the command
+    printing a clear "no daemon running on port 7117" error and a
+    one-line `did you mean: elicitate daemon --auto-open-browser`
+    hint. With `--spawn-if-missing`, observe a detached daemon being
+    spawned and the URL opening in the default browser within 1 s.
+17. With a daemon already running on `--port 8118`, run
+    `elicitate open` and observe the URL printed / opened points at
+    `http://127.0.0.1:8118/inbox`, **not** the hardcoded `:7117`.
+    The same applies to `elicitate inbox --open`, `elicitate inbox --tui`
+    (auto-opens if `--auto-open` is set), and the tray-icon left-click
+    handler.
+18. After enqueuing 3 requests via `elicitate ask --async`, with the
+    tray-native feature compiled in and `elicitate daemon` running on
+    macOS / Windows, observe the menu-bar badge shows "3" (or "3+"
+    if over the display threshold). After running
+    `elicitate answer --request-id <id>` for one of them, observe the
+    badge decrements to "2" within the poll interval (≤ 1 s by
+    default).
+19. Tooltip on the tray icon reflects the live state: hover the
+    tray icon after a request is enqueued and observe
+    `elicitate · 3 pending · 0 answered` (or similar). After all
+    requests are answered, observe
+    `elicitate · 0 pending · 3 answered`.
+20. `cargo test -p elicitate` reports **133 tests, 0 failures** across
+    both the default feature set and `--features tray-native`. The 4
+    new v0.5.1 regression tests (`live_url_*`) all pass.
+
+## 12. Out of scope (v0.5.x)
+
+Deferred to v0.6+:
+
+- **macOS native notifications** via `objc2` + `NSUserNotification` /
+  `UNUserNotificationCenter`. v0.5 currently uses a generic
+  `osascript` shell-out; the native binding gets a richer UI (actions,
+  replies inline).
+- **Windows Action Center** notifications via `windows-sys` +
+  `Shell_NotifyIconGetRect` / toast APIs.
+- **Linux D-Bus StatusNotifierItem** — currently routes through
+  `tray-icon`'s GTK backend. A direct D-Bus binding removes the
+  GTK dependency for headless servers.
+- **`$EDITOR` integration** for the TUI's `a` (answer) action — open
+  the response YAML in `$VISUAL` and parse on save.
+- **Per-crate distribution** — `elicitate` is not yet published to
+  crates.io. Publishing is gated on a stable 1.0 API, which requires
+  locking down the `FieldSpec` enum, the `ElicitResponse` wire format,
+  and the `Tray` trait.
+- **Code-signing + notarization** for `elicitate-mcp` so it can be
+  whitelisted in MCP clients that require signed bundles.
+
+### 10.7 Open-in-box (v0.5.1)
+
+The user's experience of "open the inbox" is split across four
+surfaces, all of which must be discoverable from `elicitate --help`:
+
+1. **Standalone CLI** — `elicitate open [--latest] [--spawn-if-missing] [--print-only] [--inbox-dir DIR] [--port N]`.
+   - `--latest` deep-links to the most recently enqueued pending form
+     (vs. the inbox index if omitted).
+   - `--spawn-if-missing` launches a detached `elicitate daemon` if
+     no daemon is running on the requested port (saves the user one
+     command).
+   - `--print-only` skips the platform `xdg-open` / `open` call and
+     just prints the URL — useful for piping into other tools.
+2. **Inbox subcommand** — `elicitate inbox --open` and
+   `elicitate inbox --show <id>` now use the live daemon URL
+   (`inbox::daemon::live_url`) instead of a hardcoded port, so they
+   work with `elicitate daemon --port 8118` etc.
+3. **Daemon auto-open** — `elicitate daemon --auto-open-browser`
+   (off by default, override via `ELICITATE_AUTO_OPEN_BROWSER=1`)
+   pops the inbox index in the default browser as soon as the
+   daemon is listening.
+4. **Tray icon left-click** — the macOS `NSStatusItem` (or Windows
+   `Shell_NotifyIcon`) opens the inbox index. The right-click menu
+   adds `Open inbox` / `Open latest` / `Quit` items.
+
+The shared code path is `elicitate::open_in_default_browser(url)`,
+which routes through `mac::open` / `cmd /c start ""` /
+`xdg-open` depending on the platform — same helper as the v0.3
+notify fanout, now exported for CLI reuse.

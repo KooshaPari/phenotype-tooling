@@ -128,10 +128,10 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
     let lockfile = cfg.inbox_root.join(LOCKFILE_NAME);
     write_lockfile(&lockfile, &cfg.inbox_root, actual_port, cfg.bind)?;
 
+    let tray_url = format!("http://{}:{}", cfg.bind, actual_port);
     // ---- tray icon (best-effort, never blocks boot) ---------------
     let tray: Arc<dyn Tray> = if cfg.enable_tray {
-        let url = format!("http://{}:{}", cfg.bind, actual_port);
-        let tray_cfg = TrayConfig::new(url.clone(), cfg.inbox_root.clone());
+        let tray_cfg = TrayConfig::new(tray_url.clone(), cfg.inbox_root.clone());
         match build_tray(tray_cfg) {
             Ok(t) => {
                 info!(backend = t.backend_name(), "tray icon attached");
@@ -142,15 +142,12 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
                 // Fall back to a no-op tray by building a default cfg (no
                 // real attach is attempted because the no-op impl never
                 // fails).
-                build_tray(TrayConfig::new(url, cfg.inbox_root.clone())).unwrap()
+                build_tray(TrayConfig::new(tray_url.clone(), cfg.inbox_root.clone())).unwrap()
             }
         }
     } else {
-        build_tray(TrayConfig::new(
-            format!("http://{}:{}", cfg.bind, actual_port),
-            cfg.inbox_root.clone(),
-        ))
-        .unwrap()
+        build_tray(TrayConfig::new(tray_url.clone(), cfg.inbox_root.clone()))
+            .unwrap()
     };
 
     // ---- worker 1: HTTP server ------------------------------------
@@ -184,10 +181,11 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
     // ---- worker 3: tray event pump --------------------------------
     {
         let shutdown = Arc::clone(&shutdown);
+        let fallback_url = tray_url.clone();
         thread::Builder::new()
             .name("elicitate-tray".into())
             .spawn(move || {
-                run_tray_loop(tray.as_ref(), &shutdown);
+                run_tray_loop(tray.as_ref(), &shutdown, &fallback_url);
             })?;
     }
 
@@ -208,7 +206,7 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct LockfilePayload {
+pub struct LockfilePayload {
     root: PathBuf,
     port: u16,
     bind: IpAddr,
@@ -232,7 +230,7 @@ fn write_lockfile(
     Ok(())
 }
 
-fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
+pub fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
     let path = root.join(LOCKFILE_NAME);
     let bytes = std::fs::read(&path).ok()?;
     serde_json::from_slice(&bytes).ok()
@@ -242,6 +240,26 @@ fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
 fn is_port_live(bind: IpAddr, port: u16) -> bool {
     let addr = SocketAddr::new(bind, port);
     TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok()
+}
+
+/// Return the live URL of a running inbox daemon, if any. Reads the
+/// daemon's lockfile and confirms the socket is actually accepting
+/// connections. Returns `None` if no daemon is running or the lockfile
+/// is stale (e.g. process died without cleanup).
+///
+/// `bind_filter` lets the caller restrict to a particular bind address
+/// (loopback vs. LAN). Pass `None` to accept any bind address.
+pub fn live_url(root: &Path, bind_filter: Option<IpAddr>) -> Option<String> {
+    let payload = read_lockfile(root)?;
+    if let Some(addr) = bind_filter {
+        if payload.bind != addr {
+            return None;
+        }
+    }
+    if !is_port_live(payload.bind, payload.port) {
+        return None;
+    }
+    Some(format!("http://{}:{}", payload.bind, payload.port))
 }
 
 // ---- HTTP loop --------------------------------------------------------
@@ -582,7 +600,7 @@ fn run_notifier_loop(
 /// Long-running loop that dispatches menu events from the tray icon.
 /// Runs on its own thread; exits when `shutdown` flips or the OS tray
 /// thread terminates.
-fn run_tray_loop(tray: &dyn Tray, shutdown: &Arc<AtomicBool>) {
+fn run_tray_loop(tray: &dyn Tray, shutdown: &Arc<AtomicBool>, fallback_url: &str) {
     while !shutdown.load(Ordering::SeqCst) {
         let Some(event) = tray.try_recv() else {
             thread::sleep(Duration::from_millis(100));
@@ -592,7 +610,7 @@ fn run_tray_loop(tray: &dyn Tray, shutdown: &Arc<AtomicBool>) {
             TrayEvent::Click | TrayEvent::DoubleClick => {
                 // Open the inbox in the default browser. Use `xdg-open` /
                 // `open` / `cmd /c start` depending on OS.
-                let url = tray_click_url(tray);
+                let url = tray_click_url(tray, fallback_url);
                 let _ = open_in_default_browser(&url);
             }
             TrayEvent::MenuItem { id } => {
@@ -604,12 +622,13 @@ fn run_tray_loop(tray: &dyn Tray, shutdown: &Arc<AtomicBool>) {
                     _ => None,
                 };
                 if let Some(a) = action {
+                    let base = tray_click_url(tray, fallback_url);
                     match a {
                         MenuAction::OpenInbox => {
-                            let _ = open_in_default_browser(&tray_click_url(tray));
+                            let _ = open_in_default_browser(&base);
                         }
                         MenuAction::OpenLatest => {
-                            let url = format!("{}/inbox/latest", tray_click_url(tray));
+                            let url = format!("{}/inbox/latest", base);
                             let _ = open_in_default_browser(&url);
                         }
                         MenuAction::ToggleQuiet => {
@@ -631,15 +650,12 @@ fn run_tray_loop(tray: &dyn Tray, shutdown: &Arc<AtomicBool>) {
 }
 
 /// Extract the tray's bound URL (from its config) — used as the
-/// click-to-open target. This avoids needing a separate getter.
-fn tray_click_url(tray: &dyn Tray) -> String {
-    // The tray stores its config privately; the simplest stable surface
-    // is to use a fixed loopback URL. The daemon's actual port is
-    // surface-able via /api/port or via the URL passed at construction.
-    // For now we use the conventional default; the OS will follow the
-    // link regardless.
-    let _ = tray;
-    "http://127.0.0.1:7117".to_string()
+/// click-to-open target. Falls back to the daemon's actual bind
+/// URL if the tray doesn't expose one (legacy NoopTray configs).
+fn tray_click_url(tray: &dyn Tray, fallback: &str) -> String {
+    tray.inbox_url()
+        .map(|u| u.trim_end_matches('/').to_string())
+        .unwrap_or_else(|| fallback.trim_end_matches('/').to_string())
 }
 
 /// Open `url` in the user's default browser. Best-effort; failures
@@ -952,6 +968,85 @@ mod tests {
         assert!(status.contains("200"), "expected HTTP/1.1 200, got: {status}");
         handle.stop().unwrap();
         thread::sleep(Duration::from_millis(200));
+    }
+
+    // ---- v0.5.1: tray-open regressions ----
+
+    #[test]
+    fn live_url_returns_none_when_no_lockfile() {
+        let dir = tempdir_v051();
+        assert!(live_url(&dir, None).is_none());
+        assert!(read_lockfile(&dir).is_none());
+    }
+
+    #[test]
+    fn live_url_rejects_stale_lockfile() {
+        let dir = tempdir_v051();
+        // Lockfile claims port 1 (always closed on this host) at
+        // 127.0.0.1. live_url should refuse and return None.
+        let payload = LockfilePayload {
+            root: dir.clone(),
+            port: 1,
+            bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            booted_at_ms: unix_now_ms(),
+        };
+        std::fs::write(dir.join(LOCKFILE_NAME), serde_json::to_vec(&payload).unwrap()).unwrap();
+        assert!(live_url(&dir, None).is_none());
+    }
+
+    #[test]
+    fn live_url_accepts_running_daemon() {
+        let dir = tempdir_v051();
+        let port = portpicker::pick_unused_port().expect("no free port");
+        let payload = LockfilePayload {
+            root: dir.clone(),
+            port,
+            bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            booted_at_ms: unix_now_ms(),
+        };
+        std::fs::write(dir.join(LOCKFILE_NAME), serde_json::to_vec(&payload).unwrap()).unwrap();
+        // Bind to the port so is_port_live() returns true. Holding the
+        // listener open for the duration of the assertion is enough.
+        let _hold = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
+            .expect("bind test port");
+        let url = live_url(&dir, None);
+        assert!(url.is_some(), "live_url should accept a live socket");
+        assert!(url.unwrap().contains(&format!(":{port}")));
+    }
+
+    #[test]
+    fn live_url_respects_bind_filter() {
+        let dir = tempdir_v051();
+        let payload = LockfilePayload {
+            root: dir.clone(),
+            port: 1,
+            bind: IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)),
+            booted_at_ms: unix_now_ms(),
+        };
+        std::fs::write(dir.join(LOCKFILE_NAME), serde_json::to_vec(&payload).unwrap()).unwrap();
+        assert!(live_url(&dir, Some(IpAddr::V4(Ipv4Addr::LOCALHOST))).is_none());
+        assert!(
+            live_url(&dir, Some(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)))).is_none(),
+            "is_port_live should reject the non-listening port"
+        );
+    }
+
+    /// Scratch directory under /tmp for v0.5.1 tests. Includes a random
+    /// suffix so concurrent test invocations don't collide on the same
+    /// path (each `cargo test` worker is a separate process).
+    fn tempdir_v051() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let mut p = std::env::temp_dir();
+        p.push(format!(
+            "elicitate-v0.5.1-{}-{}-{}",
+            std::process::id(),
+            unix_now_ms(),
+            n
+        ));
+        std::fs::create_dir_all(&p).unwrap();
+        p
     }
 }
 
