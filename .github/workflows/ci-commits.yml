@@ -19,13 +19,13 @@ jobs:
   lint-commits:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       # Conventional commits PR-time check
       - name: Lint PR title + commits
-        uses: wagoid/commitlint-github-action@v5
+        uses: wagoid/commitlint-github-action@v6
         with:
           configFile: commitlint.config.cjs
           # Absorbed preservation branches retain historical commits from
