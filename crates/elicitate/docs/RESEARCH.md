@@ -983,3 +983,151 @@ cleanly on SIGTERM.
 | Use webview for the popup (Tauri / wry) | Defeats the whole point — we want OS-native controls |
 | Have the daemon stay alive permanently via launchctl | What we ship; documented in ABSORPTION.md |
 | Use `tokio::task` for everything instead of subprocesses | Subprocesses are inspectable + killable from outside |
+
+---
+
+## 18. v0.3.0 addendum — non-blocking operator inbox (2026-07-22)
+
+### 18.1 Motivation
+
+The v0.2.0 inbox was technically async (write a spec to a file, return a request
+ID), but it was **only** useful when the agent had a human in the seat and the
+human was actively watching the inbox page. For a long-running fleet of agents
+where the operator is on a phone, on a laptop with Notifications silenced, or
+simply AFK, v0.2 left too much friction:
+
+1. The agent had to fire-and-forget, then the operator had to **remember**
+   to open the inbox tab and **manually keep it open** in the browser.
+2. There was no surface notification — no badge, no icon, no message.
+3. The only delivery channel was the local HTTP page. No iMessage. No email.
+4. The bin had no first-class install step; running it required `cargo
+   install` or hand-copying the binary.
+
+The v0.3.0 work adds the **non-blocking inbox UX** the user requested:
+agents can `ask --async` and continue; the operator gets a tray icon, an
+iMessage-style notification, and a one-click deep link to a native form.
+
+### 18.2 What v0.3 adds
+
+| Capability | Module / binary | Why |
+|---|---|---|
+| Local HTTP server (`127.0.0.1:7117`, loopback only by default) | `inbox::daemon` | Serves the form from anywhere on the host; bound loopback to avoid LAN risk |
+| `/healthz`, `/form/:id`, `/answer/:id`, `/list` routes | `inbox::daemon::router` | REST-ish interface; identical protocol used by both the tray click handler and the iMessage bridge |
+| macOS tray (`NSStatusItem`) stub | `inbox::tray` (`#[cfg(target_os = "macos")]`) | Click → open `/form/<id>` in default browser; badge shows pending count |
+| Windows tray (`Shell_NotifyIcon`) stub | `inbox::tray` (`#[cfg(target_os = "windows")]`) | Same UX as macOS tray |
+| iMessage / SMS / email fanout | `inbox::notify` | Multi-channel delivery, off by default |
+| `elicitate install [--prefix DIR]` | `installer::install` | One-shot setup: copy binary, emit PATH export, register LaunchAgent / schtasks |
+| `elicitate uninstall [--yes]` | `installer::uninstall` | Reverses the install atomically |
+| `elicitate daemon [--port N] [--bind ADDR]` | new subcommand | Background the inbox server (used by the launch agent) |
+| `elicitate ask --async` | `bin_elicitate` | Non-blocking enqueue; prints `{status:"deferred", request_id:"…", open_url:"http://127.0.0.1:7117/form/…"}` |
+| `elicitate wait --request-id ID [--timeout S]` | `bin_elicitate` | Block (with timeout) until the answered file appears |
+| `elicitate answer --request-id ID [--values …]` | `bin_elicitate` | Scripted reply (CLI form) |
+| `elicitate inbox {--list,--show ID,--purge}` | `bin_elicitate` | Inspect / clean the inbox directory |
+
+### 18.3 iMessage / email / SMS delivery — security model
+
+The user's request was *"open imessage/emails like view that lets me open the forms and answer/deal with"* — i.e., the inbox must look and feel like an inbox
+that can be **answered from the phone**. We honor that surface, but we apply a
+**zero-inbound** rule on the agent side:
+
+- **Outbound only.** The daemon **never** opens an SMS / iMessage / email
+  *inbound* surface. There is no SMTP server, no IMAP connection, no Twilio
+  inbound webhook, no Messages.app automation that replies to a chat.
+- **Deep link, not auto-reply.** The user must *choose* to open the form
+  by clicking the iMessage link. The popup or click action targets the
+  local HTTP form, never the original message thread.
+- **No prompt injection via channel.** Because the response file is created
+  by the local browser (or by a `elicitate answer` CLI call), and never by
+  the iMessage / email recipient, a malicious message cannot smuggle an
+  "approved" payload to the agent by spoofing a sender. The protocol end
+  point is local-only.
+
+The implementation:
+
+```rust
+// src/inbox/notify.rs (sketch)
+pub enum NotifyChannel { IMessage, Sms { via: SmsProvider }, Email { via: EmailProvider } }
+
+pub struct NotifyChannels {
+    pub imessage: bool,   // ELICITATE_NOTIFY_IMESSAGE=1
+    pub sms: Option<SmsProvider>,
+    pub email: Option<EmailProvider>,
+}
+
+pub async fn fanout(request: &PendingRequest, ch: &NotifyChannels) -> Vec<NotifyAttempt> {
+    // Each channel is best-effort; failures are logged, not propagated.
+}
+```
+
+The iMessage path on macOS shells out to `open "messages://open?message-text=<url>"`
+which opens a pre-filled new message window in Messages.app; the user picks
+the recipient and hits send. No automation of the actual send (Apple does
+not permit it without private entitlements).
+
+### 18.4 Tray integration — decision: stub now, native later
+
+We considered two routes for the tray icon:
+
+1. **Full FFI** — link `objc2` + `cocoa` for `NSStatusItem`, link
+   `windows-sys` for `Shell_NotifyIcon`. Pros: real icon, badge, menu,
+   right-click actions. Cons: adds two heavy native deps; cross-compile
+   pain; breaks the "pure Rust crate" guarantee.
+2. **Shell-out stub** — register a *placeholder* system event via
+   `osascript` on macOS, or PowerShell `BurntToast`-style on Windows, and
+   open the inbox URL in the default browser. Pros: zero native deps,
+   cross-compiles cleanly. Cons: no permanent tray icon; only fires per
+   notification.
+
+For v0.3 we ship **(2)** for the default build and gate **(1)** behind a
+`tray-native` cargo feature so a follow-up PR can land the real binding
+without rewriting the daemon.
+
+### 18.5 Install / uninstall idempotency
+
+`elicitate install` is **idempotent**:
+
+- Detects an existing install at the same prefix and either overwrites
+  (with `--yes`) or refuses (without).
+- Writes an `elicitate-install.log` to `<prefix>/logs/` so CI failures are
+  inspectable.
+- The `--no-launch-agent` flag skips LaunchAgent / schtasks registration
+  (for sandboxed environments and CI).
+- The `--skip-path` flag skips `PATH=` shimming (for when the user already
+  has the prefix on PATH).
+
+`elicitate uninstall` is the reverse:
+
+- Removes every file the install wrote (binary, logs, schtasks plist, …).
+- Removes the PATH-export line it added (matched by checksum).
+- Refuses to run without `--yes` if the directory looks like a system path
+  (contains `bin` or `sbin` and is not user-owned).
+
+### 18.6 CLI decision — why `clap` `derive` + subcommands
+
+v0.2 shipped with hand-rolled arg parsing (30 lines of `if let Some(...)`).
+v0.3 adds nine subcommands; that's the inflection point where hand-rolling
+becomes a footgun. We migrated to `clap = { version = "4", features =
+["derive", "env"] }` and pinned `clap_derive` so the macro generation is
+reproducible. The `env` feature lets us pick up `ELICITATE_INBOX_DIR` and
+`ELICITATE_PORT` so a daemon started by the launch agent doesn't need
+explicit flags.
+
+### 18.7 Verification matrix
+
+| Scenario | Expected | Verified by |
+|---|---|---|
+| `elicitate ask --async` writes file, prints request ID | Envelope JSON, exit 0 | `tests/cli.rs::ask_async_enqueue` |
+| `elicitate inbox --list` returns JSON summary | `[{request_id, title, …}]` | `tests/cli.rs::inbox_list_*` |
+| Daemon `GET /healthz` returns 200 | Plaintext `ok` | `tests/inbox_daemon.rs::healthz_returns_ok` |
+| Daemon `GET /form/<id>` returns HTML | `view-source:`-renderable | `tests/inbox_daemon.rs::form_renders_for_pending` |
+| iMessage channel off by default | No outbound when env unset | `tests/inbox_notify.rs::default_no_outbound` |
+| `elicitate install --dry-run` does not write | Diff-only mode | `tests/installer.rs::install_dry_run` |
+
+### 18.8 Open follow-ups (M2)
+
+1. **Real native tray bindings** (`tray-native` feature).
+2. **`WinToast` / `BurntToast` shim** for Windows without PowerShell modules.
+3. **iOS push relay** so the iMessage URL surfaces as a true
+   tap-to-open notification instead of a deep link.
+4. **HTTPS auto-cert** for `--bind-lan` (mentioned in §17.9 Q1 follow-up).
+5. **In-process inotify** to drop the 4 Hz polling.

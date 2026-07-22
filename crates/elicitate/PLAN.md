@@ -50,6 +50,29 @@ versioned; subsequent revisions bump `-v2.md`.
 - [x] Test count grew from 68 → 108. 13 new CLI integration tests cover install /
       uninstall / async enqueue / inbox list / wait / answer.
 
+### M1.5 — Non-blocking daemon + tray + iMessage (v0.3.0, addendum)
+
+On 2026-07-22 we expanded the v0.2.0 inbox subsystem into a true non-blocking operator
+inbox. Goal: agents that would otherwise be blocked waiting on a popup can now
+`ask --async` and continue, while the operator gets a tray icon, a deep-link to the
+form, and (optionally) iMessage / SMS / email notifications routed through existing
+`agent-imessage` infrastructure.
+
+- [x] Local HTTP inbox server (`127.0.0.1:7117` default, `--bind` configurable but
+      loopback-only by default; non-loopback requires `--i-know-what-im-doing`).
+- [x] `/healthz`, `/form/:id`, `/answer/:id`, `/list` routes; HTML form +
+      plain-text fallback + JSON envelope for tooling.
+- [x] macOS tray (`NSStatusItem`) + Windows tray (`Shell_NotifyIcon`) stubs gated on
+      `cfg(target_os)`; click opens the form in the user's default browser.
+- [x] iMessage / SMS / email notify fanout in `inbox::notify`, gated by env vars
+      (`ELICITATE_NOTIFY_IMESSAGE`, `ELICITATE_NOTIFY_EMAIL`, …); off by default to
+      prevent surprise outbound traffic.
+- [x] CLI inheritance: `install [--yes]`, `uninstall [--yes]`, `daemon [--port N]`,
+      `inbox {--list|--show ID|--purge}`, `wait --request-id ID [--timeout S]`,
+      `answer --request-id ID [--values @file|--value k=v]`.
+- [x] Smoke-after-install: `elicitate install` copies the binary, then runs
+      `elicitate smoke` to verify PATH resolution and link sanity.
+
 ### M2 — Native renderer implementation (next)
 
 - [ ] Wire macOS renderer: `objc2` + `cocoa` build a real `NSPanel`, lay out a label + control +
