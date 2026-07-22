@@ -40,6 +40,11 @@ allow = [
   # Crates.io standardized — these are upstream crates, not
   # vendored. Treat as MIT-like for acceptance purposes.
   "CRATES-IO-MIT-PALLODIAN-1.1.0",
+
+  # Permissive upstream terms emitted by ICU, libfuzzer, and webpki crates.
+  "UNICODE-3.0",
+  "CDLA-PERMISSIVE-2.0",
+  "NCSA",
 ]
 
 deny = [

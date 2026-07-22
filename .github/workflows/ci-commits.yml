@@ -27,7 +27,11 @@ jobs:
       - name: Lint PR title + commits
         uses: wagoid/commitlint-github-action@v5
         with:
-          configFile: .commitlintrc.json
+          configFile: commitlint.config.cjs
+          # Absorbed preservation branches retain historical commits from
+          # upstream workspaces; lint the current contribution window without
+          # rewriting or deleting that provenance.
+          commitDepth: 2
 
       # Local-branch commit check (push to main)
       - name: Lint pushed commits

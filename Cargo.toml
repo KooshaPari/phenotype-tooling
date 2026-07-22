@@ -28,6 +28,7 @@ members = [
     "crates/worktree-manager",
     "crates/phenotype-tooling-observability",
     "crates/phenotype-cli",
+    "crates/elicitate",
     "crates/perfharness",
     "crates/ptx",
     "bin/hook-entry",
