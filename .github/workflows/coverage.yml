@@ -77,7 +77,8 @@ jobs:
 
             const coverage = JSON.parse(fs.readFileSync('coverage-workspace.json', 'utf8'));
             const data = coverage.data || [];
-            const workspaceRate = data.find(d => d.name === 'Workspace')?.totals?.lines?.percent;
+            const workspaceData = data.find(d => d.name === 'Workspace') || data[0];
+            const workspaceRate = workspaceData?.totals?.lines?.percent;
             const lines = [`### line coverage`, `* threshold: ${lineMin}%`];
             if (typeof workspaceRate !== 'undefined') {
               lines.push(`* workspace: ${workspaceRate.toFixed(2)}%`);
