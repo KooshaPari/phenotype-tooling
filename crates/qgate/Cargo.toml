@@ -21,7 +21,7 @@ thiserror = { workspace = true }
 regex = { workspace = true }
 serde_yaml = { workspace = true }
 chrono = { workspace = true }
-toml = "0.8"
+toml = "1.1"
 quick-xml = { version = "0.41", features = ["serialize"] }
 
 [lib]
