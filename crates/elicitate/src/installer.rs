@@ -55,6 +55,11 @@ pub struct InstallOptions {
     pub inbox_dir: PathBuf,
     pub register_launch_agent: bool,
     pub dry_run: bool,
+    /// If true, also append PATH lines to the user's shell rc files
+    /// (`.zshrc`, `.bashrc` on Unix, PowerShell profile on Windows). Off by
+    /// default to avoid surprising the operator; users who want this should
+    /// run `elicitate install --with-shell-rc`.
+    pub update_shell_rc: bool,
 }
 
 impl Default for InstallOptions {
@@ -64,6 +69,7 @@ impl Default for InstallOptions {
             inbox_dir: default_inbox_root(),
             register_launch_agent: true,
             dry_run: false,
+            update_shell_rc: false,
         }
     }
 }
@@ -183,8 +189,10 @@ pub fn install(opts: &InstallOptions) -> Result<InstallReport, String> {
     report.cli_path = copy_binary(&src, &bin_dir, "elicitate")?;
     report.mcp_path = copy_binary(&src, &bin_dir, "elicitate-mcp")?;
 
-    if let Some(rc) = update_path_and_rc(&bin_dir) {
-        report.shell_rc_updated.extend(rc);
+    if opts.update_shell_rc {
+        if let Some(rc) = update_path_and_rc(&bin_dir) {
+            report.shell_rc_updated.extend(rc);
+        }
     }
 
     if opts.register_launch_agent {

@@ -187,6 +187,11 @@ struct InstallArgs {
     /// Skip registering the inbox daemon as a launchd / systemd service.
     #[arg(long)]
     no_launch_agent: bool,
+    /// Also append the prefix to your shell rc files (.zshrc / .bashrc /
+    /// PowerShell profile). Off by default — most users prefer to manage
+    /// their own PATH. Pass this once to enable the auto-write.
+    #[arg(long)]
+    with_shell_rc: bool,
     /// Print what would happen without writing anything.
     #[arg(long)]
     dry_run: bool,
@@ -569,6 +574,7 @@ fn cmd_install(args: InstallArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         inbox_dir: inbox_dir.clone(),
         register_launch_agent: !args.no_launch_agent,
         dry_run: args.dry_run,
+        update_shell_rc: args.with_shell_rc,
     })
     .map(|report| {
         println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());

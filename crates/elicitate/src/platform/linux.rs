@@ -89,7 +89,11 @@ fn render_zenity(spec: &PromptSpec, opts: &ElicitOptions) -> Result<ElicitRespon
             }
             run_with_timeout(&mut cmd, timeout)?
         }
-        FieldSpec::Choice { options, default_index } => {
+        FieldSpec::Choice {
+            options,
+            default_index,
+            ..
+        } => {
             cmd.arg("--list");
             cmd.arg("--radiolist");
             cmd.arg("--column").arg("Pick");
@@ -117,9 +121,12 @@ fn render_zenity(spec: &PromptSpec, opts: &ElicitOptions) -> Result<ElicitRespon
             );
             run_with_timeout(&mut cmd, timeout)?
         }
-        FieldSpec::DateTime { kind, .. } => {
+        FieldSpec::DateTime { picker_kind, .. } => {
             cmd.arg("--calendar");
-            if matches!(kind, crate::spec::DateTimeKind::Time | crate::spec::DateTimeKind::DateTime)
+            if matches!(
+                picker_kind,
+                crate::spec::DateTimeKind::Time | crate::spec::DateTimeKind::DateTime
+            )
             {
                 // zenity has no time picker; fall back to entry
                 cmd = Command::new("zenity");
@@ -136,7 +143,7 @@ fn render_zenity(spec: &PromptSpec, opts: &ElicitOptions) -> Result<ElicitRespon
 
 fn parse_zenity_status(
     status: std::process::ExitStatus,
-    spec: &PromptSpec,
+    _spec: &PromptSpec,
 ) -> Result<ElicitResponse, ElicitError> {
     let code = status.code().unwrap_or(-1);
     match code {
@@ -150,15 +157,6 @@ fn parse_zenity_status(
             reason: format!("zenity exited {code}"),
         }),
     }
-    .map(|_| ())
-    .and(Ok(ElicitResponse::Failed {
-        reason: format!("unhandled field kind for zenity: {:?}", spec.field),
-    }))
-    .or_else(|| {
-        Ok(ElicitResponse::Failed {
-            reason: "see stdout/stderr".into(),
-        })
-    })
 }
 
 /// Render via `kdialog` (KDE).
@@ -186,7 +184,11 @@ fn render_kdialog(
             cmd.arg(&spec.question);
             run_with_timeout(&mut cmd, timeout)?
         }
-        FieldSpec::Choice { options, default_index } => {
+        FieldSpec::Choice {
+            options,
+            default_index,
+            ..
+        } => {
             cmd.arg("--radiolist");
             cmd.arg(&spec.question);
             cmd.arg("Pick");
