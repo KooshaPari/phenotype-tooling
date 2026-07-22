@@ -144,7 +144,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mutants-${{ matrix.crate }}
-          path: mutants-out/${{ matrix.crate }}
+          path: |
+            mutants-out/${{ matrix.crate }}
+            mutants-summary.txt
 
       - name: Fail if mutants survived
         if: steps.mutants.outputs.mutants_exit != '0'
