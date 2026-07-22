@@ -57,7 +57,7 @@ jobs:
       - name: cargo llvm-cov (line coverage)
         run: |
           set -euo pipefail
-          cargo llvm-cov --workspace --all-features --lcov --json --output-path lcov-workspace.info
+          cargo llvm-cov --workspace --all-features --lcov --output-path lcov-workspace.info
           cargo llvm-cov report --workspace --json --output coverage-workspace.json
 
       - name: parse coverage.json + check threshold
