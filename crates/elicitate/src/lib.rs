@@ -42,6 +42,14 @@ pub mod metrics;
 /// compilation at every call site.
 pub mod tray;
 
+/// Terminal-UI inbox viewer (`elicitate inbox --tui`).
+///
+/// Renders a split-pane terminal interface over the same on-disk inbox the
+/// daemon writes to. Uses `ratatui` + `crossterm`; falls back to plain-text
+/// rendering when no TTY is available (e.g. CI, `TERM=dumb`, ssh without
+/// TTY allocation).
+pub mod tui;
+
 pub use error::ElicitError;
 pub use inbox::notify::{NotifyAttempt, NotifyChannels, inbox_open_url, inbox_open_url_for};
 pub use inbox::{
@@ -51,6 +59,7 @@ pub use inbox::{
 pub use options::{ElicitOptions, RendererPreference};
 pub use platform::Platform;
 pub use spec::{ButtonSpec, ChoiceOption, DateTimeKind, ElicitResponse, FieldSpec, FieldValue, NotesSpec, PromptSpec, Urgency};
+pub use tui::{render_plain as tui_render_plain, run as tui_run, snapshot_inbox as tui_snapshot, ListEntry, TuiOutcome, ViewerState};
 pub use tray::{build_tray, MenuAction, Tray, TrayConfig, TrayError, TrayEvent, TrayResult};
 pub use views::{render_form_html, render_full_html, render_plain_text, render_summary};
 

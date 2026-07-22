@@ -112,6 +112,39 @@ agents actually need to keep the operator informed when an `ask --async` lands.
       formatting, MenuId parsing, Click event mapping, `build_tray` is `Send`,
       noop tray can be cloned through Arc, disable reason surfaces in errors.
 
+### M2.5 — Terminal inbox viewer (v0.5.0, addendum)
+
+On 2026-07-22 we shipped the **canonical local UX for the inbox**: a
+`ratatui`-based TUI accessible via `elicitate inbox --tui` (or
+`elicitate tui`). After v0.4 the daemon has a tray icon and the inbox
+is durable on disk; v0.5 closes the gap for users who are already at a
+terminal and want to see + answer pending requests without opening a
+browser.
+
+- [x] New `tui` module: `ViewerConfig`, `InboxEntry`, `Keymap`,
+      `KeyAction`, `snapshot_inbox()`, `run_tui()`.
+- [x] `ratatui` 0.30 + `crossterm` 0.29 as direct dependencies (always
+      compiled; the TUI is the canonical local UX).
+- [x] Split-pane layout: pending requests on the left, full `PromptSpec`
+      on the right, status bar on the bottom. Live re-scan every 1 s
+      (`--poll-ms` configurable).
+- [x] Default keymap: `j/k` or `↓/↑` move; `Tab` switch focus; `Enter`/`o`
+      open in browser; `r`/`F5` refresh; `d` dismiss; `?` help; `q`/`Esc`
+      quit. Rebindable via `ELICITATE_TUI_KEYMAP_<KEY>=<action>` env vars.
+- [x] Graceful fallback: `TERM=dumb`, no TTY, or `ratatui::init()` failure
+      → plain-text output, exit 0. CI / `ssh` without TTY allocation
+      works without extra flags.
+- [x] `bin_elicitate.rs::InboxArgs` gained `--tui` and `--poll-ms`;
+      `cmd_inbox` branches into TUI when set.
+- [x] 14 new unit tests (`tui::tests`): `field_summary`, `format_age`,
+      sort order, terminal-state marking, key handling, position lookup,
+      detail-pane render, focus toggle, truncate, default state, empty
+      dir, sorted snapshot.
+- [x] Resolved the v0.4 "macOS `NSStatusItem` badge text is a placeholder"
+      note: the owner-thread channel now accepts `SetTitle(String)` and
+      `tray-icon::TrayIcon::set_title()` is called from the owning thread.
+      Verified on macOS.
+
 ### M3 — Native popup renderers (next, deferred from M2)
 
 The M2 scope was originally "wire the macOS / Windows / Linux GUI renderers"

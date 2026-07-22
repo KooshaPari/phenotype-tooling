@@ -58,6 +58,8 @@ elicitate ask --async     # enqueue and return open_url + request_id instantly
 elicitate wait            # poll for the answer to a previously queued request
 elicitate answer          # submit an answer to a queued request (scriptable)
 elicitate inbox           # list / show / open / clean the inbox
+elicitate inbox --tui     # launch the ratatui-based terminal inbox viewer
+elicitate tui             # shorthand for `inbox --tui`
 elicitate daemon          # run the long-lived HTTP + tray + notifier server
 elicitate install         # one-shot setup: copies binaries, writes PATH, registers launch agent
 elicitate uninstall       # remove everything `install` added
@@ -286,6 +288,57 @@ Daemon CLI additions for v0.4.0:
 --skip-path` skips step 2. `elicitate uninstall --yes` reverses everything
 without prompting.
 
+### 10.6 Terminal inbox viewer (TUI)
+
+`elicitate inbox --tui` opens a full-screen terminal interface on top of
+the same `<inbox>/inbox/*.json` files the daemon reads. It is the
+canonical local UX for the inbox: no daemon required, no browser
+required.
+
+Library API (`elicitate::tui`):
+
+```rust
+pub struct ViewerConfig { inbox_dir: PathBuf, poll_ms: u64, focus_on_list: bool }
+pub struct InboxEntry { request_id: String, title: String, state_badge: String, age_label: String, is_terminal: bool }
+pub fn snapshot_inbox(root: &Path) -> Vec<InboxEntry>;
+pub fn run_tui(cfg: ViewerConfig) -> Result<(), TuiError>;
+```
+
+Layout — split pane:
+- Left pane: list of pending requests, newest first. Each row shows
+  request id (cyan), title (white), state badge `[pending]`, `[seen]`,
+  `[answered]`, `[cancelled]`, `[expired]` (yellow for live, dark-gray
+  for terminal), age label (e.g. `12s`, `3m`, `1h`).
+- Right pane: full `PromptSpec` of the selected request — title,
+  question, field spec with kind + label + (for `Choice`) option list,
+  urgency, origin (CLI / MCP / notify), and the recorded response if
+  one exists.
+- Bottom status bar: row count, refresh interval, current keymap hint.
+
+Keybindings (default; rebindable via `ELICITATE_TUI_KEYMAP_*` env vars):
+
+| Key            | Action                          |
+|----------------|---------------------------------|
+| `j` / `↓`      | move selection down             |
+| `k` / `↑`      | move selection up               |
+| `g` / `G`      | jump to first / last            |
+| `Tab`          | switch focus between list & detail |
+| `Enter` / `o`  | open selected form in default browser |
+| `r` / `F5`     | force refresh                   |
+| `d`            | mark request dismissed          |
+| `?`            | toggle keybinding cheat-sheet   |
+| `q` / `Esc`    | quit                            |
+
+Graceful fallback — when `TERM=dumb`, stdin is not a TTY, or
+`ratatui::init()` fails, `--tui` falls back to plain-text rendering
+(same output as `--list`) and exits 0. This is the contract: CI,
+detached sessions, and `ssh` without TTY allocation must work without
+extra flags.
+
+The TUI does **not** spawn the daemon. It is a thin client over the
+shared `<inbox>/inbox/` directory; it works with or without a daemon
+running.
+
 ## 11. Acceptance criteria
 
 A reviewer should be able to:
@@ -317,3 +370,10 @@ A reviewer should be able to:
     `elicitate answer` resolves it.
 14. `cargo test -p elicitate --features tray-native` and `cargo test -p elicitate`
     (default features) both pass — same test count, same test IDs.
+15. Run `elicitate ask --async --inbox-dir <dir> --from-file spec.json` to enqueue
+    a request, then run `elicitate inbox --tui --inbox-dir <dir>` in a TTY.
+    Observe the request in the left pane with `[pending]` badge, the full
+    `PromptSpec` in the right pane, and `j`/`k` moves selection. Press `Enter`
+    to open the form URL in the default browser, or `q` to quit cleanly.
+    Repeat with `TERM=dumb` and observe the same `--tui` invocation exits 0
+    and prints a plain-text summary instead of entering raw mode.

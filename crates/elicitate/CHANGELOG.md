@@ -5,6 +5,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.5.0] — 2026-07-22
+
+### Added
+- **TUI inbox viewer** — `elicitate inbox --tui` (and the `elicitate tui`
+  shorthand alias) opens a full-screen terminal UI built on `ratatui` 0.30
+  + `crossterm` 0.29. Split-pane layout: pending requests on the left,
+  full `PromptSpec` + response on the right, status bar on the bottom.
+  Live re-scan of `<inbox>/inbox/*.json` every 1 s (configurable via
+  `--poll-ms`).
+- **Keybindings** — `j/k` (or `↓/↑`) move selection, `Tab` switches
+  between list and detail pane, `Enter`/`o` opens the selected form in
+  the default browser (`xdg-open` / `open` / `Start-Process`), `r`/`F5`
+  force a refresh, `d` marks the request dismissed, `?` toggles the
+  keybinding cheat-sheet, `q`/`Esc` quits. All keybindings are
+  configurable via `ELICITATE_TUI_KEYMAP_<KEY>=<action>` env vars.
+- **Graceful fallback** — when `TERM=dumb`, stdin is not a TTY, or the
+  `ratatui::init()` step fails, `--tui` falls back to plain-text
+  rendering (same output as `--list`) and exits 0. CI runs, detached
+  sessions, and `ssh` without TTY allocation work without extra flags.
+- **`tui::snapshot_inbox`** — pure helper that returns a sorted list of
+  `InboxEntry { request_id, title, state_badge, age_label, is_terminal }`
+  from any inbox root. Reused by both the TUI and the daemon's tray
+  badge. 14 new unit tests cover sort order, age labels, key handling,
+  detail-pane render, terminal-state marking, and the no-entries default.
+- **`ratatui` 0.30, `crossterm` 0.29** as direct dependencies (always
+  compiled; the TUI is the canonical local UX for the inbox and the cost
+  is ~700 KB).
+
+### Changed
+- `bin_elicitate.rs::InboxArgs` gained `--tui` and `--poll-ms`. Existing
+  `--list` / `--show` / `--purge` semantics unchanged.
+- The `daemon` now also exposes `/api/inbox/snapshot` (JSON) which the TUI
+  can poll instead of re-reading files. This is additive; the file-based
+  path remains the source of truth.
+
+### Notes
+- The TUI runs in the same process as the CLI binary; it does **not**
+  spawn the daemon. If a daemon is already running, the TUI shows its
+  data via the shared `<inbox>/inbox/` directory. If no daemon is
+  running, the TUI reads directly from disk — so it's still useful for
+  ad-hoc review without a daemon.
+- v0.4's note about badge-text bridge being placeholder is **fixed in
+  v0.5**: the owner-thread channel now also accepts `SetTitle(String)`
+  commands and `tray-icon::TrayIcon::set_title()` is called from the
+  owning thread. Verified on macOS (NSStatusItem title); Windows still
+  uses tooltip-only because `tray-icon 0.24` doesn't expose
+  `Shell_NotifyIcon` `NIF_TIP` mutation in a stable way.
+
 ## [0.4.0] — 2026-07-22
 
 ### Added
@@ -42,10 +90,11 @@ documented under "Changed".
   `Arc<dyn Tray>` can be moved into `spawn`.
 
 ### Notes
-- Real badge-text updates on `NSStatusItem` are routed through the
-  owning-thread bridge but are deliberately a placeholder in v0.4 — the
-  full `set_title` re-bridge requires a `!Sync` workaround that will
-  land in v0.5. Tooltip updates work cross-platform today.
+- `NSStatusItem` badge-text updates (`set_title`) are routed through the
+  owner-thread bridge but require a `!Sync` workaround that lands in
+  v0.5 — in v0.4 the macOS badge stays at the last-set value after
+  start-up until the daemon restarts. Tooltip updates work
+  cross-platform today.
 - `--features tray-native` is **off** by default because it pulls
   `tray-icon` → `objc2` → `libappindicator` (Linux) or `windows-sys`
   (Windows) and only makes sense when running `elicitate daemon` in an

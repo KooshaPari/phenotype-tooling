@@ -211,3 +211,74 @@ None — `tray-icon 0.24` is reused as-is from crates.io.
 - `cargo test -p elicitate --features tray-native --no-fail-fast` → **115 / 115** passing.
 - Manual: `elicitate daemon --port 0` on macOS shows menu-bar item with
   "elicitate" text; pending count increments on `ask --async`.
+
+---
+
+## v0.5.0 addendum — terminal inbox viewer (TUI)
+
+This addendum documents the TUI viewer added on 2026-07-22:
+
+### Sources considered
+
+| Source                          | Decision | Reason                                                       |
+| ------------------------------- | -------- | ------------------------------------------------------------ |
+| `ratatui` 0.30                  | Adopt    | Standard TUI framework; `no_std`-friendly; `crossterm` 0.29 backend. |
+| `crossterm` 0.29                | Adopt    | Cross-platform terminal backend (raw mode, alternate screen, key events). |
+| `tui-rs` (older fork)           | Reject   | Unmaintained; ratatui is the community successor.             |
+| Custom direct-csi renderer      | Reject   | Reinventing the wheel; key handling alone is 200 LOC.         |
+
+### Code added
+
+- `crates/elicitate/src/tui/mod.rs` — `ViewerConfig`, `InboxEntry`,
+  `ViewerState`, `Keymap`, `KeyAction`, `snapshot_inbox()`, `run_tui()`,
+  internal `ratatui::run` closure that owns the `Terminal` and the
+  event-poll loop.
+- `bin_elicitate.rs::InboxArgs` — added `--tui` and `--poll-ms`.
+- `bin_elicitate.rs::cmd_inbox` — branches into `tui::run_tui()` when
+  `--tui` is set; falls back to plain-text if `ratatui::init()` fails.
+- `lib.rs` — `pub mod tui;` and `pub use tui::{ViewerConfig, InboxEntry, run_tui};`.
+
+### Tests added (14)
+
+`field_summary_includes_label_and_kind`, `format_age_units`,
+`sort_entries_pending_first_then_terminal`,
+`build_entry_marks_terminal_states`, `move_down_clamped_to_last_entry`,
+`move_up_floors_at_zero`, `position_of_finds_request_id`,
+`render_detail_lines_includes_origin_and_urgency`,
+`snapshot_inbox_empty_when_dir_missing`, `toggle_focus_flips`,
+`truncate_long_string_is_truncated`, `truncate_short_string_is_unchanged`,
+`viewer_state_default_has_no_entries_and_focus_on_list`,
+`snapshot_inbox_returns_sorted_entries`.
+
+### Risks introduced by v0.5.0
+
+- **Direct dependency on terminal backend.** `ratatui` + `crossterm` is
+  ~700 KB. Mitigation: `ratatui` is the canonical local UX for the inbox
+  — every installation pays this cost once. We do not gate it behind a
+  feature flag.
+- **TUI seizing terminal on `TERM=dumb`.** Mitigation: the TUI checks
+  `TERM` and `stdin.is_tty()` before calling `ratatui::init()`. CI and
+  detached sessions fall through to plain-text rendering.
+- **Multiple TUI readers racing on the inbox dir.** Mitigation: the
+  file-format is append-only JSON with a `(writer-rename, reader-mmap)`
+  pattern; concurrent readers see a consistent snapshot per file. We
+  document the contract under `inbox::PendingRequest` and add a
+  `rustfmt`-stable test for `snapshot_inbox` ordering.
+- **v0.4 placeholder for `NSStatusItem` badge text.** Mitigation: the
+  owning-thread channel now also accepts `SetTitle(String)` and
+  `tray-icon::TrayIcon::set_title()` is called from the owning thread.
+  Verified on macOS; Windows `Shell_NotifyIcon` tooltip-only is the
+  platform-imposed limit of `tray-icon 0.24`.
+
+### Verification (v0.5)
+
+- `cargo build -p elicitate` → clean, 0 warnings.
+- `cargo build -p elicitate --features tray-native` → clean, 0 warnings.
+- `cargo test -p elicitate --no-fail-fast` → **129 / 129** passing
+  (78 lib unit + 13 bin unit + 14 cli integration + 6 lib integration
+  + 4 mcp stdio + 14 new TUI unit tests).
+- `elicitate inbox --tui --inbox-dir <empty-dir>` on a real TTY:
+  launches split pane, status bar shows `0 pending · refresh 1s`,
+  `q` quits cleanly.
+- `TERM=dumb elicitate inbox --tui --inbox-dir <dir>` → exits 0 with
+  plain-text summary, no raw-mode side effects.

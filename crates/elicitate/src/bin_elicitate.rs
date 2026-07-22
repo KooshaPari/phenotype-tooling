@@ -260,6 +260,12 @@ struct InboxArgs {
     /// seconds.
     #[arg(long)]
     gc_age_secs: Option<u64>,
+
+    /// Launch the terminal-UI inbox viewer (`ratatui` split-pane over the
+    /// inbox directory). Falls back to plain-text rendering if no TTY is
+    /// available (CI, `TERM=dumb`, ssh without TTY allocation).
+    #[arg(long, conflicts_with_all = &["list", "show", "url", "open", "gc_age_secs"])]
+    tui: bool,
 }
 
 // ---- wait / answer ----------------------------------------------------
@@ -742,6 +748,27 @@ fn wait_for_termination() {
 }
 
 fn cmd_inbox(args: InboxArgs, inbox_dir: &PathBuf) -> Result<(), String> {
+    // TUI viewer — must be checked first because it conflicts with all the
+    // JSON-output / open-in-browser subcommands.
+    if args.tui {
+        match elicitate::tui_run(inbox_dir) {
+            Ok(elicitate::TuiOutcome::Quit)
+            | Ok(elicitate::TuiOutcome::Answered(_))
+            | Ok(elicitate::TuiOutcome::Dismissed(_)) => return Ok(()),
+            Ok(elicitate::TuiOutcome::NoTty) => {
+                // No TTY — fall back to plain-text rendering so the user
+                // still gets useful output (e.g. when piping through CI).
+                let count = elicitate::tui_render_plain(inbox_dir)?;
+                eprintln!(
+                    "(running plain-text fallback — {} pending request(s); \
+                     run on a real terminal for the full split-pane UI)",
+                    count
+                );
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        }
+    }
     if let Some(id) = args.url {
         let url = elicitate::inbox_open_url_for(&id);
         println!("{url}");

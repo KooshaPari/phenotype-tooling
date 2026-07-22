@@ -1,6 +1,6 @@
 [package]
 name = "elicitate"
-version = "0.4.0"
+version = "0.5.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -57,6 +57,13 @@ windows-sys = { version = "0.61", optional = true, features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+# TUI inbox viewer (v0.5.0). ratatui is no_std + needs explicit backend feature;
+# ratatui-crossterm is selected because it works over the same crossterm backend
+# we've already pulled in for signal handling.
+ratatui = { version = "0.30", default-features = false, features = ["crossterm_0_29", "underline-color"] }
+ratatui-crossterm = { version = "0.1", features = ["crossterm_0_29"] }
+crossterm = "0.29"
 
 [features]
 default = ["mcp"]
