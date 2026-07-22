@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p artifacts
           cargo license --json > artifacts/cargo-licenses.json || true
-          python scripts/license_check.py --input artifacts/cargo-licenses.json --output artifacts/denied.txt
+          python scripts/license_check.py --sbom artifacts/cargo-licenses.json --output artifacts/denied.txt
           if [ -s artifacts/denied.txt ]; then
             echo "::error::License denied deps:"
             cat artifacts/denied.txt
