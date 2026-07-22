@@ -114,7 +114,13 @@ impl fmt::Display for TrayError {
 impl std::error::Error for TrayError {}
 
 /// Trait shared by [`NoopTray`] and the real native tray handle.
-pub trait Tray: Send + Sync {
+///
+/// Only `Send` is required (not `Sync`) — the `Mutex<NativeTray>` in the
+/// native backend already serialises concurrent access. `tray-icon`'s
+/// `TrayIcon` is `!Sync` on macOS because it holds Objective-C refs that
+/// the ARC runtime considers single-threaded, so we explicitly opt out of
+/// the `Sync` bound.
+pub trait Tray: Send {
     /// Update the badge text (count of pending requests shown next to the icon).
     fn set_badge(&self, text: &str) -> TrayResult<()>;
     /// Update the tooltip on hover / long-press.
@@ -272,8 +278,8 @@ mod native {
             } else {
                 format!("{base} ({text})")
             };
-            guard.set_tooltip(Some(combined)).map_err(|e| TrayError::Backend(e.to_string()))?;
-            guard.set_title(Some(text)).map_err(|e| TrayError::Backend(e.to_string()))?;
+            guard.set_tooltip(Some(combined.as_str())).map_err(|e| TrayError::Backend(e.to_string()))?;
+            guard.set_title(Some(text)); // returns () on tray-icon 0.24
             Ok(())
         }
 
