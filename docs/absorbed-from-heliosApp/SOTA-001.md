@@ -213,11 +213,8 @@ Aider represents a "git-integrated pair programming" approach, designed specific
 
 4. **Edit Format:** Aider uses a structured edit format that the LLM generates:
    ```
-   <<<<<<< SEARCH
    original code
-   =======
    replacement code
-   >>>>>>> REPLACE
    ```
 
 **Limitations and Trade-offs:**

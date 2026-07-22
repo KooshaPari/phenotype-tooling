@@ -26,7 +26,7 @@ Agents (Cursor, forge `-p`, Claude Code, Codex) bootstrap, review, and maintain 
 
 | Tool | Path |
 |------|------|
-| Cursor | `~/.cursor/projects/<project>/agent-transcripts/*.jsonl` |
+| Cursor | `~/.cursor/projects/&lt;project&gt;/agent-transcripts/*.jsonl` |
 | forge | `forge conversation export` |
 | Claude | `~/.claude/projects/` |
 | Codex | `~/.codex/` |
@@ -61,5 +61,5 @@ See [../intent/prompts/README.md](../intent/prompts/README.md).
 
 ## Evolution triggers
 
-- New agent tool → add `prompts/<tool>/` + scraper module
+- New agent tool → add `prompts/&lt;tool&gt;/` + scraper module
 - Fleet changes `kilo-code-stand@1` → update review.md across repos

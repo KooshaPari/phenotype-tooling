@@ -60,7 +60,7 @@ Anything outside this allow-list fails `license` check.
 
 If a new dependency must be added that has a CRITICAL vuln or non-allowed
 license:
-1. PR author adds `# license-override: <justification>` to the commit body
+1. PR author adds `# license-override: &lt;justification&gt;` to the commit body
 2. CODEOWNER (@KooshaPari) review overrides the `license` check
 3. PR auto-merges after CODEOWNER override
 

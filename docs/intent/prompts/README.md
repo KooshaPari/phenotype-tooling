@@ -6,7 +6,7 @@ This directory holds **verbatim user prompts** extracted from agent session logs
 
 | Tool | Log location | Notes |
 |------|--------------|-------|
-| **Cursor** | `~/.cursor/projects/<project>/agent-transcripts/*.jsonl` | User role messages only; one file per turn |
+| **Cursor** | `~/.cursor/projects/&lt;project&gt;/agent-transcripts/*.jsonl` | User role messages only; one file per turn |
 | **forge** | `forge conversation export` / `~/forge/` logs | OpenAI-compat CLI sessions |
 | **Claude Code** | `~/.claude/projects/` | Session JSON / markdown exports |
 | **Codex** | `~/.codex/` or IDE-specific store | Tool version varies |
@@ -30,7 +30,7 @@ Run from repo root after copying genesis scaffold, or from HexaKit with `--repo`
 prompts/
   README.md          # this file
   .gitkeep           # preserves prompts/ in git before first scrape
-  cursor/YYYYMMDD-<session-id>-t<N>.md
+  cursor/YYYYMMDD-<session-id>-t&lt;N&gt;.md
   forge/...
   claude/...
   codex/...

@@ -116,7 +116,7 @@ observability/
 3. Use a metric from the table above, or a derived series like
    `cli:errors_per_sec_5m`.
 4. Export JSON (Share → Export → Save to file) into
-   `observability/grafana/<your-name>.json`.
+   `observability/grafana/&lt;your-name&gt;.json`.
 5. Re-launch `docker compose up -d` — Grafana picks up the file on first
    render thanks to `dashboard-providers.yml`.
 

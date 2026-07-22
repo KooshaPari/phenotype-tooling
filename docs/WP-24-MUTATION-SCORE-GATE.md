@@ -75,7 +75,7 @@ doesn't need to be re-wired mid-rollout.
 ## Override path
 
 For emergency fixes (production-down scenarios), the on-call CODEOWNER
-can override the check with a `mutation-override: <reason>` label on
+can override the check with a `mutation-override: &lt;reason&gt;` label on
 the PR. The `summarize` job reads the label and skips the threshold
 gate (still surfaces survivors as warnings). Override usage is logged
 to a monthly review issue.

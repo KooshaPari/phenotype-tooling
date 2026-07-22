@@ -22,7 +22,7 @@ Use the hwLedger pattern as the reference implementation:
 
 - `ShotGallery` for keyframes
 - `RecordingEmbed` for the full recording
-- `cli-journeys/keyframes/<journey>/frame-###.png` for frame assets
+- `cli-journeys/keyframes/&lt;journey&gt;/frame-###.png` for frame assets
 - a stable `tape` id for the recording reference
 - renderer components sourced from `phenotype-journeys`
 
@@ -39,7 +39,7 @@ Example:
     {"src":"/cli-journeys/keyframes/plan-deepseek/frame-003.png","caption":"Typical plan output: VRAM breakdown + architecture detection"}
   ]' />
 
-<RecordingEmbed tape="plan-deepseek" kind="cli" caption="CLI plan: DeepSeek-V3 -> live architecture detection + colored VRAM bands" />
+&lt;RecordingEmbed tape="plan-deepseek" kind="cli" caption="CLI plan: DeepSeek-V3 -&gt; live architecture detection + colored VRAM bands" />
 ```
 
 ## Required Artifacts
@@ -57,7 +57,7 @@ Each documented journey should include:
 
 Recommended storage pattern:
 
-- keyframes under `/cli-journeys/keyframes/<journey>/frame-###.png`
+- keyframes under `/cli-journeys/keyframes/&lt;journey&gt;/frame-###.png`
 - recordings referenced by stable tape id, for example `plan-deepseek`
 - doc pages colocated with the feature docs that explain the journey
 

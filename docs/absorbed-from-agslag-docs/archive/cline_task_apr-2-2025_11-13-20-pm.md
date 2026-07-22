@@ -35437,7 +35437,6 @@ Now I need to modify the `buildApiHandler` function in `/Users/kooshapari/Docume
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/api/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { Anthropic } from "@anthropic-ai/sdk";
 import { ApiConfiguration, ModelInfo } from "../shared/api"; // Adjusted path
 import { AnthropicHandler } from "./providers/anthropic";
@@ -35461,13 +35460,10 @@ import { LiteLlmHandler } from "./providers/litellm";
 import { AskSageHandler } from "./providers/asksage";
 import { XAIHandler } from "./providers/xai";
 import { SambanovaHandler } from "./providers/sambanova";
-=======
 import { Anthropic } from "@anthropic-ai/sdk"; // Keep for types used in ApiHandler interface
 import { ApiConfiguration, ModelInfo } from "../shared/api"; // Adjusted path
 import { GeminiHandler } from "./providers/gemini";
 import { ApiStream, ApiStreamUsageChunk } from "./transform/stream"; // Adjusted path
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	const { apiProvider, ...options } = configuration;
 	switch (apiProvider) {
 		case "anthropic":
@@ -35516,7 +35512,6 @@ import { ApiStream, ApiStreamUsageChunk } from "./transform/stream"; // Adjusted
 			return new AnthropicHandler(options);
 	}
 }
-=======
 	const { apiProvider, ...options } = configuration;
 	if (apiProvider === "gemini") {
 		return new GeminiHandler(options);
@@ -35530,7 +35525,6 @@ import { ApiStream, ApiStreamUsageChunk } from "./transform/stream"; // Adjusted
 		// }
 	}
 }
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -36185,7 +36179,6 @@ Okay, `ContextManager.ts` copied. I need to remove the unused import and logic r
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/context-management/ContextManager.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { Anthropic } from "@anthropic-ai/sdk";
 import { ClineApiReqInfo, ClineMessage } from "../../shared/ExtensionMessage"; // Adjusted path
 import { ApiHandler } from "../../api/index"; // Adjusted path
@@ -36193,7 +36186,6 @@ import { OpenAiHandler } from "../../api/providers/openai"; // TODO: Remove or a
 
 export class ContextManager {
 	getNewContextMessagesAndMetadata(
-=======
 import { Anthropic } from "@anthropic-ai/sdk";
 import { ClineApiReqInfo, ClineMessage } from "../../shared/ExtensionMessage"; // Adjusted path
 import { ApiHandler } from "../../api/index"; // Adjusted path
@@ -36201,8 +36193,6 @@ import { ApiHandler } from "../../api/index"; // Adjusted path
 
 export class ContextManager {
 	getNewContextMessagesAndMetadata(
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				let contextWindow = api.getModel().info.contextWindow || 128_000;
 				// FIXME: hack to get anyone using openai compatible with deepseek to have the proper context window instead of the default 128k. We need a way for the user to specify the context window for models they input through openai compatible
 				// TODO: Remove OpenAI specific logic or adapt
@@ -36212,13 +36202,11 @@ export class ContextManager {
 				let maxAllowedSize: number;
 				switch (contextWindow) {
 					case 64_000: // deepseek models
-=======
 				const contextWindow = api.getModel().info.contextWindow || 128_000;
 				// Removed OpenAI specific logic for context window adjustment
 				let maxAllowedSize: number;
 				switch (contextWindow) {
 					// case 64_000: // Removed deepseek specific case
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -41599,21 +41587,18 @@ Okay, `responses.ts` copied. It seems there's a minor TypeScript error in the `f
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/prompts/responses.ts</path>
 <diff>
-<<<<<<< SEARCH
 					source: {
 						type: "base64",
 						media_type: mimeType as Anthropic.ImageBlockParam.Source["media_type"], // Assert type
 						data: base64,
 					},
 				} as Anthropic.ImageBlockParam;
-=======
 					source: {
 						type: "base64",
 						media_type: mimeType, // Remove explicit type assertion
 						data: base64,
 					},
 				} as Anthropic.ImageBlockParam;
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -41966,11 +41951,8 @@ Parameters:
 - path: (required) The path of the file to modify (relative to the current working directory ${cwd.toPosix()})
 - diff: (required) One or more SEARCH/REPLACE blocks following this exact format:
   \`\`\`
-  <<<<<<< SEARCH
   [exact content to find]
-  =======
   [new content to replace with]
-  >>>>>>> REPLACE
   \`\`\`
   Critical rules:
   1. SEARCH content must match the associated file section to find EXACTLY:
@@ -42178,25 +42160,17 @@ Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
 <replace_in_file>
 <path>src/components/App.tsx</path>
 <diff>
-<<<<<<< SEARCH
 import React from 'react';
-=======
 import React, { useState } from 'react';
->>>>>>> REPLACE
 
-<<<<<<< SEARCH
 function handleSubmit() {
   saveData();
   setLoading(false);
 }
 
-=======
->>>>>>> REPLACE
 
-<<<<<<< SEARCH
 return (
   <div>
-=======
 function handleSubmit() {
   saveData();
   setLoading(false);
@@ -42204,7 +42178,6 @@ function handleSubmit() {
 
 return (
   <div>
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 ${
@@ -43049,11 +43022,8 @@ Usage:
 <replace_in_file>
 <path>File path here</path>
 <diff>
-<<<<<<< SEARCH
 [exact content to find]
-=======
 [new content to replace with]
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -43357,11 +43327,8 @@ Parameters:
 - path: (required) The path of the file to modify (relative to the current working directory ${cwd.toPosix()})
 - diff: (required) One or more SEARCH/REPLACE blocks following this exact format:
   \`\`\`
-  <<<<<<< SEARCH
   [exact content to find]
-  =======
   [new content to replace with]
-  >>>>>>> REPLACE
   \`\`\`
   Critical rules:
   1. SEARCH content must match the associated file section to find EXACTLY:
@@ -43569,25 +43536,17 @@ Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
 <replace_in_file>
 <path>src/components/App.tsx</path>
 <diff>
-<<<<<<< SEARCH
 import React from 'react';
-=======
 import React, { useState } from 'react';
->>>>>>> REPLACE
 
-<<<<<<< SEARCH
 function handleSubmit() {
   saveData();
   setLoading(false);
 }
 
-=======
->>>>>>> REPLACE
 
-<<<<<<< SEARCH
 return (
   <div>
-=======
 function handleSubmit() {
   saveData();
   setLoading(false);
@@ -43595,7 +43554,6 @@ function handleSubmit() {
 
 return (
   <div>
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 ${
@@ -44442,11 +44400,8 @@ Usage:
 <replace_in_file>
 <path>File path here</path>
 <diff>
-<<<<<<< SEARCH
 [exact content to find]
-=======
 [new content to replace with]
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -44754,11 +44709,8 @@ Parameters:
 - path: (required) The path of the file to modify (relative to the current working directory ${cwd.toPosix()})
 - diff: (required) One or more SEARCH/REPLACE blocks following this exact format:
   \`\`\`
-  <<<<<<< SEARCH
   [exact content to find]
-  =======
   [new content to replace with]
-  >>>>>>> REPLACE
   \`\`\`
   Critical rules:
   1. SEARCH content must match the associated file section to find EXACTLY:
@@ -44966,25 +44918,17 @@ Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
 <replace_in_file>
 <path>src/components/App.tsx</path>
 <diff>
-<<<<<<< SEARCH
 import React from 'react';
-=======
 import React, { useState } from 'react';
->>>>>>> REPLACE
 
-<<<<<<< SEARCH
 function handleSubmit() {
   saveData();
   setLoading(false);
 }
 
-=======
->>>>>>> REPLACE
 
-<<<<<<< SEARCH
 return (
   <div>
-=======
 function handleSubmit() {
   saveData();
   setLoading(false);
@@ -44992,7 +44936,6 @@ function handleSubmit() {
 
 return (
   <div>
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 ${
@@ -45839,11 +45782,8 @@ Usage:
 <replace_in_file>
 <path>File path here</path>
 <diff>
-<<<<<<< SEARCH
 [exact content to find]
-=======
 [new content to replace with]
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -48947,7 +48887,6 @@ First, I'll remove the direct `vscode` import and the `Controller` dependency fr
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { setTimeout as setTimeoutPromise } from "node:timers/promises"
 import os from "os"
 import pTimeout from "p-timeout"
@@ -48958,7 +48897,6 @@ import * as vscode from "vscode" // TODO: Remove VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api" // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic" // TODO: Adapt/Copy
 import { ClineHandler } from "../../api/providers/cline" // TODO: Adapt/Copy
-=======
 import { setTimeout as setTimeoutPromise } from "node:timers/promises"
 import os from "os"
 import pTimeout from "p-timeout"
@@ -48969,14 +48907,11 @@ import { serializeError } from "serialize-error"
 import { ApiHandler, buildApiHandler } from "../../api" // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic" // TODO: Adapt/Copy
 import { ClineHandler } from "../../api/providers/cline" // TODO: Adapt/Copy
->>>>>>> REPLACE
-<<<<<<< SEARCH
 import { checkIsAnthropicContextWindowError, checkIsOpenRouterContextWindowError, } from "../context-management/context-error-handling" // TODO: Adapt/Copy
 // import { Controller } from "../controller" // TODO: Remove Controller dependency
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 import { checkIsAnthropicContextWindowError, checkIsOpenRouterContextWindowError, } from "../context-management/context-error-handling" // TODO: Adapt/Copy
 // Removed Controller import
 import {
@@ -49969,20 +49904,16 @@ Okay, the previous `replace_in_file` failed. I'll retry removing the `vscode` an
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import * as path from "path"
 import { serializeError } from "serialize-error"
 import * as vscode from "vscode" // TODO: Remove VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api" // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic" // TODO: Adapt/Copy
-=======
 import * as path from "path"
 import { serializeError } from "serialize-error"
 // import * as vscode from "vscode" // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api" // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic" // TODO: Adapt/Copy
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling" // TODO: Adapt/Copy
@@ -49990,7 +49921,6 @@ import { AnthropicHandler } from "../../api/providers/anthropic" // TODO: Adapt/
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling" // TODO: Adapt/Copy
@@ -49998,7 +49928,6 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -51271,20 +51200,16 @@ Okay, the previous `replace_in_file` failed because the first SEARCH block didn'
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import * as path from "path";
 import { serializeError } from "serialize-error";
 import * as vscode from "vscode"; // TODO: Remove VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt/Copy
-=======
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt/Copy
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // TODO: Adapt/Copy
@@ -51292,7 +51217,6 @@ import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // TODO: Adapt/Copy
@@ -51300,7 +51224,6 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -52618,20 +52541,16 @@ Okay, the previous attempt to modify `Task.ts` failed because the SEARCH block d
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import * as path from "path";
 import { serializeError } from "serialize-error";
 import * as vscode from "vscode"; // TODO: Remove VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt/Copy
-=======
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt/Copy
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // TODO: Adapt/Copy
@@ -52639,7 +52558,6 @@ import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // TODO: Adapt/Copy
@@ -52647,7 +52565,6 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -53921,7 +53838,6 @@ This refactoring will be done iteratively. I'll start by modifying `Task.ts` to 
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -53932,7 +53848,6 @@ import { serializeError } from "serialize-error";
 import { ApiHandler, buildApiHandler } from "../../api"; // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt/Copy
 import { ClineHandler } from "../../api/providers/cline"; // TODO: Adapt/Copy
-=======
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -53943,8 +53858,6 @@ import { serializeError } from "serialize-error";
 import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
 import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted path
 import { ClineHandler } from "../../api/providers/cline"; // Adjusted path
->>>>>>> REPLACE
-<<<<<<< SEARCH
 import { OpenRouterHandler } from "../../api/providers/openrouter"; // TODO: Adapt/Copy
 import { ApiStream } from "../../api/transform/stream"; // TODO: Adapt/Copy
 import { GlobalFileNames } from "../storage/disk"; // TODO: Adapt/Copy
@@ -53965,7 +53878,6 @@ import { telemetryService } from "../../services/telemetry/TelemetryService"; //
 import { parseSourceCodeForDefinitionsTopLevel } from "../../services/tree-sitter"; // TODO: Replace with MCP tool
 import { ApiConfiguration } from "../../shared/api"; // TODO: Adapt/Copy
 import {
-=======
 import { OpenRouterHandler } from "../../api/providers/openrouter"; // Adjusted path
 import { ApiStream } from "../../api/transform/stream"; // Adjusted path
 import { GlobalFileNames } from "../storage/disk"; // Adjusted path
@@ -53983,8 +53895,6 @@ import { extractTextFromFile } from "../../integrations/misc/extract-text"; // T
 // import { parseSourceCodeForDefinitionsTopLevel } from "../../services/tree-sitter"; // Replaced with MCP tool
 import { ApiConfiguration } from "../../shared/api"; // Adjusted path
 import {
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	DEFAULT_LANGUAGE_SETTINGS,
 	getLanguageKey,
 	LanguageDisplay,
@@ -53996,7 +53906,6 @@ import {
 import { calculateApiCostAnthropic } from "../../utils/cost"; // TODO: Adapt/Copy
 import { fileExistsAtPath, isDirectory } from "../../utils/fs"; // Already Copied
 import { arePathsEqual, getReadablePath } from "../../utils/path"; // Already Copied
-=======
 	DEFAULT_LANGUAGE_SETTINGS,
 	getLanguageKey,
 	LanguageDisplay,
@@ -54008,8 +53917,6 @@ import {
 import { calculateApiCostAnthropic } from "../../utils/cost"; // Adjusted path
 import { fileExistsAtPath, isDirectory } from "../../utils/fs"; // Already Copied
 import { arePathsEqual, getReadablePath } from "../../utils/path"; // Already Copied
->>>>>>> REPLACE
-<<<<<<< SEARCH
 import { fixModelHtmlEscaping, removeInvalidChars } from "../../utils/string"; // TODO: Adapt/Copy
 import {
 	AssistantMessageContent,
@@ -54024,7 +53931,6 @@ import { parseMentions } from ".././mentions"; // TODO: Adapt/Copy
 import { formatResponse } from ".././prompts/responses"; // TODO: Adapt/Copy
 import { addUserInstructions, SYSTEM_PROMPT } from ".././prompts/system"; // TODO: Adapt/Copy
 import {
-=======
 import { fixModelHtmlEscaping, removeInvalidChars } from "../../utils/string"; // Adjusted path
 import {
 	AssistantMessageContent,
@@ -54039,8 +53945,6 @@ import { parseMentions } from ".././mentions"; // Adjusted path
 import { formatResponse } from ".././prompts/responses"; // Adjusted path
 import { addUserInstructions, SYSTEM_PROMPT } from ".././prompts/system"; // Adjusted path
 import {
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // TODO: Adapt/Copy
@@ -54048,7 +53952,6 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // Adjusted path
@@ -54056,23 +53959,18 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	saveApiConversationHistory,
 	saveClineMessages,
 } from "../storage/disk"; // TODO: Adapt/Copy storage logic
 
 // TODO: Replace cwd logic
 const cwd = process.cwd(); // Placeholder: Use current working directory of the client process
-=======
 	saveApiConversationHistory,
 	saveClineMessages,
 } from "../storage/disk"; // Adjusted path
 
 // TODO: Replace cwd logic - Get from config or initial message?
 const cwd = process.cwd(); // Placeholder: Use current working directory of the client process
->>>>>>> REPLACE
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string
 	readonly apiProvider?: string
@@ -54111,7 +54009,6 @@ export class Task {
 	isInitialized = false
 	isAwaitingPlanResponse = false // May not be needed depending on MCP interaction model
 	didRespondToPlanAskBySwitchingMode = false // May not be needed
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -56680,7 +56577,6 @@ I'll start by removing the `vscode` import and references to VS Code specific cl
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -56709,7 +56605,6 @@ import { extractTextFromFile } from "../../integrations/misc/extract-text"; // T
 import { ApiConfiguration } from "../../shared/api"; // Adjusted path
 import {
 	findLast,
-=======
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -58011,20 +57906,16 @@ I will retry the `replace_in_file` operation using the correct current content f
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt/Copy
-=======
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
 import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted path
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // TODO: Adapt/Copy
@@ -58032,7 +57923,6 @@ import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted pa
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // Adjusted path
@@ -58040,7 +57930,6 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -59358,20 +59247,16 @@ Okay, the previous `replace_in_file` failed because the first SEARCH block didn'
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // TODO: Adapt/Copy
 import { AnthropicHandler } from "../../api/providers/anthropic"; // TODO: Adapt/Copy
-=======
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
 import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted path
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // TODO: Adapt/Copy
@@ -59379,7 +59264,6 @@ import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted pa
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // Adjusted path
@@ -59387,7 +59271,6 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -60662,20 +60545,16 @@ Okay, the `replace_in_file` failed again because the file content had changed du
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
 import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted path
-=======
 import * as path from "path";
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
 import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted path
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // Adjusted path
@@ -60683,7 +60562,6 @@ import { AnthropicHandler } from "../../api/providers/anthropic"; // Adjusted pa
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
-=======
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
 } from "../context-management/context-error-handling"; // Adjusted path
@@ -60691,7 +60569,6 @@ import {
 import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -62365,20 +62242,17 @@ Okay, `export-markdown.ts` copied. There's a type error because the code assumes
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/integrations/misc/export-markdown.ts</path>
 <diff>
-<<<<<<< SEARCH
 		case "image":
 			// Represent image differently, maybe with a placeholder or metadata if available
 			return `[Image: ${block.source.media_type}]`;
 		// case "document": // Assuming this type exists based on original code
 		// 	return `[Document]`;
-=======
 		case "image":
 			// Represent image differently, maybe with a placeholder or metadata if available
             const mediaType = block.source.type === "base64" ? block.source.media_type : "unknown";
 			return `[Image: ${mediaType}]`;
 		// case "document": // Assuming this type exists based on original code
 		// 	return `[Document]`;
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -63003,7 +62877,6 @@ I'll start by removing VS Code specific imports and properties from `Task.ts`.
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -63032,7 +62905,6 @@ import { extractTextFromFile } from "../../integrations/misc/extract-text"; // T
 import { ApiConfiguration } from "../../shared/api"; // Adjusted path
 import {
 	findLast,
-=======
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -68217,7 +68089,6 @@ Now, I'll continue refactoring `/Users/kooshapari/Documents/Cline/MCP/cline-mcp-
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { GlobalFileNames } from "../storage/disk"; // Adjusted path
 // import CheckpointTracker from "../../integrations/checkpoints/CheckpointTracker"; // Removed CheckpointTracker
 // import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../../integrations/editor/DiffViewProvider"; // Removed DiffViewProvider
@@ -68233,7 +68104,6 @@ import { extractTextFromFile } from "../../integrations/misc/extract-text"; // T
 // import { parseSourceCodeForDefinitionsTopLevel } from "../../services/tree-sitter"; // Replaced with MCP tool
 import { ApiConfiguration } from "../../shared/api"; // Adjusted path
 import {
-=======
 import { GlobalFileNames } from "../storage/disk"; // Adjusted path
 // Removed CheckpointTracker import
 // Removed
@@ -69608,7 +69478,6 @@ Okay, the `replace_in_file` failed again because the file content had changed du
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -69639,7 +69508,6 @@ import { telemetryService } from "../../services/telemetry/TelemetryService"; //
 import { parseSourceCodeForDefinitionsTopLevel } from "../../services/tree-sitter"; // TODO: Replace with MCP tool
 import { ApiConfiguration } from "../../shared/api"; // TODO: Adapt/Copy
 import {
-=======
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import os from "os";
 import pTimeout from "p-timeout";
@@ -78822,7 +78690,6 @@ Instead of trying to fix those errors directly from the potentially bad state, I
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -78833,7 +78700,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false;
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -78845,8 +78711,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false;
 	customInstructions?: string;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -78855,7 +78719,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
-=======
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -78864,8 +78727,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -78874,7 +78735,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
-=======
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -78883,8 +78743,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -78898,7 +78756,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
-=======
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -78912,7 +78769,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -84600,7 +84456,6 @@ Now, I will update the `progress_evaluation_report.md` to reflect these more det
 <replace_in_file>
 <path>Documentation Plan for Large Scale Agent Development/progress_evaluation_report.md</path>
 <diff>
-<<<<<<< SEARCH
 ## Codebase Analysis
 
 ### `agent-dashboard-server/src`
@@ -84638,7 +84493,6 @@ Now, I will update the `progress_evaluation_report.md` to reflect these more det
 
 *   **Phase 4: Marketing and Community Integration (Months 10-12):**
     *   **Assessment:** **Not Started.** No structural evidence.
-=======
 ## Codebase Analysis (Detailed)
 
 ### `agent-dashboard-server/src`
@@ -84688,8 +84542,6 @@ Now, I will update the `progress_evaluation_report.md` to reflect these more det
 
 *   **Phase 4: Marketing and Community Integration (Months 10-12):**
     *   **Assessment:** **Not Started.** No structural or code evidence found in analyzed files.
->>>>>>> REPLACE
-<<<<<<< SEARCH
 *   **Phase 5: Integration and Optimization (Months 13-15):**
     *   **Assessment:** **Not Started.**
 
@@ -84714,7 +84566,6 @@ Further code-level analysis is required to determine the exact status of feature
 1.  **Detailed Code Review:** Analyze the content of key files (e.g., `index.ts`, `tools/workflows.ts`, `tools/roles.ts`, `dbUtils.ts`) to gauge the actual completeness of implemented features.
 2.  **Task Identification:** Use the Task Manager and Software Planning tools to define and prioritize tasks needed to bridge the gap between the current state and the documented plan, focusing initially on completing Phase 1 & 2 objectives.
 3.  **Resource Allocation:** Re-evaluate resource needs based on the current progress and remaining scope.
-=======
 *   **Phase 5: Integration and Optimization (Months 13-15):**
     *   **Assessment:** **Not Started.** (Though `link_step_to_external_task` hints at future integration).
 
@@ -84741,7 +84592,6 @@ However, the project remains behind the documented 18-month roadmap. Key areas l
     *   Developing the Agent Dashboard.
 3.  **Roadmap Re-evaluation:** Assess if the original 18-month timeline is still feasible given the current progress and potentially adjust the roadmap.
 4.  **Resource Allocation:** Re-evaluate based on prioritized tasks.
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -85014,7 +84864,6 @@ Now, I will remove the properties related to the removed VS Code integrations (`
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -85026,7 +84875,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false;
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -85034,8 +84882,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -85044,7 +84890,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
-=======
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -85053,8 +84898,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -85063,7 +84906,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
-=======
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -85072,8 +84914,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -85087,7 +84927,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
-=======
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -85098,7 +84937,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -87896,52 +87734,41 @@ Okay, I have the content of `api.ts`. I will now add the missing `googleGeminiBa
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/shared/api.ts</path>
 <diff>
-<<<<<<< SEARCH
 	lmStudioModelId?: string
 	lmStudioBaseUrl?: string
 	geminiApiKey?: string
 	openAiNativeApiKey?: string
 	deepSeekApiKey?: string
-=======
 	lmStudioModelId?: string
 	lmStudioBaseUrl?: string
 	geminiApiKey?: string
     googleGeminiBaseUrl?: string // Added for Roo-Code compatibility
 	openAiNativeApiKey?: string
 	deepSeekApiKey?: string
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	xaiApiKey?: string
 	thinkingBudgetTokens?: number
 	sambanovaApiKey?: string
 }
-=======
 	xaiApiKey?: string
 	thinkingBudgetTokens?: number
     modelTemperature?: number // Added for Roo-Code compatibility
 	sambanovaApiKey?: string
 }
->>>>>>> REPLACE
-<<<<<<< SEARCH
 			sambanovaApiKey,
 		},
 		// lastShownAnnouncementId, // Removed
 		customInstructions,
-=======
 			sambanovaApiKey,
             googleGeminiBaseUrl: await getConfigValue("googleGeminiBaseUrl"), // Added
             modelTemperature: await getConfigValue("modelTemperature"), // Added
 		},
 		// lastShownAnnouncementId, // Removed
 		customInstructions,
->>>>>>> REPLACE
-<<<<<<< SEARCH
         xaiApiKey, thinkingBudgetTokens, clineApiKey, sambanovaApiKey
 	} = apiConfiguration;
 
     await setConfigValue("apiProvider", apiProvider);
     await setConfigValue("apiModelId", apiModelId);
-=======
         xaiApiKey, thinkingBudgetTokens, clineApiKey, sambanovaApiKey,
 
 
@@ -95920,7 +95747,6 @@ The previous attempts to use `replace_in_file` failed due to mismatches after pa
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -95931,7 +95757,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false;
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -95943,8 +95768,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -97360,11 +97183,8 @@ Usage:
 <replace_in_file>
 <path>File path here</path>
 <diff>
-<<<<<<< SEARCH
 [exact content to find]
-=======
 [new content to replace with]
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -97643,11 +97463,8 @@ Usage:
 <replace_in_file>
 <path>File path here</path>
 <diff>
-<<<<<<< SEARCH
 [exact content to find]
-=======
 [new content to replace with]
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -97943,7 +97760,6 @@ Now, I will resume refactoring `/Users/kooshapari/Documents/Cline/MCP/cline-mcp-
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -97954,7 +97770,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false;
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -97966,8 +97781,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private
 
@@ -102985,7 +102798,6 @@ The last successful edit removed the `vscode` import and the `Controller` import
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -102997,7 +102809,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -103005,8 +102816,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -103015,7 +102824,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
-=======
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -103024,8 +102832,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -103034,7 +102840,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
-=======
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -103042,8 +102847,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -103054,7 +102857,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
-=======
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -103065,7 +102867,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -104295,14 +104096,12 @@ The VS Code and Controller imports have been removed. Now I will remove the meth
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 	abandoned = false;
 	// Removed diffViewProvider property
 	// Removed checkpointTracker property
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
-=======
 	abandoned = false;
 	// Removed VS Code specific properties (diffViewProvider, checkpointTracker)
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints - TODO: Remove this?
@@ -106736,7 +106535,6 @@ The previous attempts to use `replace_in_file` failed. I will retry removing the
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -106747,7 +106545,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false;
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -107986,7 +107783,6 @@ Okay, resuming the task. The previous `replace_in_file` attempt on `/Users/koosh
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -107994,7 +107790,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -108002,8 +107797,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -108012,7 +107805,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
-=======
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number = 0;
@@ -108021,8 +107813,6 @@ export class Task {
 	private messageSender: MessageSender; // TODO: Use this for sending messages/asks
     private stateManager: StateManager; // TODO: Use this for state access
     private mcpHub: McpHub; // TODO: Use this for outgoing tool calls
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -108030,7 +107820,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
-=======
 	private abort: boolean = false;
 	didFinishAbortingStream = false;
 	abandoned = false;
@@ -108038,8 +107827,6 @@ export class Task {
 	checkpointTrackerErrorMessage?: string; // Keep for now, might remove checkpoints - TODO: Remove this?
 	conversationHistoryDeletedRange?: [number, number];
 	isInitialized = false;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -108050,7 +107837,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
-=======
 		this.clineIgnoreController.initialize().catch((error) => {
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
@@ -108061,7 +107847,6 @@ export class Task {
 		this.customInstructions = customInstructions;
 		this.autoApprovalSettings = autoApprovalSettings;
 		this.browserSettings = browserSettings;
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -109275,7 +109060,6 @@ Okay, resuming the task. The previous `replace_in_file` attempt on `/Users/koosh
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -109286,7 +109070,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false;
 	customInstructions?: string;
-=======
 export class Task {
 	readonly taskId: string;
 	readonly apiProvider?: string;
@@ -109298,8 +109081,6 @@ export class Task {
 	contextManager: ContextManager;
 	private didEditFile: boolean = false; // Still relevant for knowing if FS changed
 	customInstructions?: string;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	private askResponseImages?: string[]; // TODO: Replace with MCP message handling
 	private lastMessageTs?: number; // TODO: Replace with MCP message handling
 	private consecutiveAutoApprovedRequestsCount: number
@@ -129323,7 +129104,6 @@ I can now update the `progress_evaluation_report.md` to reflect this more accura
 <replace_in_file>
 <path>Documentation Plan for Large Scale Agent Development/progress_evaluation_report.md</path>
 <diff>
-<<<<<<< SEARCH
 ## Overview
 
 This report evaluates the current implementation progress of the AI-Powered Digital Product Development Platform against the documented plan, specifically referencing the `system_architecture.md`, `project_overview.md`, and `implementation_roadmap.md`. The evaluation is based on analysis of the codebase structure within the `mcp_official-2/src` and `agent-dashboard-server/src` directories.
@@ -129331,7 +129111,6 @@ This report evaluates the current implementation progress of the AI-Powered Digi
 ## Documentation Plan Summary
 
 The project documentation outlines an ambitious 18-month, 6-phase plan to build a comprehensive multi-agent system using MCP and Gemini for end-to-end digital product creation, including development, marketing, and community engagement. Key layers include Foundation, Agent, Workflow, Orchestration, Product Development, and Marketing/Community.
-=======
 ## Overview
 
 This report evaluates the current progress of **both the codebase implementation and the supporting documentation** for the AI-Powered Digital Product Development Platform.
@@ -129343,8 +129122,6 @@ This report evaluates the current progress of **both the codebase implementation
 
 - **Implementation Roadmap:** Outlines an 18-month, 6-phase plan for building the platform's features (Foundation, Agent, Workflow, Orchestration, Product Development, Marketing/Community).
 - **Documentation Work Plan:** Outlines the objective to collaboratively refine, detail, and expand documentation within the `Documentation Plan for Large Scale Agent Development/` directory, assigning high-level tasks (DWP-1 to DWP-9) covering different documentation sections.
->>>>>>> REPLACE
-<<<<<<< SEARCH
     *   **Assessment:** **Mostly Complete.** Foundational infrastructure is largely in place.
 
 *   **Phase 2: Role and Workflow Development (Months 4-6):**
@@ -129391,7 +129168,6 @@ However, the project remains behind the documented 18-month roadmap. Key areas l
     *   Developing the Agent Dashboard.
 3.  **Roadmap Re-evaluation:** Assess if the original 18-month timeline is still feasible given the current progress and potentially adjust the roadmap.
 4.  **Resource Allocation:** Re-evaluate based on prioritized tasks.
-=======
     *   **Assessment (Code):** **Mostly Complete.** Foundational infrastructure is largely in place.
 
 *   **Phase 2: Role and Workflow Development (Months 4-6):**
@@ -129453,7 +129229,6 @@ However, the project remains behind the documented 18-month roadmap. Key areas l
 3.  **Task Prioritization (Docs - DWP Tasks):** Define and prioritize specific documentation refinement tasks based on the assessments above (e.g., "Detail parameters for `send_message` in Tool Reference", "Add error handling examples to Gemini guide"). Assign owners (agents or human).
 4.  **Roadmap & Work Plan Re-evaluation:** Assess feasibility of original timelines for both code and documentation given current progress. Adjust plans and potentially resource allocation.
 5.  **File Locking:** Ensure all agents adhere strictly to the file locking protocol defined in the work plan when updating documentation files.
->>>>>>> REPLACE
 
 </diff>
 </replace_in_file>
@@ -129731,7 +129506,6 @@ First, I'll address the TypeScript error regarding the missing `addUserInstructi
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { ClineIgnoreController } from ".././ignore/ClineIgnoreController"; // Adjusted path
 import { parseMentions } from ".././mentions"; // Adjusted path
 import { formatResponse } from ".././prompts/responses"; // Adjusted path
@@ -129739,7 +129513,6 @@ import { addUserInstructions, SYSTEM_PROMPT } from ".././prompts/system"; // Adj
 import {
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
-=======
 import { ClineIgnoreController } from ".././ignore/ClineIgnoreController"; // Adjusted path
 import { parseMentions } from ".././mentions"; // Adjusted path
 import { formatResponse } from ".././prompts/responses"; // Adjusted path
@@ -129747,7 +129520,6 @@ import { SYSTEM_PROMPT } from ".././prompts/system"; // Adjusted path - Removed 
 import {
 	checkIsAnthropicContextWindowError,
 	checkIsOpenRouterContextWindowError,
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -131292,7 +131064,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		this.storagePath = stateManager.getStoragePath(); // Get storage path
 
 		this.clineIgnoreController = new ClineIgnoreController(cwd); // TODO: Adapt cwd
@@ -131300,7 +131071,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
 		// Removed controllerRef assignment
-=======
 		this.storagePath = stateManager.getStoragePath(); // Get storage path
 
 		this.clineIgnoreController = new ClineIgnoreController(cwd); // TODO: Adapt cwd
@@ -131308,8 +131078,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			console.error("Failed to initialize ClineIgnoreController:", error);
 		});
 		// Removed controllerRef assignment
->>>>>>> REPLACE
-<<<<<<< SEARCH
 			const lastRelevantMessage =
 				this.clineMessages[
 					findLastIndex(
@@ -131319,7 +131087,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 					)
 				];
 			const taskDir = await ensureTaskDirectoryExists(
-=======
 			const lastRelevantMessage =
 				this.clineMessages[
 					findLastIndex(
@@ -131329,38 +131096,30 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 					)
 				];
 			const taskDir = await ensureTaskDirectoryExists(
->>>>>>> REPLACE
-<<<<<<< SEARCH
 			try {
 				taskDirSize = await getFolderSize.loose(taskDir);
 			} catch (error) {
 				console.error("Failed to get task directory size:", taskDir, error);
 			}
 			// TODO: Replace updateTaskHistory with state manager method or remove if history is managed externally
-=======
 			try {
 				taskDirSize = await getFolderSize.loose(taskDir);
 			} catch (error: any) { // Added type annotation
 				console.error("Failed to get task directory size:", taskDir, error);
 			}
 			// TODO: Replace updateTaskHistory with state manager method or remove if history is managed externally
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
 			});
 		} catch (error) {
 			console.error("Failed to save cline messages:", error);
 		}
 	}
-=======
 				conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
 			});
 		} catch (error: any) { // Added type annotation
 			console.error("Failed to save cline messages:", error);
 		}
 	}
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		const modifiedClineMessages = await getSavedClineMessages(
 			this.storagePath,
 			this.taskId
@@ -131371,7 +131130,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			(m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
 		);
 		if (lastRelevantMessageIndex !== -1) {
-=======
 		const modifiedClineMessages = await getSavedClineMessages(
 			this.storagePath,
 			this.taskId
@@ -131382,8 +131140,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			(m: ClineMessage) => !(m.ask === "resume_task" || m.ask === "resume_completed_task") // Added type annotation
 		);
 		if (lastRelevantMessageIndex !== -1) {
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		const lastClineMessage = this.clineMessages
 			.slice()
 			.reverse()
@@ -131392,7 +131148,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			);
 
 		let askType: ClineAsk =
-=======
 		const lastClineMessage = this.clineMessages
 			.slice()
 			.reverse()
@@ -131401,8 +131156,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			);
 
 		let askType: ClineAsk =
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				"run_command",
 				{ command }
 			);
@@ -131414,7 +131167,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			console.error("Error calling run_command tool:", error);
 			return [
 				false,
-=======
 				"run_command",
 				{ command }
 			);
@@ -131426,38 +131178,30 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			console.error("Error calling run_command tool:", error);
 			return [
 				false,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		return false;
 	}
 
 	private formatErrorWithStatusCode(error: any): string {
 		// ... (keep existing logic) ...
 		const statusCode =
-=======
 		return false;
 	}
 
 	private formatErrorWithStatusCode(error: any): string { // Keep 'any' here as error structure varies
 		// ... (keep existing logic) ...
 		const statusCode =
->>>>>>> REPLACE
-<<<<<<< SEARCH
 			this.isWaitingForFirstChunk = false;
 		} catch (error) {
 			// TODO: Adapt error handling and retry logic
 			console.error("API request failed on first chunk:", error);
 			const errorMessage = this.formatErrorWithStatusCode(error);
 			// Simulate asking user to retry - in real client, this would involve MCP messages
-=======
 			this.isWaitingForFirstChunk = false;
 		} catch (error: any) { // Added type annotation
 			// TODO: Adapt error handling and retry logic
 			console.error("API request failed on first chunk:", error);
 			const errorMessage = this.formatErrorWithStatusCode(error);
 			// Simulate asking user to retry - in real client, this would involve MCP messages
->>>>>>> REPLACE
-<<<<<<< SEARCH
 									);
 									toolResultContent =
 										readResult.content
@@ -131465,7 +131209,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 											.join("\n") || "(Empty file)";
 									break;
 								case "write_to_file":
-=======
 									);
 									toolResultContent =
 										readResult.content
@@ -131473,8 +131216,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 											.join("\n") || "(Empty file)";
 									break;
 								case "write_to_file":
->>>>>>> REPLACE
-<<<<<<< SEARCH
 									);
 									// The server-filesystem tool returns a simple string list
 									toolResultContent =
@@ -131483,7 +131224,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 											.join("\n") || "(Empty directory)";
 									break;
 								case "execute_command":
-=======
 									);
 									// The server-filesystem tool returns a simple string list
 									toolResultContent =
@@ -131492,8 +131232,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 											.join("\n") || "(Empty directory)";
 									break;
 								case "execute_command":
->>>>>>> REPLACE
-<<<<<<< SEARCH
 									);
 									toolResultContent =
 										cmdResult.content
@@ -131501,7 +131239,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 											.join("\n") || "(No command output)";
 									break;
 								// TODO: Add cases for other tools (search, list_code_definitions, browser, mcp calls, ask, attempt_completion)
-=======
 									);
 									toolResultContent =
 										cmdResult.content
@@ -131509,8 +131246,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 											.join("\n") || "(No command output)";
 									break;
 								// TODO: Add cases for other tools (search, list_code_definitions, browser, mcp calls, ask, attempt_completion)
->>>>>>> REPLACE
-<<<<<<< SEARCH
 									);
 							}
 							this.didAlreadyUseTool = true; // Mark tool as used for this turn
@@ -131518,7 +131253,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 							console.error(`Error executing tool ${block.name}:`, error);
 							toolResultContent = formatResponse.toolError(
 								`Error executing tool ${block.name}: ${
-=======
 									);
 							}
 							this.didAlreadyUseTool = true; // Mark tool as used for this turn
@@ -131526,51 +131260,40 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 							console.error(`Error executing tool ${block.name}:`, error);
 							toolResultContent = formatResponse.toolError(
 								`Error executing tool ${block.name}: ${
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				}
 			}
 		} catch (e) {
 			// Catch errors during the block processing itself (e.g., errors in `say` stub)
 			console.error(
-=======
 				}
 			}
 		} catch (e: any) { // Added type annotation
 			// Catch errors during the block processing itself (e.g., errors in `say` stub)
 			console.error(
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				return false; // Don't loop on empty response
 			}
 		} catch (error) {
 			console.error("Error in API request loop:", error);
 			await this.say(
 				"error",
-=======
 				return false; // Don't loop on empty response
 			}
 		} catch (error: any) { // Added type annotation
 			console.error("Error in API request loop:", error);
 			await this.say(
 				"error",
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	): Promise<[UserContent, string]> {
 		// TODO: Adapt parseMentions to use MCP fetch tool if needed
 		const parsedUserContent = await Promise.all(
 			userContent.map(async (block) => {
 				if (
 					block.type === "text" &&
-=======
 	): Promise<[UserContent, string]> {
 		// TODO: Adapt parseMentions to use MCP fetch tool if needed
 		const parsedUserContent = await Promise.all(
 			userContent.map(async (block: Anthropic.ContentBlockParam) => { // Added type annotation
 				if (
 					block.type === "text" &&
->>>>>>> REPLACE
-<<<<<<< SEARCH
 					"list_directory",
 					{ path: cwd }
 				); // Use cwd placeholder
@@ -131582,7 +131305,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			} catch (error) {
 				details += `(Error listing files: ${
 					error instanceof Error ? error.message : String(error)
-=======
 					"list_directory",
 					{ path: cwd }
 				); // Use cwd placeholder
@@ -131594,7 +131316,6 @@ Now, I will fix the implicit `any` type errors in `/Users/kooshapari/Documents/C
 			} catch (error: any) { // Added type annotation
 				details += `(Error listing files: ${
 					error instanceof Error ? error.message : String(error)
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -132817,7 +132538,6 @@ Let's fix the `ContextManager` usage in `Task.ts` first. I'll use `replace_in_fi
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -132825,7 +132545,6 @@ Let's fix the `ContextManager` usage in `Task.ts` first. I'll use `replace_in_fi
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -132836,8 +132555,6 @@ Let's fix the `ContextManager` usage in `Task.ts` first. I'll use `replace_in_fi
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -132852,7 +132569,6 @@ Let's fix the `ContextManager` usage in `Task.ts` first. I'll use `replace_in_fi
 			contextManagementMetadata.truncatedConversationHistory
 		);
 		const iterator = stream[Symbol.asyncIterator]();
-=======
 				previousApiReqIndex
 			);
 
@@ -132866,7 +132582,6 @@ Let's fix the `ContextManager` usage in `Task.ts` first. I'll use `replace_in_fi
 			truncatedConversationHistory // Use the truncated history
 		);
 		const iterator = stream[Symbol.asyncIterator]();
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -134151,7 +133866,6 @@ I will re-apply the `replace_in_file` changes to correctly destructure and use t
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -134159,7 +133873,6 @@ I will re-apply the `replace_in_file` changes to correctly destructure and use t
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -134170,8 +133883,6 @@ I will re-apply the `replace_in_file` changes to correctly destructure and use t
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -135409,7 +135120,6 @@ I will first attempt to fix the `contextManagementMetadata` usage again using `r
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -135417,7 +135127,6 @@ I will first attempt to fix the `contextManagementMetadata` usage again using `r
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -135428,8 +135137,6 @@ I will first attempt to fix the `contextManagementMetadata` usage again using `r
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -136666,7 +136373,6 @@ Okay, the `replace_in_file` attempt failed again. I will retry fixing the `conte
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -136674,7 +136380,6 @@ Okay, the `replace_in_file` attempt failed again. I will retry fixing the `conte
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -136685,8 +136390,6 @@ Okay, the `replace_in_file` attempt failed again. I will retry fixing the `conte
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -136701,7 +136404,6 @@ Okay, the `replace_in_file` attempt failed again. I will retry fixing the `conte
 			contextManagementMetadata.truncatedConversationHistory
 		);
 		const iterator = stream[Symbol.asyncIterator]();
-=======
 				previousApiReqIndex
 			);
 
@@ -137937,7 +137639,6 @@ I will retry fixing the `contextManagementMetadata` usage in `Task.ts` using `re
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -137945,7 +137646,6 @@ I will retry fixing the `contextManagementMetadata` usage in `Task.ts` using `re
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -137956,8 +137656,6 @@ I will retry fixing the `contextManagementMetadata` usage in `Task.ts` using `re
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -144934,7 +144632,6 @@ It seems the file modifications are not consistently applying or being recognize
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -144942,7 +144639,6 @@ It seems the file modifications are not consistently applying or being recognize
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -144953,8 +144649,6 @@ It seems the file modifications are not consistently applying or being recognize
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -146196,7 +145890,6 @@ The last successful step was writing the adapted `Task.ts` file, although subseq
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -146204,7 +145897,6 @@ The last successful step was writing the adapted `Task.ts` file, although subseq
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -146215,8 +145907,6 @@ The last successful step was writing the adapted `Task.ts` file, although subseq
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -149851,7 +149541,6 @@ I will now attempt to fix this usage in `/Users/kooshapari/Documents/Cline/MCP/c
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -149859,7 +149548,6 @@ I will now attempt to fix this usage in `/Users/kooshapari/Documents/Cline/MCP/c
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -149870,8 +149558,6 @@ I will now attempt to fix this usage in `/Users/kooshapari/Documents/Cline/MCP/c
 		} = this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
->>>>>>> REPLACE
-<<<<<<< SEARCH
 				previousApiReqIndex
 			);
 
@@ -153505,7 +153191,6 @@ The last successful step was writing the adapted `Task.ts` file using `write_to_
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -153513,7 +153198,6 @@ The last successful step was writing the adapted `Task.ts` file using `write_to_
 			this.contextManager.getNewContextMessagesAndMetadata(
 				// TODO: Adapt ContextManager
 				this.apiConversationHistory,
-=======
 		// Simplified system prompt for now
 		let systemPrompt = "You are a helpful AI assistant.";
 
@@ -155079,21 +154763,18 @@ First, I'll correct the import path for the shared types. It should be `../share
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import { McpHub } from "./mcp/McpHub";
 import { Task } from "./core/task";
 import { ApiConfiguration, AutoApprovalSettings, BrowserSettings, ChatSettings, HistoryItem } from "./shared"; // Assuming these types are correctly defined
 
 // --- Placeholder/Stub Implementations ---
-=======
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import { McpHub } from "./mcp/McpHub";
 import { Task } from "./core/task";
 import { ApiConfiguration, AutoApprovalSettings, BrowserSettings, ChatSettings, HistoryItem } from "../shared"; // Corrected import path
 
 // --- Placeholder/Stub Implementations ---
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -155917,14 +155598,12 @@ I will now fix the imports and the `setTimeoutPromise` path in `/Users/kooshapar
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/mcp/McpHub.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { Client, ClientOptions } from '@modelcontextprotocol/sdk/client'; // Assuming SDK is installed
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio'; // Assuming SDK is installed
 import { CallToolResponse, ListServersResponse, ListToolsResponse, ListResourcesResponse, ReadResourceResponse, McpError, ErrorCode } from '@modelcontextprotocol/sdk/types'; // Assuming SDK is installed
 import { McpServerInfo, McpToolDefinition, McpResource } from './mcp_shared_types'; // Use shared types
 
 // TODO: Define how server configurations are loaded (e.g., from a file, env vars)
-=======
 import { Client, ClientOptions } from '@modelcontextprotocol/sdk/client';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
 import { CallToolResponse, ListServersResponse, ListToolsResponse, ListResourcesResponse, ReadResourceResponse, McpError, ErrorCode } from '@modelcontextprotocol/sdk/types';
@@ -155932,40 +155611,31 @@ import { McpServer, McpTool, McpResource } from './mcp_shared_types'; // Correct
 import { setTimeout as setTimeoutPromise } from "node:timers/promises"; // Correct import path
 
 // TODO: Define how server configurations are loaded (e.g., from a file, env vars)
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		// Loop through serverConfigs, create StdioClientTransport, create Client, connect, store in this.clients
 		await new Promise(resolve => setTimeout(resolve, 500)); // Simulate connection delay
 		this.isConnecting = false;
 		console.log("McpHub: Simulated server connection complete.");
-=======
 		// Loop through serverConfigs, create StdioClientTransport, create Client, connect, store in this.clients
 		await setTimeoutPromise(500); // Use imported setTimeoutPromise
 		this.isConnecting = false;
 		console.log("McpHub: Simulated server connection complete.");
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		console.log("McpHub: Listing servers... (Stub)");
 		// In a real implementation, this might return info about connected servers
 		const servers: McpServerInfo[] = Array.from(this.serverConfigs.values()).map(config => ({
 			name: config.name,
 			version: "unknown", // TODO: Get version during connection
-=======
 		console.log("McpHub: Listing servers... (Stub)");
 		// In a real implementation, this might return info about connected servers
 		const servers: McpServer[] = Array.from(this.serverConfigs.values()).map(config => ({ // Use McpServer type
 			name: config.name,
 			config: "stub", // Add placeholder for config property
 			version: "unknown", // TODO: Get version during connection
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		console.log(`McpHub: Listing tools for ${serverName}... (Stub)`);
 		// TODO: Implement actual call to the specific client
 		return { tools: [] }; // Return empty list for stub
 	}
 
      async listResources(serverName: string): Promise<ListResourcesResponse['result']> {
-=======
 		console.log(`McpHub: Listing tools for ${serverName}... (Stub)`);
 		// TODO: Implement actual call to the specific client
 		const tools: McpTool[] = []; // Use McpTool type
@@ -155973,15 +155643,12 @@ import { setTimeout as setTimeoutPromise } from "node:timers/promises"; // Corre
 	}
 
      async listResources(serverName: string): Promise<ListResourcesResponse['result']> {
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		console.log(`McpHub: Listing resources for ${serverName}... (Stub)`);
 		// TODO: Implement actual call to the specific client
 		return { resources: [] }; // Return empty list for stub
 	}
 
     async callTool(serverName: string, toolName: string, args: any): Promise<CallToolResponse['result']> {
-=======
 		console.log(`McpHub: Listing resources for ${serverName}... (Stub)`);
 		// TODO: Implement actual call to the specific client
 		const resources: McpResource[] = []; // Use McpResource type
@@ -155989,29 +155656,22 @@ import { setTimeout as setTimeoutPromise } from "node:timers/promises"; // Corre
 	}
 
     async callTool(serverName: string, toolName: string, args: any): Promise<CallToolResponse['result']> {
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		// Simulate a successful response for now
 		await setTimeoutPromise(100); // Simulate network delay
 		return {
 			content: [{ type: 'text', text: `(Stub) Tool ${toolName} on ${serverName} executed.` }],
-=======
 		// Simulate a successful response for now
 		await setTimeoutPromise(100); // Use imported setTimeoutPromise
 		return {
 			content: [{ type: 'text', text: `(Stub) Tool ${toolName} on ${serverName} executed.` }],
->>>>>>> REPLACE
-<<<<<<< SEARCH
 		// TODO: Implement actual resource access using client.readResource(...)
 		await setTimeoutPromise(50); // Simulate network delay
 		return {
 			contents: [{ uri: uri, mimeType: 'text/plain', text: `(Stub) Content for resource ${uri}` }]
-=======
 		// TODO: Implement actual resource access using client.readResource(...)
 		await setTimeoutPromise(50); // Use imported setTimeoutPromise
 		return {
 			contents: [{ uri: uri, mimeType: 'text/plain', text: `(Stub) Content for resource ${uri}` }]
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -159518,7 +159178,6 @@ I will remove the unused imports for `AnthropicHandler`, `ClineHandler`, and `Op
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/task/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
@@ -159527,7 +159186,6 @@ import { ClineHandler } from "../../api/providers/cline"; // TODO: Adapt/Copy
 import { OpenRouterHandler } from "../../api/providers/openrouter"; // TODO: Adapt/Copy
 import { ApiStream } from "../../api/transform/stream"; // Adjusted path
 import { GlobalFileNames } from "../storage/disk"; // Adjusted path
-=======
 import { serializeError } from "serialize-error";
 // import * as vscode from "vscode"; // Removed VSCode dependency
 import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
@@ -159536,7 +159194,6 @@ import { ApiHandler, buildApiHandler } from "../../api"; // Adjusted path
 // import { OpenRouterHandler } from "../../api/providers/openrouter"; // Removed unused import
 import { ApiStream } from "../../api/transform/stream"; // Adjusted path
 import { GlobalFileNames } from "../storage/disk"; // Adjusted path
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -160941,13 +160598,11 @@ Okay, the `package.json` confirms there is no `build` script. I need to add one 
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/package.json</path>
 <diff>
-<<<<<<< SEARCH
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-=======
   "main": "build/index.js",
   "type": "module",
   "scripts": {
@@ -160956,7 +160611,6 @@ Okay, the `package.json` confirms there is no `build` script. I need to add one 
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -161411,22 +161065,18 @@ I'll rename the panel, adjust the input fields slightly, change the button text,
 <replace_in_file>
 <path>agent-dashboard-server/public/dashboard.html</path>
 <diff>
-<<<<<<< SEARCH
     <div class="container">
          <div class="panel setup-panel">
             <h2>Project & Agent Setup</h2>
             
             <div class="setup-section">
                 <h3>Project Details</h3>
-=======
     <div class="container">
          <div class="panel start-project-panel"> <!-- Renamed panel class -->
             <h2>Start New Project</h2> <!-- Updated heading -->
 
             <div class="setup-section">
                 <h3>Project Details</h3>
->>>>>>> REPLACE
-<<<<<<< SEARCH
                 <textarea id="setup-project-desc" placeholder="Project Description"></textarea>
             </div>
 
@@ -161442,7 +161092,6 @@ I'll rename the panel, adjust the input fields slightly, change the button text,
             <div id="setup-output" style="margin-top: 10px;"></div>
         </div>
     </div>
-=======
                 <textarea id="setup-project-desc" placeholder="Detailed project description and goals..."></textarea> <!-- Updated placeholder -->
             </div>
 
@@ -161458,7 +161107,6 @@ I'll rename the panel, adjust the input fields slightly, change the button text,
             <div id="start-project-status" style="margin-top: 10px;"></div> <!-- Updated status div ID -->
         </div>
     </div>
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -162645,7 +162293,6 @@ Okay, I have the content of `script.js`. I will now modify it to handle the "Sta
 <replace_in_file>
 <path>agent-dashboard-server/public/script.js</path>
 <diff>
-<<<<<<< SEARCH
 	const cyWorkflowContainer = document.getElementById("cy-workflow-graph");
 	const workflowStepDetailsContainer = document.getElementById(
 		"workflow-step-details"
@@ -162661,7 +162308,6 @@ Okay, I have the content of `script.js`. I will now modify it to handle the "Sta
 
 	let currentData = {
 		agents: [],
-=======
 	const cyWorkflowContainer = document.getElementById("cy-workflow-graph");
 	const workflowStepDetailsContainer = document.getElementById(
 		"workflow-step-details"
@@ -162677,20 +162323,15 @@ Okay, I have the content of `script.js`. I will now modify it to handle the "Sta
 
 	let currentData = {
 		agents: [],
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	const API_ENDPOINT = "/api/dashboard-data";
 	const BROADCAST_ENDPOINT = "/api/broadcast";
 
 	// --- Data Fetching and Rendering ---
-=======
 	const API_ENDPOINT = "/api/dashboard-data";
 	const BROADCAST_ENDPOINT = "/api/broadcast";
     const START_PROJECT_ENDPOINT = "/api/start-project"; // New endpoint
 
 	// --- Data Fetching and Rendering ---
->>>>>>> REPLACE
-<<<<<<< SEARCH
         }
     }
 
@@ -162791,7 +162432,6 @@ Okay, I have the content of `script.js`. I will now modify it to handle the "Sta
 
 
     // --- Broadcast Logic ---
-=======
     // --- Start Project Logic ---
     async function startProject() {
         if (!startProjectNameInput || !startProjectDescInput || !startMethodologyInput || !startTeamStructureInput || !startProjectBtn || !startProjectStatusDiv) return;
@@ -169116,7 +168756,6 @@ I will add a new POST route handler for `/api/start-project`. This handler will 
 <replace_in_file>
 <path>agent-dashboard-server/src/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 			}
 		});
 
@@ -169124,7 +168763,6 @@ I will add a new POST route handler for `/api/start-project`. This handler will 
 		this.expressApp.post("/api/broadcast", async (req: Request, res: Response) => {
 			try {
 				// Call the *local* MCP tool preparation logic
-=======
 			}
 		});
 
@@ -169175,7 +168813,6 @@ I will add a new POST route handler for `/api/start-project`. This handler will 
 		this.expressApp.post("/api/broadcast", async (req: Request, res: Response) => {
 			try {
 				// Call the *local* MCP tool preparation logic
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -169801,7 +169438,6 @@ I will fix this by wrapping the async logic correctly for the Express route hand
 <replace_in_file>
 <path>agent-dashboard-server/src/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		});
 
         // NEW: API endpoint to prepare the 'create_project' command
@@ -169809,7 +169445,6 @@ I will fix this by wrapping the async logic correctly for the Express route hand
             console.log(`[${new Date().toISOString()}] POST /api/start-project request received.`); // LOG: Request received
             try {
                 const { name, description, methodology, team_structure } = req.body;
-=======
 		});
 
         // NEW: API endpoint to prepare the 'create_project' command
@@ -169818,8 +169453,6 @@ I will fix this by wrapping the async logic correctly for the Express route hand
             // Wrap async logic
             (async () => {
                 const { name, description, methodology, team_structure } = req.body;
->>>>>>> REPLACE
-<<<<<<< SEARCH
                 console.error(`[${new Date().toISOString()}] Error in /api/start-project:`, error); // LOG: Route error
                 res.status(500).json({ error: error.message || "Internal Server Error preparing project command" });
             }
@@ -169827,7 +169460,6 @@ I will fix this by wrapping the async logic correctly for the Express route hand
 
 
         // API endpoint to trigger broadcast preparation (Reverted)
-=======
                 console.error(`[${new Date().toISOString()}] Error in /api/start-project:`, error); // LOG: Route error
                 res.status(500).json({ error: error.message || "Internal Server Error preparing project command" });
             })().catch(err => { // Add catch for the async IIFE
@@ -169840,7 +169472,6 @@ I will fix this by wrapping the async logic correctly for the Express route hand
 
 
         // API endpoint to trigger broadcast preparation (Reverted)
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -170548,7 +170179,6 @@ The errors reported after the last save indicate issues with the async route han
 <replace_in_file>
 <path>agent-dashboard-server/src/index.ts</path>
 <diff>
-<<<<<<< SEARCH
 		});
 
         // NEW: API endpoint to prepare the 'create_project' command
@@ -170601,7 +170231,6 @@ The errors reported after the last save indicate issues with the async route han
 
 
         // API endpoint to trigger broadcast preparation (Reverted)
-=======
 		});
 
         // NEW: API endpoint to prepare the 'create_project' command
@@ -170654,7 +170283,6 @@ The errors reported after the last save indicate issues with the async route han
 
 
         // API endpoint to trigger broadcast preparation (Reverted)
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -171291,13 +170919,11 @@ The next critical step is implementing the `McpHub` within the client to handle 
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/mcp/McpHub.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { Client, ClientOptions } from '@modelcontextprotocol/sdk/client';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
 import { CallToolResponse, ListServersResponse, ListToolsResponse, ListResourcesResponse, ReadResourceResponse, McpError, ErrorCode } from '@modelcontextprotocol/sdk/types';
 import { McpServer, McpTool, McpResource } from './mcp_shared_types'; // Corrected imported types
 import { setTimeout as setTimeoutPromise } from "node:timers/promises"; // Correct import path
-=======
 import { Client, ClientOptions } from '@modelcontextprotocol/sdk/client';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
 import { CallToolResponse, ListServersResponse, ListToolsResponse, ListResourcesResponse, ReadResourceResponse, McpError, ErrorCode, ServerInfo } from '@modelcontextprotocol/sdk/types';
@@ -171306,8 +170932,6 @@ import { CallToolResponse, ListServersResponse, ListToolsResponse, ListResources
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 import { spawn } from 'child_process'; // Needed for launching servers
 import path from 'path'; // Needed for resolving paths potentially
->>>>>>> REPLACE
-<<<<<<< SEARCH
     private clients: Map<string, Client> = new Map();
     private serverConfigs: Map<string, McpClientServerConfig> = new Map(); // Load this from config
     public isConnecting: boolean = false; // Track connection status
@@ -171337,7 +170961,6 @@ import path from 'path'; // Needed for resolving paths potentially
         }
         this.clients.clear();
         console.log("McpHub: Servers disconnected.");
-=======
     private clients: Map<string, { client: Client; process?: ReturnType<typeof spawn> }> = new Map(); // Store client and process
     private serverConfigs: Map<string, McpClientServerConfig> = new Map();
     public isConnecting: boolean = false;
@@ -171460,8 +171083,6 @@ import path from 'path'; // Needed for resolving paths potentially
         }
         this.clients.clear();
         console.log("McpHub: All servers disconnected.");
->>>>>>> REPLACE
-<<<<<<< SEARCH
     }
 
     getClient(serverName: string): Client | undefined {
@@ -171506,7 +171127,6 @@ import path from 'path'; // Needed for resolving paths potentially
 		await setTimeoutPromise(100); // Use imported setTimeoutPromise
 		return {
 			content: [{ type: 'text', text: `(Stub) Tool ${toolName} on ${serverName} executed.` }],
-=======
     }
 
     getClient(serverName: string): Client | undefined {
@@ -171610,7 +171230,6 @@ import path from 'path'; // Needed for resolving paths potentially
         }
     }
 }
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -172717,7 +172336,6 @@ I'll start by fixing the errors in `ContextManager.ts`. The errors suggest issue
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/context-management/ContextManager.ts</path>
 <diff>
-<<<<<<< SEARCH
 				const contextWindow = api.getModel().info.contextWindow || 128_000;
 				// Removed OpenAI specific logic for context window adjustment
 				let maxAllowedSize: number;
@@ -172737,7 +172355,6 @@ I'll start by fixing the errors in `ContextManager.ts`. The errors suggest issue
 
 				if (totalTokens >= maxAllowedSize) {
 					const keep = totalTokens / 2 > maxAllowedSize ? "quarter" : "half";
-=======
 				const contextWindow = api.getModel().info.contextWindow || 128_000;
 				// Removed OpenAI specific logic for context window adjustment
 				let maxAllowedSize: number;
@@ -172759,8 +172376,6 @@ I'll start by fixing the errors in `ContextManager.ts`. The errors suggest issue
 
 				if (totalTokens >= maxAllowedSize) {
 					const keep = totalTokens / 2 > maxAllowedSize ? "quarter" : "half";
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	}
 
 	public getNextTruncationRange(
@@ -172770,7 +172385,6 @@ I'll start by fixing the errors in `ContextManager.ts`. The errors suggest issue
 	): [number number] {
 		const rangeStartIndex = 1; // Always keep the first message (initial task)
 		const startOfRest = currentDeletedRange ? currentDeletedRange[1] + 1 : 1;
-=======
 	}
 
 	public getNextTruncationRange(
@@ -172780,8 +172394,6 @@ I'll start by fixing the errors in `ContextManager.ts`. The errors suggest issue
 	): [number, number] { // Corrected tuple syntax
 		const rangeStartIndex = 1; // Always keep the first message (initial task)
 		const startOfRest = currentDeletedRange ? currentDeletedRange[1] + 1 : 1;
->>>>>>> REPLACE
-<<<<<<< SEARCH
 	}
 
 	public getTruncatedMessages(
@@ -172790,7 +172402,6 @@ I'll start by fixing the errors in `ContextManager.ts`. The errors suggest issue
 	): Anthropic.Messages.MessageParam[] {
 		if (!deletedRange || deletedRange[0] > deletedRange[1]) { // Add check for invalid range
 			return messages;
-=======
 	}
 
 	public getTruncatedMessages(
@@ -172799,7 +172410,6 @@ I'll start by fixing the errors in `ContextManager.ts`. The errors suggest issue
 	): Anthropic.Messages.MessageParam[] {
 		if (!deletedRange || deletedRange[0] > deletedRange[1]) { // Add check for invalid range
 			return messages;
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -173033,21 +172643,18 @@ First, fix the imports in `ContextManager.ts`.
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/context-management/ContextManager.ts</path>
 <diff>
-<<<<<<< SEARCH
 import { Anthropic } from "@anthropic-ai/sdk";
 import { ClineApiReqInfo, ClineMessage } from "../../shared/ExtensionMessage"; // Adjusted path
 import { ApiHandler } from "../../api/index"; // Adjusted path
 // import { OpenAiHandler } from "../../api/providers/openai"; // Removed unused import
 
 export class ContextManager {
-=======
 import { Anthropic } from "@anthropic-ai/sdk";
 import { ClineApiReqInfo, ClineMessage } from "../../shared/ExtensionMessage.js"; // Added .js
 import { ApiHandler } from "../../api/index.js"; // Added .js
 // import { OpenAiHandler } from "../../api/providers/openai"; // Removed unused import
 
 export class ContextManager {
->>>>>>> REPLACE
 </diff>
 </replace_in_file>
 
@@ -173365,7 +172972,6 @@ I will add the closing backtick at the end of the file content.
 <replace_in_file>
 <path>/Users/kooshapari/Documents/Cline/MCP/cline-mcp-client/src/core/prompts/system.ts</path>
 <diff>
-<<<<<<< SEARCH
 - You are STRICTLY FORBIDDEN from starting your messages with "Great", "Certainly", "Okay", "Sure". You should NOT be conversational in your responses, but rather direct and to the point. For example you should NOT say "Great, I've updated the CSS" but instead something like "I've updated the CSS". It is important you be clear and technical in your messages.
 - When presented with images, utilize your vision capabilities to thoroughly examine them and extract meaningful information. Incorporate these insights into your thought process as you accomplish the user's task.
 - At the end of each user message, you will automatically receive environment_details. This information is not written by the user themselves, but is auto-generated to provide potentially relevant context about the project structure and environment. While this information can be valuable for understanding the project context, do not treat it as a direct part of the user's request or response. Use it to inform your actions and decisions, but don't assume the user is explicitly asking about or referring to this information unless they clearly do so in their message. When using environment_details, explain your actions clearly to ensure the user understands, as they may not be aware of these details.
@@ -173397,7 +173003,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 3. Remember, you have extensive capabilities with access to a wide range of tools that can be used in powerful and clever ways as necessary to accomplish each goal. Before calling a tool, do some analysis within <thinking></thinking> tags. First, analyze the file structure provided in environment_details to gain context and insights for proceeding effectively. Then, think about which of the provided tools is the most relevant tool to accomplish the user's task. Next, go through each of the required parameters of the relevant tool and determine if the user has directly provided or given enough information to infer a value. When deciding if the parameter can be inferred, carefully consider all the context to see if it supports a specific value. If all of the required parameters are present or can be reasonably inferred, close the thinking tag and proceed with the tool use. BUT, if one of the values for a required parameter is missing, DO NOT invoke the tool (not even with fillers for the missing params) and instead, ask the user to provide the missing parameters using the ask_followup_question tool. DO NOT ask for more information on optional parameters if it is not provided.
 4. Once you've completed the user's task, you must use the attempt_completion tool to present the result of the task to the user. You may also provide a CLI command to showcase the result of your task; this can be particularly useful for web development tasks, where you can run e.g. \`open index.html\` to show the website you've built.
 5. The user may provide feedback, which you can use to make improvements and try again. But DO NOT continue in pointless back and forth conversations, i.e. don't end your responses with questions or offers for further assistance.
-=======
 - You are STRICTLY FORBIDDEN from starting your messages with "Great", "Certainly", "Okay", "Sure". You should NOT be conversational in your responses, but rather direct and to the
 
 [Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]

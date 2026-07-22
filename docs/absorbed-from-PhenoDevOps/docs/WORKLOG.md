@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> origin/main
 
 ---
 
@@ -143,9 +139,6 @@ All branches merged, all tests passing, working tree clean.
 ---
 
 *Wave 79 COMPLETE: 2026-03-29*
-<<<<<<< HEAD
-=======
-=======
 # Worklog
 
 For operational work tracking, see:
@@ -196,5 +189,3 @@ This file previously contained E5 FSM PRD expansion content. That work has been 
 ---
 
 **Last Updated**: 2026-03-30
->>>>>>> origin/main
->>>>>>> origin/main

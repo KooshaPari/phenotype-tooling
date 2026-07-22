@@ -3,7 +3,7 @@
 **Status**: ✅ Complete (committed `a7984181` WP-07, WP-08 to follow)
 **Target**: nightly regression detection across all criterion benchmarks
 **Owner**: tooling-bench
-**Depends on**: WP-02 (criterion benches), WP-07 (CLI access to `pt <cmd>`)
+**Depends on**: WP-02 (criterion benches), WP-07 (CLI access to `pt &lt;cmd&gt;`)
 
 ---
 
@@ -101,7 +101,7 @@ The default threshold is **5%** as adopted from the Phase 2 plan.
 
 ## Adding a New Bench
 
-1. Add a `benches/<name>.rs` to your crate.
+1. Add a `benches/&lt;name&gt;.rs` to your crate.
 2. Wire `[[bench]]` in your crate's `Cargo.toml`:
    ```toml
    [[bench]]

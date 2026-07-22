@@ -16,17 +16,17 @@ Total cost of ownership: infrastructure, API usage, CI minutes, maintainer time,
 
 | Model | Governance copies | CI / maintenance | Verdict |
 |-------|-------------------|------------------|---------|
-| {{ALT_MODEL_1 — e.g. per-domain Kit repos}} | N× charter/review/SOTA | N× workflows | rejected — audit drift |
-| {{ALT_MODEL_2 — e.g. monolith everything}} | 1× | heavy coupling | rejected |
-| **{{OUR_MODEL — e.g. genesis template + SDK split}}** | 1 template + product copies | targeted smoke | **chosen** |
+| <span v-pre>{{ALT_MODEL_1 — e.g. per-domain Kit repos}}</span> | N× charter/review/SOTA | N× workflows | rejected — audit drift |
+| <span v-pre>{{ALT_MODEL_2 — e.g. monolith everything}}</span> | 1× | heavy coupling | rejected |
+| **<span v-pre>{{OUR_MODEL — e.g. genesis template + SDK split}}</span>** | 1 template + product copies | targeted smoke | **chosen** |
 
 Fill with real numbers where available:
 
 | Cost driver | Monthly estimate | Notes |
 |-------------|------------------|-------|
-| GitHub Actions minutes | {{ESTIMATE}} | doc-only PRs use light jobs |
-| Cloud / API | {{ESTIMATE}} | |
-| Maintainer hours (governance) | {{ESTIMATE}} | scraper + synthesis cadence |
+| GitHub Actions minutes | <span v-pre>{{ESTIMATE}}</span> | doc-only PRs use light jobs |
+| Cloud / API | <span v-pre>{{ESTIMATE}}</span> | |
+| Maintainer hours (governance) | <span v-pre>{{ESTIMATE}}</span> | scraper + synthesis cadence |
 
 ## Alternatives considered
 

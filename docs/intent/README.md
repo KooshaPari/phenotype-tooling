@@ -6,7 +6,7 @@ This folder holds **verbatim user prompts** extracted from agent session logs.
 
 | Tool | Log location |
 |------|----------------|
-| **Cursor** | `~/.cursor/projects/<project>/agent-transcripts/*.jsonl` |
+| **Cursor** | `~/.cursor/projects/&lt;project&gt;/agent-transcripts/*.jsonl` |
 | **forge** | `~/forge/` conversation exports (see `forge conversation list`) |
 | **Claude Code** | `~/.claude/projects/` session logs |
 | **Codex** | `~/.codex/` or tool-specific session store |
@@ -16,7 +16,7 @@ This folder holds **verbatim user prompts** extracted from agent session logs.
 ```bash
 python scripts/extract-intent-prompts.py \
   --out-dir docs/intent/prompts \
-  --repo <RepoName> \
+  --repo &lt;RepoName&gt; \
   --sources cursor,forge,claude,codex
 ```
 

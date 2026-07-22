@@ -53,10 +53,6 @@ AgilePlus is built as a Rust workspace monorepo (22 crates) following hexagonal 
 **Priority**: P0
 **Description**: Every state mutation produces both a domain event and an audit entry, both forming hash chains (SHA-256) for tamper detection. Events are append-only, partitioned by entity type and ID, with sequence numbers. Snapshots materialize current state periodically for fast reads without full event replay. Audit entries link to evidence references and can be archived to object storage (MinIO).
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> origin/main
 #### Stories
 - E3.1: Hash-chained audit log -- Every state change produces an AuditEntry with actor, timestamp, transition description, evidence references, and SHA-256 chain linking to the previous entry
 - E3.2: Event sourcing -- Append-only Event stream per entity with hash chain, sequence numbers, typed payloads, and actor attribution
@@ -65,7 +61,6 @@ AgilePlus is built as a Rust workspace monorepo (22 crates) following hexagonal 
 - E3.5: Audit archival -- Archive old audit entries to MinIO object storage while maintaining chain integrity
 
 ---
-<<<<<<< HEAD
 
 ### E4: CLI Interface
 **Priority**: P0
@@ -194,7 +189,6 @@ AgilePlus is built as a Rust workspace monorepo (22 crates) following hexagonal 
 - E12.3: Service health checks -- Health status reporting for storage, VCS, graph, and external service adapters
 - E12.4: Structured logging -- Tracing-subscriber-based structured logging with configurable verbosity
 - E12.5: Dashboard -- Web-based dashboard (Axum + HTMX) for visualizing feature status, cycle progress, module organization, and metrics; seed data for development
-=======
 
 ### E4: CLI Interface
 **Priority**: P0
@@ -323,7 +317,6 @@ AgilePlus is built as a Rust workspace monorepo (22 crates) following hexagonal 
 - E12.3: Service health checks -- Health status reporting for storage, VCS, graph, and external service adapters
 - E12.4: Structured logging -- Tracing-subscriber-based structured logging with configurable verbosity
 - E12.5: Dashboard -- Web-based dashboard (Axum + HTMX) for visualizing feature status, cycle progress, module organization, and metrics; seed data for development
-=======
 ### E5.1: Typed Forward-Only FSM
 
 As a service developer, I want a `StateMachine<S, C>` where `S` is the state enum and `C` is the context type so workflow state is enforced with forward-only transitions and domain-specific guard callbacks operating over typed context.
@@ -391,8 +384,6 @@ As a service operator, I want a unified health check interface so I can verify t
 - `HealthStatus` includes `healthy: bool`, `message: String`, `details: HashMap<String, String>`
 - Each crate implements health checks for its core functionality (e.g., event store connectivity, cache connectivity)
 - Health check results are aggregated and exposed via a unified endpoint
->>>>>>> origin/main
->>>>>>> origin/main
 
 ---
 

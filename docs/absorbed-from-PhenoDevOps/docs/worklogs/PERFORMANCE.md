@@ -175,7 +175,6 @@ Research into LLM inference optimization for agent workloads.
 
 ---
 
-<<<<<<< HEAD
 ## 2026-03-29 - PERFORMANCE OPTIMIZATION AT SCALE (Non-Heliso)
 
 **Project:** [cross-repo]
@@ -333,7 +332,6 @@ pub struct Cache {
 impl Cache {
     pub fn get(&self, key: &str) -> Option<Vec<u8>> {
         self.data.lock().unwrap().get(key).cloned()
-=======
 ## 2026-03-30 - Zero-Copy Serialization Performance (Wave 136)
 
 **Project:** [phenotype-infrakit]
@@ -378,12 +376,10 @@ impl EventStore {
     pub fn get(&self, id: u64) -> Option<&ArchivedEventEnvelope> {
         // Zero-copy deserialization - no allocation!
         rkyv::check_ptr::<ArchivedEventEnvelope>(self.data.as_ref(), id).ok()
->>>>>>> origin/main
     }
 }
 ```
 
-<<<<<<< HEAD
 #### Optimized: DashMap (lock-free)
 
 ```rust
@@ -442,7 +438,6 @@ fn bench_hash_chain(c: &mut Criterion) {
             blake3::hash(&data)
         })
     });
-=======
 ### Migration Path
 
 1. **Phase 1**: Add rkyv feature flag to `phenotype-event-sourcing`
@@ -595,13 +590,11 @@ pub async fn warm_cache(&self, keys: Vec<Key>) {
     for handle in handles {
         handle.await.unwrap();
     }
->>>>>>> origin/main
 }
 ```
 
 ---
 
-<<<<<<< HEAD
 ### 8. Performance Budget
 
 | Metric | Target | Current (est.) | Action |
@@ -627,6 +620,4 @@ pub async fn warm_cache(&self, keys: Vec<Key>) {
 ---
 
 _Last updated: 2026-03-29_
-=======
 _Last updated: 2026-03-30 (Wave 139)_
->>>>>>> origin/main
