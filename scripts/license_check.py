@@ -25,12 +25,17 @@ def load_allowlist(path: Path) -> dict[str, Any]:
         return tomllib.load(fh)
 
 
-def extract_component_licenses(sbom: dict[str, Any]) -> list[dict[str, str]]:
-    """Walk CycloneDX components and return [{name, version, license}]."""
+def extract_component_licenses(sbom: dict[str, Any] | list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Extract [{name, version, license}] from CycloneDX or cargo-license JSON."""
     out: list[dict[str, str]] = []
-    for comp in sbom.get("components", []):
+    components = sbom if isinstance(sbom, list) else sbom.get("components", [])
+    for comp in components:
         name = comp.get("name", "?")
         version = comp.get("version", "?")
+        cargo_license = comp.get("license")
+        if cargo_license:
+            out.append({"name": name, "version": version, "license": cargo_license})
+            continue
         licenses = comp.get("licenses", []) or []
         if not licenses:
             out.append({"name": name, "version": version, "license": "UNKNOWN"})
