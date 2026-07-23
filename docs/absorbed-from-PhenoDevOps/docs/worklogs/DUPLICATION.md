@@ -1,8 +1,6 @@
 # Duplication Worklogs
 
 **Category:** DUPLICATION | **Updated:** 2026-03-29
-<<<<<<< HEAD
-=======
 
 ---
 
@@ -177,7 +175,6 @@ Found 4 instances of `Arc<RwLock<HashMap<K, V>>>` in `agileplus-nats`, `agileplu
 Create `libs/phenotype-memory-store` with a generic `InMemoryStore<K, V>` and `#[derive(Store)]` macro to auto-implement domain-specific traits (e.g., `EventStore`, `CacheBackend`).
 
 **Est. LOC Savings:** ~350 LOC across 4 projects.
->>>>>>> origin/main
 
 ---
 
@@ -986,12 +983,10 @@ Comprehensive analysis identifying 1,800 LOC of duplication with 1,200 LOC savin
 
 - [ ] 🔴 CRITICAL: Create `libs/agileplus-error/` for error consolidation
 - [ ] 🟡 HIGH: Migrate `libs/config-core` to edition 2024
-<<<<<<< HEAD
 - [ ] 🟡 HIGH: Integrate `libs/hexagonal-rs` Repository patterns
 - [ ] 🟠 MEDIUM: Create shared InMemory test implementations
 - [ ] 🟠 MEDIUM: Create `libs/http-client` for HTTP patterns
 - [ ] 🟢 LOW: Delete `phenotype-state-machine` (dead code)
-=======
 
 ---
 
@@ -1654,7 +1649,6 @@ _Last updated: 2026-03-30_
 ---
 
 _Last updated: 2026-03-29_
->>>>>>> origin/main
 
 ### Related
 
@@ -1896,9 +1890,7 @@ phenotype-api/
 
 ---
 
-<<<<<<< HEAD
 _Last updated: 2026-03-29_
-=======
 ### 🟠 MEDIUM: CLI Argument Parsing (Clap, 101 files)
 
 **Pattern:** Duplicated CLI arg definitions across 50+ Rust binaries
@@ -4463,4 +4455,3 @@ impl<T: Cache<String, Config>> ConfigLoader<T> {
 3. Remove local caching code from each crate
 4. Add moka/lru features to phenotype-cache-adapter as options
 
->>>>>>> origin/main

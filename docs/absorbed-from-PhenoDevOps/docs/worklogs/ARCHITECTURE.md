@@ -1,8 +1,6 @@
 # Architecture Worklogs
 
-<<<<<<< HEAD
 **Category:** ARCHITECTURE | **Updated:** 2026-03-29
-=======
 **Category:** ARCHITECTURE | **Updated:** 2026-03-29 (Wave 93)
 
 ---
@@ -175,7 +173,6 @@ pub trait LedgerBackend: Send + Sync {
 
 - Dependencies: `worklogs/DEPENDENCIES.md`
 - Quality: `worklogs/QUALITY.md`
->>>>>>> origin/main
 
 ---
 

@@ -8,12 +8,10 @@ middleware evaluation. Official rmcp spec work belongs in **PhenoRMCP**, not her
 ## Triage checklist
 
 1. Track `Dicklesworthstone/fastmcp_rust` releases; merge tags here first.
-<<<<<<< HEAD
 2. Evaluate FastRMCP middleware/SSE patterns as cherry-picks only (issue #8 side-DAG).
 3. asupersync/tokio bridge notes live in ADR appendix when picked.
 4. Fork parent must remain `Dicklesworthstone/fastmcp_rust` — never rmcp.
 
-=======
 2. ~~Evaluate FastRMCP middleware/SSE patterns as cherry-picks only (issue #8 side-DAG).~~ **Closed 2026-06-17** — see [docs/eval/Fastrmcp.md](docs/eval/Fastrmcp.md); empty cherry-pick queue; Axum HTTP integration deferred.
 3. asupersync/tokio bridge notes live in ADR appendix when picked.
 4. Fork parent must remain `Dicklesworthstone/fastmcp_rust` — never rmcp.
@@ -28,7 +26,6 @@ Side-DAG `sd-fastrmcp-01`–`05` completed. **Recommendation: CLOSE** evaluation
 
 Full audit: [docs/eval/Fastrmcp.md](docs/eval/Fastrmcp.md).
 
->>>>>>> pr3-fastrmcp
 ## Related
 
 - PhenoRMCP for `modelcontextprotocol/rust-sdk`

@@ -1,5 +1,4 @@
 # AgilePlus: FR Implementation Tracker
-<<<<<<< HEAD
 
 **Version:** 2.2 | **Last Updated:** 2026-03-28 | **Total FRs:** 63
 
@@ -270,9 +269,7 @@
 - Update Status when implementing new FRs or adding test coverage
 - Add Test Name when new tests are written referencing specific FRs
 - Sync with FUNCTIONAL_REQUIREMENTS.md version when requirements change
-=======
 
-<<<<<<< HEAD
 **Version:** 2.2 | **Last Updated:** 2026-03-28 | **Total FRs:** 63
 
 ## Summary
@@ -542,7 +539,6 @@
 - Update Status when implementing new FRs or adding test coverage
 - Add Test Name when new tests are written referencing specific FRs
 - Sync with FUNCTIONAL_REQUIREMENTS.md version when requirements change
-=======
 **Last Updated:** 2026-03-30
 **Source:** FUNCTIONAL_REQUIREMENTS.md (47 FRs total)
 
@@ -605,5 +601,3 @@
 - **FRs with no corresponding tests:** All FR-EVT, FR-CACHE, FR-CTR, FR-SM-003/004 (no test files exist). FR-POL-003/005 have tests but may contain unwrap issues.
 
 **Note:** The test locations for missing FRs point to empty source files. Actual implementation and tests are required.
->>>>>>> origin/main
->>>>>>> origin/main

@@ -61,7 +61,7 @@ cloning in marketing renders.
 
 Both drivers already live in `tools/tts-ab/` and output WAV. Rust callers
 in `hwledger-journey-render` use `synthesise_voiceover_indextts2` and
-`synthesise_voiceover_kokoro`. Both return `Result<String, RenderError>`
+`synthesise_voiceover_kokoro`. Both return `Result&lt;String, RenderError&gt;`
 where the `String` is the path to a WAV on disk; the Remotion pipeline
 (ADR-0011) transcodes to AAC/m4a downstream.
 
@@ -176,7 +176,7 @@ CI latency (Linux, Kokoro already default since no GPU): **unchanged**.
 6. Update voice-ab.md footer per §3.
 7. Run `cargo test -p hwledger-journey-render` locally.
 8. Re-render one sample journey as smoke test:
-   `HWLEDGER_VOICE=auto cargo run -p hwledger-journey-render -- <journey-id>`.
+   `HWLEDGER_VOICE=auto cargo run -p hwledger-journey-render -- &lt;journey-id&gt;`.
 9. Open PR against `main` referencing audit #238, ADR-0010 v3 diff, and
    this migration plan. Add `docs-site/audio/voice-ab.md` re-render as
    follow-up work package if the 26-journey batch isn't done in-PR.

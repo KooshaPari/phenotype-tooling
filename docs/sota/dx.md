@@ -5,7 +5,7 @@
 1. `cargo check --workspace` from repo root
 2. Install tool: `cargo install --path crates/quality-gate`
 3. Adopt in consumer repo: `bash scripts/adopt-tooling.sh`
-4. For absorbed subdirs, build per README in `crates/<name>/`
+4. For absorbed subdirs, build per README in `crates/&lt;name&gt;/`
 
 ```bash
 cargo check --workspace

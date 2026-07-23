@@ -38,11 +38,8 @@ Track merges into `phenotype/superset` (create from latest upstream tag):
 | Source | Notes |
 |--------|-------|
 | `main` | baseline |
-<<<<<<< HEAD
 | FastRMCP middleware/SSE | cherry-pick patterns only |
-=======
 | FastRMCP middleware/SSE | **closed** — eval [docs/eval/Fastrmcp.md](docs/eval/Fastrmcp.md); no picks |
->>>>>>> pr3-fastrmcp
 | PhenoRMCP rmcp releases | optional interop layer, not merge wholesale |
 
 ## Related

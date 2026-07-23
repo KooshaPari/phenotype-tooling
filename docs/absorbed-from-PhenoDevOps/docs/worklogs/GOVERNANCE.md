@@ -234,8 +234,6 @@ Plan for tracking DORA (DevOps Research and Assessment) metrics.
 - Metrics: `crates/agileplus-telemetry/`
 
 ---
-<<<<<<< HEAD
-=======
 
 ## 2026-03-29 - Cross-Repo Governance Deep Audit (v2)
 
@@ -553,4 +551,3 @@ updates:
 ---
 
 _Last updated: 2026-03-30 (Wave 153)_
->>>>>>> origin/main

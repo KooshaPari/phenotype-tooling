@@ -35,7 +35,7 @@ Phase 3 (WP-12) shipped SLSA provenance for the `release-artifacts` archive as a
 }
 ```
 
-Each binary in `target/release/` gets its own `.intoto.jsonl` attestation, uploaded to the GitHub Release as `<binary-name>.intoto.jsonl`.
+Each binary in `target/release/` gets its own `.intoto.jsonl` attestation, uploaded to the GitHub Release as `&lt;binary-name&gt;.intoto.jsonl`.
 
 ## Consumer verification
 

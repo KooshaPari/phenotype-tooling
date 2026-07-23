@@ -651,11 +651,8 @@ Diff3 compares three versions: original (base), and two modified versions.
 #### Conflict Detection
 
 ```
-<<<<<<< A
 A's version of conflicting lines
-=======
 B's version of conflicting lines
->>>>>>> B
 ```
 
 #### Output Format
