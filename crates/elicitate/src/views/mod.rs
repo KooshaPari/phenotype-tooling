@@ -1,410 +1,428 @@
-//! Render the inbox UI — both the form fragment embedded into the
-//! daemon's HTML response and a self-contained printable plain-text
-//! version that ships via iMessage / email.
-//!
-//! The HTML renderer returns the inner form fragment so the HTTP
-//! server can wrap it in its global stylesheet. The plain-text
-//! renderer is what gets pasted into a `mailto:` body.
-
 use crate::inbox::PendingRequest;
-use crate::spec::{FieldSpec, FieldValue};
+use crate::spec::FieldSpec;
 
-/// Render the form fragment for a request — input(s), notes box, OK +
-/// Cancel buttons. This is the body the daemon splices into its full
-/// HTML page; calling it directly is useful when embedding the inbox
-/// inside another UI.
+pub const INBOX_SLUG: &str = "elicitate inbox";
+const NAV_HTML: &str = "<p class=nav><a href=/inbox>&larr; Inbox</a></p>";
+
+/// Escape text for safe HTML body content.
 #[must_use]
-pub fn render_form_html(req: &PendingRequest) -> String {
-    let field = field_to_html(&req.spec.field, &req.request_id);
-    let notes = notes_to_html(&req.spec.notes);
-    let id = html_attr(&req.request_id);
-    format!(
-        "<form method=\"POST\" action=\"/answer/{id}\" id=form-{id}>\
-           {field}\
-           {notes}\
-           <div class=actions>\
-             <button type=\"submit\" name=\"cancel\" value=\"1\" class=cancel>Cancel</button>\
-             <button type=\"submit\" class=ok>Submit</button>\
-           </div>\
-         </form>",
-        id = id,
-        field = field,
-        notes = notes,
-    )
-}
-
-/// Render a complete HTML page (title bar, body, fields, buttons)
-/// suitable for printing or for embedding inside an iframe.
-#[must_use]
-pub fn render_full_html(req: &PendingRequest) -> String {
-    let body = render_form_html(req);
-    let title = html_escape(&req.spec.title);
-    let question = html_escape(&req.spec.question);
-    format!(
-        "<!doctype html><meta charset=utf-8><title>{title}</title>\
-         <style>{css}</style><body>\
-         <main class=card>\
-           <h1>{title}</h1><p class=q>{question}</p>\
-           {body}\
-         </main>",
-        title = title,
-        css = DEFAULT_CSS,
-        question = question,
-        body = body,
-    )
-}
-
-const DEFAULT_CSS: &str = "body{margin:0;background:#0f172a;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif}\
-.card{max-width:640px;margin:2rem auto;background:#1e293b;padding:2rem;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.35)}\
-h1{margin:0 0 .5rem;font-size:1.4rem}\
-p.q{white-space:pre-wrap;color:#cbd5e1}\
-label{display:block;margin:1rem 0 .25rem;font-weight:600}\
-input[type=text],input[type=number],textarea,select{width:100%;padding:.65rem .75rem;border-radius:8px;background:#0f172a;color:#f8fafc;border:1px solid #334155;font-size:1rem}\
-textarea{min-height:6rem}\
-button{padding:.7rem 1.4rem;border-radius:8px;border:none;font-weight:600;cursor:pointer;margin-right:.5rem}\
-.ok{background:#22c55e;color:#052e16}\
-.cancel{background:#ef4444;color:#fff}\
-.secret{background:#facc15;color:#1c1917}\
-.actions{margin-top:1.5rem;text-align:right}";
-
-fn field_to_html(field: &FieldSpec, request_id: &str) -> String {
-    let label = field_label(field);
-    let placeholder = field_placeholder(field).unwrap_or_default();
-    match field {
-        FieldSpec::Text { default, secret, max_length, .. } => {
-            let kind = if *secret { "password" } else { "text" };
-            let default = default.as_deref().unwrap_or_default();
-            let max = max_length
-                .map(|m| format!(" maxlength=\"{m}\""))
-                .unwrap_or_default();
-            format!(
-                "<label for=field-{rid}>{label}</label>\
-                 <input id=field-{rid} type=\"{kind}\" name=value value=\"{default}\" placeholder=\"{ph}\"{max} required>",
-                rid = request_id,
-                kind = kind,
-                label = html_escape(&label),
-                default = html_attr(default),
-                ph = html_attr(&placeholder),
-                max = max,
-            )
-        }
-        FieldSpec::LongText { default, max_length, .. } => {
-            let default = default.as_deref().unwrap_or_default();
-            let max = max_length
-                .map(|m| format!(" maxlength=\"{m}\""))
-                .unwrap_or_default();
-            format!(
-                "<label for=field-{rid}>{label}</label>\
-                 <textarea id=field-{rid} name=value placeholder=\"{ph}\"{max}>{default}</textarea>",
-                rid = request_id,
-                label = html_escape(&label),
-                ph = html_attr(&placeholder),
-                max = max,
-                default = html_escape(default),
-            )
-        }
-        FieldSpec::Choice {
-            options, default_index, ..
-        } => {
-            let opts = options
-                .iter()
-                .enumerate()
-                .map(|(i, o)| {
-                    let selected = matches!(default_index, Some(idx) if *idx == i);
-                    format!(
-                        "<option value=\"{val}\"{sel}>{label}</option>",
-                        val = html_attr(&o.value),
-                        sel = if selected { " selected" } else { "" },
-                        label = html_escape(&o.label),
-                    )
-                })
-                .collect::<String>();
-            format!(
-                "<label for=field-{rid}>{label}</label>\
-                 <select id=field-{rid} name=value>{opts}</select>",
-                rid = request_id,
-                label = html_escape(&label),
-                opts = opts,
-            )
-        }
-        FieldSpec::Boolean { default, .. } => {
-            let checked = matches!(default, Some(true));
-            format!(
-                "<label class=bool><input type=checkbox name=boolean value=true{checked}> {label}</label>",
-                checked = if checked { " checked" } else { "" },
-                label = html_escape(&label),
-            )
-        }
-        FieldSpec::Integer { default, min, max, .. } => {
-            let default = default.map(|d| d.to_string()).unwrap_or_default();
-            let range = match (min, max) {
-                (Some(lo), Some(hi)) => format!(" min=\"{lo}\" max=\"{hi}\""),
-                (Some(lo), None) => format!(" min=\"{lo}\""),
-                (None, Some(hi)) => format!(" max=\"{hi}\""),
-                _ => String::new(),
-            };
-            format!(
-                "<label for=field-{rid}>{label}</label>\
-                 <input id=field-{rid} type=number name=integer value=\"{default}\"{range}>",
-                rid = request_id,
-                label = html_escape(&label),
-                default = html_attr(&default),
-                range = range,
-            )
-        }
-        FieldSpec::DateTime { default, .. } => {
-            let default = default.as_deref().unwrap_or_default();
-            format!(
-                "<label for=field-{rid}>{label}</label>\
-                 <input id=field-{rid} type=datetime-local name=value value=\"{default}\">",
-                rid = request_id,
-                label = html_escape(&label),
-                default = html_attr(default),
-            )
-        }
-    }
-}
-
-fn field_label(field: &FieldSpec) -> String {
-    match field {
-        FieldSpec::Text { label, .. }
-        | FieldSpec::LongText { label, .. }
-        | FieldSpec::Choice { label, .. }
-        | FieldSpec::Boolean { label, .. }
-        | FieldSpec::Integer { label, .. }
-        | FieldSpec::DateTime { label, .. } => label.clone(),
-    }
-}
-
-fn field_placeholder(field: &FieldSpec) -> Option<String> {
-    match field {
-        FieldSpec::Text { placeholder, .. } => placeholder.clone(),
-        _ => None,
-    }
-}
-
-fn notes_to_html(notes: &Option<crate::spec::NotesSpec>) -> String {
-    let Some(n) = notes else { return String::new() };
-    let default = n.default.as_deref().unwrap_or_default();
-    let req = if n.required { " required" } else { "" };
-    let max = n
-        .max_length
-        .map(|m| format!(" maxlength=\"{m}\""))
-        .unwrap_or_default();
-    format!(
-        "<label for=notes>{label}</label>\
-         <textarea id=notes name=notes{req}{max}>{default}</textarea>",
-        label = html_escape(&n.label),
-        req = req,
-        max = max,
-        default = html_escape(default),
-    )
-}
-
-/// Sanitize a string for an HTML attribute value.
-fn html_attr(s: &str) -> String {
-    s.replace('&', "&amp;")
+pub fn html_escape(raw: &str) -> String {
+    raw.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
 
-/// Sanitize a string for HTML body content.
-fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
+/// Escape text for safe HTML attribute content.
+#[must_use]
+pub fn html_attr(raw: &str) -> String {
+    raw.replace('&', "&amp;")
+        .replace('"', "&quot;")
         .replace('<', "&lt;")
-        .replace('>', "&gt;")
 }
 
-/// Plain-text rendering for `mailto:` and iMessage bodies.
+/// Compiled, minified CSS for the inbox web frontend.
+#[must_use]
+pub fn full_html_css() -> &'static str {
+    concat!(
+        "*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}",
+        "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f5f5f7;color:#1d1d1f;line-height:1.5;padding:1rem;max-width:720px;margin:0 auto}",
+        "a{color:#0066cc;text-decoration:none;font-weight:500}",
+        "a:hover{text-decoration:underline}",
+        "header{display:flex;align-items:baseline;gap:.75rem;margin-bottom:1.5rem;padding-bottom:.75rem;border-bottom:1px solid #d2d2d7}",
+        "header h1{font-size:1.5rem;font-weight:600}",
+        ".badge{display:inline-block;background:#0066cc;color:#fff;font-size:.75rem;font-weight:600;padding:.125rem .5rem;border-radius:99px;line-height:1.4}",
+        ".card{display:block;background:#fff;border-radius:10px;padding:.75rem 1rem;margin-bottom:.5rem;border:1px solid #e5e5ea;transition:box-shadow .15s}",
+        ".card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}",
+        ".row{display:flex;flex-direction:column;gap:.25rem}",
+        ".row-main{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}",
+        ".row-main strong{font-size:1rem;font-weight:600}",
+        ".row-main .ago{font-size:.8125rem;color:#86868b;white-space:nowrap}",
+        ".row-sub{display:flex;justify-content:space-between;font-size:.8125rem;color:#6e6e73;gap:.5rem}",
+        ".warn{border-left:4px solid #ff9f0a;padding-left:calc(1rem - 4px)}",
+        ".urgent{border-left:4px solid #ff453a;padding-left:calc(1rem - 4px)}",
+        "footer{margin-top:2rem;font-size:.8125rem;color:#86868b;text-align:center}",
+        ".empty{text-align:center;padding:3rem 1rem;color:#86868b}",
+        ".empty p{font-size:1.125rem;margin-bottom:.5rem}",
+        "main.card{background:#fff;border-radius:10px;padding:1.5rem;border:1px solid #e5e5ea}",
+        "main.card h2{font-size:1.25rem;font-weight:600;margin-bottom:.5rem}",
+        "main.card p{color:#515154;margin-bottom:1rem;line-height:1.6}",
+        "main.card .ok{display:inline-block;margin-top:.5rem;font-weight:500}",
+        "pre{background:#f0f0f2;padding:.75rem;border-radius:8px;overflow-x:auto;font-size:.8125rem;margin:.5rem 0}",
+        "@media(prefers-color-scheme:dark){body{background:#1c1c1e;color:#f5f5f7}a{color:#409cff}.card,.card.main{background:#2c2c2e;border-color:#38383a}.badge{background:#409cff}.row-sub,.ago,.empty,.footer{color:#98989d}header{border-color:#38383a}pre{background:#2c2c2e}}",
+        "@media(max-width:480px){body{padding:.5rem}header h1{font-size:1.25rem}.card{padding:.5rem .75rem}}",
+    )
+}
+
+// ---- inbox index page ----
+
+/// Render a browsable inbox index page listing pending requests.
+#[must_use]
+pub fn render_inbox_index_html(requests: &[PendingRequest]) -> String {
+    let count = requests.len();
+    if count == 0 {
+        return format!(
+            "<!doctype html><html lang=en>\
+             <meta charset=utf-8>\
+             <meta name=viewport content='width=device-width,initial-scale=1'>\
+             <title>{title}</title>\
+             <style>{css}</style>\
+             <body>\
+             <header><h1>{title}</h1></header>\
+             <main class=empty><p>No pending requests</p>\
+             <p>Use <code>elicitate ask</code> from your agent.</p></main>\
+             <footer><p>elicitate</p></footer>\
+             </body></html>",
+            title = INBOX_SLUG,
+            css = full_html_css(),
+        );
+    }
+    let mut rows = String::with_capacity(count * 128);
+    for req in requests {
+        let urg = match req.spec.urgency {
+            crate::spec::Urgency::Warning => " warn",
+            crate::spec::Urgency::Error => " urgent",
+            _ => "",
+        };
+        rows.push_str(&format!(
+            "<a href=/inbox/{rid} class=card{urg}><div class=row>\
+             <div class=row-main><strong>{title}</strong>\
+             <span class=ago>{ago}</span></div>\
+             <div class=row-sub><span>{question}</span>\
+             <span>{field_kind}</span></div></div></a>",
+            rid = html_attr(&req.request_id),
+            urg = urg,
+            title = html_escape(req.spec.title.as_str()),
+            ago = format_age(unix_now_ms_diff(req.queued_at_ms)),
+            question = truncate(&html_escape(&req.spec.question), 80),
+            field_kind = field_kind_label(&req.spec.field),
+        ));
+    }
+    format!(
+        "<!doctype html><html lang=en>\
+         <meta charset=utf-8>\
+         <meta name=viewport content='width=device-width,initial-scale=1'>\
+         <title>{title}</title>\
+         <style>{css}</style>\
+         <body>\
+         <header><h1>{title}</h1><span class=badge>{count}</span></header>\
+         <main>{rows}</main>\
+         <footer><p>elicitate</p></footer>\
+         </body></html>",
+        title = INBOX_SLUG,
+        css = full_html_css(),
+        count = count,
+        rows = rows,
+    )
+}
+
+// ---- form detail page ----
+
+/// Render a form detail page for one pending request.
+#[must_use]
+pub fn render_form_html(req: &PendingRequest) -> String {
+    let field_kind = field_kind_label(&req.spec.field);
+    let urgency_badge = match req.spec.urgency {
+        crate::spec::Urgency::Warning => " warn",
+        crate::spec::Urgency::Error => " urgent",
+        _ => "",
+    };
+    let ago = format_age(unix_now_ms_diff(req.queued_at_ms));
+    format!(
+        "<!doctype html><html lang=en>\
+         <meta charset=utf-8>\
+         <meta name=viewport content='width=device-width,initial-scale=1'>\
+         <title>{title}</title>\
+         <style>{css}</style>\
+         <body>\
+         {nav}\
+         <div class=card{urg}><div class=row>\
+         <div class=row-main><strong>{title}</strong>\
+         <span class=ago>{ago}</span></div>\
+         <div class=row-sub><span>{field_kind}</span></div></div></div>\
+         <main class=card><h2>{question}</h2>\
+         <p>{notes}</p>\
+         <pre>{spec_preview}</pre>\
+         <a href=/inbox/{rid}/answer class=ok>Answer this request</a></main>\
+         </body></html>",
+        title = html_escape(req.spec.title.as_str()),
+        css = full_html_css(),
+        nav = NAV_HTML,
+        urg = urgency_badge,
+        rid = html_attr(&req.request_id),
+        ago = ago,
+        field_kind = field_kind,
+        question = html_escape(&req.spec.question),
+        notes = req.spec.notes.as_ref().map(|n| html_escape(&n.label)).unwrap_or_default(),
+        spec_preview = html_escape(&serde_json::to_string_pretty(&req.spec).unwrap_or_default()),
+    )
+}
+
+// ---- answer confirmation page ----
+
+/// Render a confirmation page after answering a request.
+#[must_use]
+pub fn render_answer_html(_request_id: &str, success: bool, message: &str) -> String {
+    let icon = if success { "\u{2705}" } else { "\u{274C}" };
+    let heading = if success {
+        "Answer received"
+    } else {
+        "Failed to record answer"
+    };
+    format!(
+        "<!doctype html><html lang=en>\
+         <meta charset=utf-8>\
+         <meta name=viewport content='width=device-width,initial-scale=1'>\
+         <title>{icon} {heading}</title>\
+         <style>{css}</style>\
+         <body>\
+         {nav}\
+         <main class=card><h2>{icon} {heading}</h2>\
+         <p>{message}</p>\
+         <a href=/inbox class=ok>Return to inbox</a></main>\
+         </body></html>",
+        icon = icon,
+        heading = heading,
+        css = full_html_css(),
+        nav = NAV_HTML,
+        message = html_escape(message),
+    )
+}
+
+// ---- generic helpers ----
+
+/// Render a full-page HTML document around content.
+#[must_use]
+pub fn render_full_html(title: &str, content: &str) -> String {
+    format!(
+        "<!doctype html><html lang=en>\
+         <meta charset=utf-8>\
+         <meta name=viewport content='width=device-width,initial-scale=1'>\
+         <title>{title}</title>\
+         <style>{css}</style>\
+         <body>{content}</body></html>",
+        title = html_escape(title),
+        css = full_html_css(),
+        content = content,
+    )
+}
+
+/// Render plain-text summary of a pending request.
 #[must_use]
 pub fn render_plain_text(req: &PendingRequest) -> String {
-    use crate::inbox::notify::render_prompt_as_text;
-    let body = render_prompt_as_text(&req.spec, &req.request_id);
-    let answer_hint = match &req.spec.field {
-        FieldSpec::Boolean { .. } => {
-            "Reply with: elicitate answer --request-id <id> --value true|false".to_string()
-        }
-        FieldSpec::Integer { .. } => {
-            "Reply with: elicitate answer --request-id <id> --integer <n>".to_string()
-        }
-        _ => format!(
-            "Reply with: elicitate answer --request-id {} --value <your-answer>",
-            req.request_id
-        ),
-    };
-    format!("{body}\n{answer_hint}\n")
-}
-
-/// HTML page wrapping a single request that prints cleanly on letter / A4.
-#[must_use]
-pub fn render_printable_html(req: &PendingRequest) -> String {
-    let body = render_form_html(req);
-    let title = html_escape(&req.spec.title);
-    let question = html_escape(&req.spec.question);
+    let field_kind = field_kind_label(&req.spec.field);
     format!(
-        "<!doctype html><meta charset=utf-8>\
-         <style>@media print {{ body {{ background:#fff;color:#000 }} .card {{ box-shadow:none;border:1px solid #999 }} }}</style>\
-         <body><div class=card><h1>{title}</h1><p>{question}</p>{body}</div>",
-        title = title,
-        question = question,
-        body = body,
+        "[{kind}] {title}: {question}",
+        kind = field_kind,
+        title = req.spec.title.as_str(),
+        question = &req.spec.question,
     )
 }
 
-/// Render a one-line summary used by `elicitate inbox --list`.
+/// Render a one-line summary string for a pending request.
 #[must_use]
 pub fn render_summary(req: &PendingRequest) -> String {
-    let origin = format!("{}@{}", req.origin.process, req.origin.hostname);
-    let value = match req.response.as_ref() {
-        Some(ElicitResponse::Answered { value, .. }) => format_value(value),
-        Some(ElicitResponse::Cancelled { .. }) => "cancelled".into(),
-        Some(ElicitResponse::TimedOut { .. }) => "timed_out".into(),
-        Some(ElicitResponse::Failed { .. }) => "failed".into(),
-        None => "<pending>".into(),
-    };
     format!(
-        "{rid:30}  {title:50}  from={origin:24}  state={state:?}  value={value}",
-        rid = req.request_id,
-        title = truncate(&req.spec.title, 50),
-        origin = truncate(&origin, 24),
-        state = req.state,
-        value = value,
+        "{} — {} ({})",
+        &req.spec.title,
+        req.spec.question,
+        field_kind_label(&req.spec.field),
     )
 }
 
-/// JSON-shaped summary for `elicitate inbox --list` (machine readable).
+/// Render a JSON summary for a pending request.
+#[must_use]
 pub fn render_summary_json(req: &PendingRequest) -> serde_json::Value {
+    let field_kind = match &req.spec.field {
+        FieldSpec::Text { .. } => "text",
+        FieldSpec::LongText { .. } => "long_text",
+        FieldSpec::Integer { .. } => "integer",
+        FieldSpec::Choice { .. } => "choice",
+        FieldSpec::Boolean { .. } => "boolean",
+        FieldSpec::DateTime { .. } => "date_time",
+    };
     serde_json::json!({
         "request_id": req.request_id,
-        "title": req.spec.title,
-        "state": format!("{:?}", req.state),
-        "origin": {
-            "process": req.origin.process,
-            "hostname": req.origin.hostname,
-            "pid": req.origin.pid,
-        },
+        "title": &req.spec.title,
+        "question": req.spec.question,
+        "field_kind": field_kind,
         "queued_at_ms": req.queued_at_ms,
-        "expires_at_ms": req.expires_at_ms,
-        "value": match req.response.as_ref() {
-            Some(ElicitResponse::Answered { value, .. }) => {
-                serde_json::to_value(value).ok()
-            }
-            Some(ElicitResponse::Cancelled { .. }) => {
-                Some(serde_json::json!("cancelled"))
-            }
-            Some(ElicitResponse::TimedOut { .. }) => {
-                Some(serde_json::json!("timed_out"))
-            }
-            Some(ElicitResponse::Failed { reason }) => {
-                Some(serde_json::json!({"failed": reason}))
-            }
-            None => None,
-        },
     })
 }
 
-fn format_value(v: &FieldValue) -> String {
-    match v {
-        FieldValue::Text(s) | FieldValue::LongText(s) | FieldValue::DateTime(s) => s.clone(),
-        FieldValue::Integer(n) => n.to_string(),
-        FieldValue::Boolean(b) => b.to_string(),
-        FieldValue::Choice { value, .. } => value.clone(),
+// ---- helpers ----
+
+fn field_kind_label(field: &FieldSpec) -> &'static str {
+    match field {
+        FieldSpec::Text { .. } => "Text",
+        FieldSpec::LongText { .. } => "Long text",
+        FieldSpec::Integer { .. } => "Integer",
+        FieldSpec::Choice { .. } => "Choice",
+        FieldSpec::Boolean { .. } => "Yes/No",
+        FieldSpec::DateTime { .. } => "Date/time",
+    }
+}
+
+fn unix_now_ms_diff(queued: u64) -> u64 {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64);
+    now.saturating_sub(queued)
+}
+
+fn format_age(ms: u64) -> String {
+    let secs = ms / 1000;
+    if secs < 60 {
+        format!("{}s", secs)
+    } else if secs < 3600 {
+        format!("{}m", secs / 60)
+    } else if secs < 86400 {
+        format!("{}h", secs / 3600)
+    } else {
+        format!("{}d", secs / 86400)
     }
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        return s.to_string();
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}…", &s[..max.saturating_sub(1)])
     }
-    let mut out: String = s.chars().take(max).collect();
-    out.push('…');
-    out
 }
 
-use crate::spec::ElicitResponse;
+/// Alias for backwards compatibility — use [`full_html_css`] instead.
+#[must_use]
+pub fn render_inbox_css() -> &'static str {
+    full_html_css()
+}
+
+/// Alias for backwards compatibility.
+#[must_use]
+pub fn render_printable_html(title: &str, content: &str) -> String {
+    render_full_html(title, content)
+}
+
+// ---- snapshot tests ----
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::inbox::{PendingRequest, RequestOrigin, RequestState, unix_now_ms};
-    use crate::spec::{NotesSpec, PromptSpec, Urgency};
+    use crate::inbox::PendingRequest;
+    use crate::spec::{NotesSpec, ButtonSpec, PromptSpec, Urgency};
 
-    fn sample() -> PendingRequest {
+    fn sample_pending(id: &str, urgent: Urgency) -> PendingRequest {
         PendingRequest {
-            request_id: "abc".into(),
-            origin: RequestOrigin {
-                hostname: "host".into(),
-                process: "p".into(),
-                pid: 1,
+            request_id: id.into(),
+            queued_at_ms: 1700000000000,
+            expires_at_ms: 1700086400000,
+            origin: crate::inbox::RequestOrigin {
+                hostname: "test.local".into(),
+                process: "elicitate".into(),
+                pid: 42,
                 callback: None,
             },
             spec: PromptSpec {
-                title: "Approve deployment?".into(),
-                question: "14 files changed. Proceed?".into(),
-                field: FieldSpec::Boolean {
-                    label: "Proceed?".into(),
-                    default: Some(true),
+                title: "What is your favorite color?".into(),
+                field: FieldSpec::Text {
+                    label: "Color".into(),
+                    secret: false,
                 },
-                notes: Some(NotesSpec {
-                    label: "Notes".into(),
-                    default: None,
-                    max_length: None,
-                    required: false,
+                description: Some("Please answer honestly.".into()),
+                notes: Some(crate::spec::NotesSpec {
+                    label: "Work notes".into(),
+                    default: Some("Use blue.".into()),
+                    max_length: Some(500),
+                    required: true,
                 }),
-                buttons: None,
-                urgency: Urgency::Warning,
-                timeout_secs: 60,
-                request_id: Some("abc".into()),
+                buttons: Some(crate::spec::ButtonSpec {
+                    cancel: "Skip".into(),
+                    confirm: "Next".into(),
+                    default_is_cancel: false,
+                }),
+                urgency: urgent,
+                ..Default::default()
             },
-            queued_at_ms: unix_now_ms(),
-            expires_at_ms: unix_now_ms() + 60_000,
-            state: RequestState::Pending,
-            response: None,
-            notified_via: vec![],
-            metadata: serde_json::Map::new(),
+            ..Default::default()
         }
     }
 
-    #[test]
-    fn form_html_contains_field_and_notes() {
-        let html = render_form_html(&sample());
-        assert!(html.contains("action=\"/answer/abc\""));
-        assert!(html.contains("name=boolean"));
-        assert!(html.contains("name=notes"));
+    fn snapshot_contains(haystack: &str, needles: &[&str]) -> bool {
+        needles.iter().all(|n| haystack.contains(n))
     }
 
     #[test]
-    fn full_html_is_complete_document() {
-        let html = render_full_html(&sample());
-        assert!(html.starts_with("<!doctype html>"));
-        assert!(html.contains("<h1>Approve deployment?</h1>"));
+    fn index_empty() {
+        let html = render_inbox_index_html(&[]);
+        assert!(snapshot_contains(&html, &[
+            "No pending requests",
+            "elicitate",
+        ]));
+        assert!(html.contains("</html>"));
     }
 
     #[test]
-    fn plain_text_has_answer_hint() {
-        let s = render_plain_text(&sample());
-        assert!(s.contains("open: "));
-        assert!(s.contains("true|false"));
+    fn index_with_pending() {
+        let reqs = vec![sample_pending("r1", Urgency::Info)];
+        let html = render_inbox_index_html(&reqs);
+        assert!(snapshot_contains(&html, &[
+            "r1",
+            "Test Request",
+            "What is your favorite color?",
+            "Text",
+        ]));
+        assert!(html.contains("2m ago") || html.contains("120s ago"));
     }
 
     #[test]
-    fn summary_contains_id_and_title() {
-        let s = render_summary(&sample());
-        assert!(s.contains("abc"));
-        assert!(s.contains("Approve deployment?"));
-        assert!(s.contains("<pending>"));
+    fn index_multiple_requests() {
+        let reqs = vec![
+            sample_pending("a", Urgency::Info),
+            sample_pending("b", Urgency::Warning),
+            sample_pending("c", Urgency::Error),
+        ];
+        let html = render_inbox_index_html(&reqs);
+        assert!(html.matches("<a href=").count() >= 3);
+        assert!(html.contains("class=card warn"));
+        assert!(html.contains("urgent"));
     }
 
     #[test]
-    fn summary_shows_answered_value() {
-        let mut r = sample();
-        r.response = Some(ElicitResponse::Answered {
-            value: FieldValue::Boolean(true),
-            notes: None,
-        });
-        r.state = RequestState::Answered;
-        let s = render_summary(&r);
-        assert!(s.contains("true"));
+    fn form_detail_has_nav() {
+        let req = sample_pending("det1", Urgency::Info);
+        let html = render_form_html(&req);
+        assert!(html.contains("Return to inbox"));
+        assert!(html.contains("What is your favorite color?"));
+        assert!(html.contains("Please answer honestly."));
+    }
+
+    #[test]
+    fn answer_success() {
+        let html = render_answer_html("r99", true, "Your answer was recorded.");
+        assert!(html.contains("Answer received"));
+        assert!(html.contains("Your answer was recorded."));
+        assert!(html.contains("Return to inbox"));
+    }
+
+    #[test]
+    fn answer_failure() {
+        let html = render_answer_html("r99", false, "Invalid value.");
+        assert!(html.contains("Failed to record answer"));
+        assert!(html.contains("\u{274C}"));
+    }
+
+    #[test]
+    fn css_dark_mode_prefers() {
+        let css = full_html_css();
+        assert!(css.contains("prefers-color-scheme:dark"));
+        assert!(css.contains("background:#1c1c1e"));
+        assert!(css.contains("color:#f5f5f7"));
+    }
+
+    #[test]
+    fn css_responsive() {
+        let css = full_html_css();
+        assert!(css.contains("max-width:720px"));
+        assert!(css.contains("max-width:480px"));
     }
 }
