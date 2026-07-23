@@ -6,7 +6,7 @@ Auto-merge dependabot PRs that pass required checks. Manual review for major bum
 
 | Update type | Auto-merge | Notes |
 |---|---|---|
-| semver-patch (direct prod deps) | yes | `cargo update -p <name>` clean |
+| semver-patch (direct prod deps) | yes | `cargo update -p &lt;name&gt;` clean |
 | semver-minor (direct prod deps) | yes | CI green + ptx gate clean |
 | semver-major | no | labelled `deps:manual-review` |
 | transitive-only | no | requires explicit `cargo update` PR |

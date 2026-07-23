@@ -1,8 +1,6 @@
-<<<<<<< HEAD
 # Phenotype Worklogs & Analysis Reports
 
 This directory contains detailed worklog reports, performance analysis, and implementation guides for the Phenotype ecosystem.
-=======
 # Phenotype Worklogs (2026)
 
 This directory contains detailed audit and research worklogs for the Phenotype ecosystem, focusing on duplication reduction, library extraction (libification), and modernization.
@@ -18,16 +16,13 @@ This directory contains detailed audit and research worklogs for the Phenotype e
 | [QUALITY.md](./QUALITY.md) | Code quality, testing, review automation | 2026-03-30 | Wave 131-135 appended |
 | [PERFORMANCE.md](./PERFORMANCE.md) | Performance optimization, serialization, concurrency | 2026-03-30 | Wave 136-139 appended |
 | [WORK_LOG.md](./WORK_LOG.md) | Master session history and task execution log | 2026-03-30 | Active |
->>>>>>> origin/main
 
 ## Current Reports
 
-<<<<<<< HEAD
 ### Code Optimization Deep-Dive (2026-03-29)
 **File**: `CODE_OPTIMIZATION_DEEP_DIVE_2026-03-29.md`
 
 Comprehensive performance analysis of 66,746 lines of Rust, 4,792 lines of Python, and TypeScript components.
-=======
 ## 2026 Modernization Roadmap Summary
 
 ### Phase 1: Critical Infrastructure (P0)
@@ -44,7 +39,6 @@ Comprehensive performance analysis of 66,746 lines of Rust, 4,792 lines of Pytho
 - **MCP**: Standardize on `mcp-sdk-rust` + `FastMCP v3.0`
 - **LLM Routing**: Adopt `LiteLLM` with `stamina` retry
 - **CLI**: Standardize on `clap` (Rust) + `typer` (Python)
->>>>>>> origin/main
 
 **Key Sections**:
 - Hot path analysis (5 critical paths identified)
@@ -58,7 +52,6 @@ Comprehensive performance analysis of 66,746 lines of Rust, 4,792 lines of Pytho
 ### Decomposition Audit (2026-03-29)
 **File**: `docs/reports/DECOMPOSITION_AUDIT.md`
 
-<<<<<<< HEAD
 **Total LOC Savings: 4,865 lines across 19 categories**
 
 | Priority | Category | Savings |
@@ -135,7 +128,6 @@ Comprehensive performance analysis of 66,746 lines of Rust, 4,792 lines of Pytho
 ---
 
 **Last Updated**: 2026-03-29
-=======
 | File | Lines | Category | Priority |
 |------|-------|----------|----------|
 | `ARCHITECTURE.md` | ~2,050 | ARCHITECTURE | P0 |
@@ -224,4 +216,3 @@ To resume the audit or implementation, focus on the **P0 - CRITICAL** action ite
 ---
 
 _Last updated: 2026-03-31 (Wave 118-134)_
->>>>>>> origin/main

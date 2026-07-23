@@ -46,14 +46,14 @@ Mutation testing is **expensive**. A single PR on a 22-crate workspace with defa
 - **PR-time:** `cargo-llvm-cov` only (fast, ~3-5 min for the workspace)
 - **Nightly:** `cargo-mutants` per-crate matrix (each crate ~10-60 min, parallel across the matrix)
 
-When a mutant survives a nightly run, the failing artifact (`mutants-<crate>`) gets uploaded and the next morning's triage picks up the offending crate.
+When a mutant survives a nightly run, the failing artifact (`mutants-&lt;crate&gt;`) gets uploaded and the next morning's triage picks up the offending crate.
 
 ## Critical-crate coverage bootstrap
 
 Current coverage of the 5 critical crates is unknown. Once WP-17's `coverage.yml` runs end-to-end, the badge will land at whatever the real percentage is. If below 80%:
 
 1. Bump `line_coverage_min` only after the gap is closed (don't lower the threshold to make CI green)
-2. Open one issue per critical crate below 90% titled "test: bring `<crate>` to 90% coverage"
+2. Open one issue per critical crate below 90% titled "test: bring `&lt;crate&gt;` to 90% coverage"
 3. Each issue scoped to a single crate's uncovered lines (lcov.info + `cargo llvm-cov report --html`)
 
 ## Adoption criteria for new crates

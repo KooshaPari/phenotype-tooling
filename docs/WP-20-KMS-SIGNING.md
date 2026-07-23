@@ -52,7 +52,7 @@ path uses a Sigstore KMS-signing key registered at
 
 1. **Generate KMS key**: `cosign sign-blob-with-kms --output-certificate cert.pem --output-signature sig.bin` against a `kms://conformancekey` URI registered in [accounts.google.com](accounts.google.com) / Google Cloud KMS / HashiCorp Vault transit.
 
-2. **Register the key with Sigstore**: browse to `https://rekor.tlog.dev/?publicKey=<base64>` to publish the public key in the Sigstore transparency log.
+2. **Register the key with Sigstore**: browse to `https://rekor.tlog.dev/?publicKey=&lt;base64&gt;` to publish the public key in the Sigstore transparency log.
 
 3. **Store the KMS key ref** as a GitHub Actions **variable** (not secret — it's a URI not a key):
    ```

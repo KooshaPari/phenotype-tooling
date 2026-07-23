@@ -25,7 +25,7 @@ WP-12 closes the loop on Phase-3 distributed artifacts. The pipeline is:
 
 | File | Role |
 |---|---|
-| `.github/workflows/release.yml` | tags → `cargo publish -p <name>` |
+| `.github/workflows/release.yml` | tags → `cargo publish -p &lt;name&gt;` |
 | `.github/workflows/release-attestation.yml` | builds, stages, uploads SLSA provenance |
 | `.github/workflows/rust-ci.yml` | nightly fmt/clippy/test gate |
 | `crates/sbom-gen/` | CycloneDX-JSON SBOM generator → `docs/security/sbom.json` |
@@ -41,13 +41,13 @@ WP-12 closes the loop on Phase-3 distributed artifacts. The pipeline is:
 - **Job `sign-artifacts`**:
   1. Download `release-artifacts` uploaded by `release-attestation.yml`
   2. For each file: `cosign sign-blob --yes \
-     --output-signature=<name>.sig \
-     --output-certificate=<name>.cert <file>`
+     --output-signature=&lt;name&gt;.sig \
+     --output-certificate=&lt;name&gt;.cert &lt;file&gt;`
   3. Upload the entire `signed/` directory as the `signed-release-artifacts`
      artifact (90-day retention)
 - **Job `attach-to-release`**:
   1. Download `signed-release-artifacts` + `source.tar.gz`
-  2. `gh release upload <tag> signed/*.sig signed/*.cert source.tar.gz` — bumped
+  2. `gh release upload &lt;tag&gt; signed/*.sig signed/*.cert source.tar.gz` — bumped
      past collision with attestation
 - **Why keyless OIDC + cosign**: works for public repos without managing any
   long-lived signing key, satisfies SLSA Build L3 supply-chain provenance.
@@ -85,14 +85,14 @@ At release time we re-run `sbom-gen` so the published SBOM:
 ## Acceptance criteria
 
 - [ ] Tag `v0.0.0-test` (any tag matching `v*`) publishes to crates.io
-- [ ] SLSA provenance bundle uploads to the release as `<artifact>.intoto.jsonl`
+- [ ] SLSA provenance bundle uploads to the release as `&lt;artifact&gt;.intoto.jsonl`
 - [ ] `sbom.json`, `sbom.json.sha256`, `sbom.spdx.json` appear as release assets
 - [ ] Every file in `release-artifacts/` gets a sibling `.sig` and `.cert`
       visible on the release page
-- [ ] `cosign verify-blob --certificate <name>.cert --signature <name>.sig \
+- [ ] `cosign verify-blob --certificate &lt;name&gt;.cert --signature &lt;name&gt;.sig \
       --certificate-identity-regexp 'https://github.com/.*/.github/workflows/signed-release.yml' \
       --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
-      <name>` exits 0 with bundle hash output
+      &lt;name&gt;` exits 0 with bundle hash output
 
 ## How to add a new artifact to the signed-release contract
 

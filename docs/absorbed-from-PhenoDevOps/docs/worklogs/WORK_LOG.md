@@ -1,12 +1,10 @@
 # Work Log
 
-<<<<<<< HEAD
 > Track work items, tasks, and deliverables across the Phenotype ecosystem.
 
 ---
 
 ## Wave 94 - Deep Decomposition Audit (2026-03-29)
-=======
 > **Agent:** FORGE
 > **Date:** 2026-03-29
 > **Session:** Wave 97 - Archive Nested Crates + Deep Pattern Audit
@@ -369,7 +367,6 @@ Expanded worklog audit with comprehensive LOC reduction analysis, external packa
 ---
 
 ## Wave 93 - LOC Reduction Deep Dive (2026-03-29)
->>>>>>> origin/main
 
 **Status:** completed
 **Priority:** P0
@@ -426,7 +423,6 @@ Expanded worklog audit with comprehensive LOC reduction analysis, external packa
 
 ### Deliverables
 
-<<<<<<< HEAD
 - ✅ DECOMPOSITION_AUDIT.md expanded to 809 lines
 - ✅ WORK_LOG.md updated with Wave 94 entry
 - ✅ 4 inactive folders cleaned up
@@ -636,7 +632,6 @@ Continue LOC reduction, decomp, code optimization. Double worklog entries. Skip 
 ---
 
 _Last updated: 2026-03-30_
-=======
 - [x] Remove nested crate duplicates (1,710 LOC) — **Wave 97 DUP-001**
 - [ ] Create `libs/sync-utils/` crate
 - [ ] Create `libs/async-timeout/` crate
@@ -1170,4 +1165,3 @@ Blueprints created with module structure, handler mapping, re-export patterns.
 - Ready for implementation phase
 
 _Last updated: 2026-03-30 (Wave 4 session complete)_
->>>>>>> origin/main

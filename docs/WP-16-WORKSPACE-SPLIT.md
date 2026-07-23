@@ -29,7 +29,7 @@ noisy changelogs. WP-16 introduces `release-group` taxonomy + per-group semver.
 
 - **`workspace.metadata.toml`** — groups table mapping `group-name -> { members: [...], tag: "vX.Y.Z", bump: "patch|minor|major" }`.
 - **`crates/*/Cargo.toml`** — each crate annotated with
-  `[package.metadata.release-group] = "<group>"`. The annotation is added by
+  `[package.metadata.release-group] = "&lt;group&gt;"`. The annotation is added by
   `_wp16_annotate.py` (idempotent — only inserts the field if absent).
 - **`docs/WP-16-WORKSPACE-SPLIT.md`** — this doc.
 

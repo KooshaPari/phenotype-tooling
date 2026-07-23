@@ -70,8 +70,8 @@ failing.
 - [ ] `cargo build -p ptx` succeeds with zero `missing_docs` warnings
 - [ ] `ptx --help` lists the gate set
 - [ ] `ptx` writes `ptx-manifest.json` and `ptx-report.md` next to the cwd
-- [ ] `ptx --gate <name>` runs a single gate and prints a one-line verdict
-- [ ] All absorbed subcommands invokable through `ptx wrap <subcommand>`
+- [ ] `ptx --gate &lt;name&gt;` runs a single gate and prints a one-line verdict
+- [ ] All absorbed subcommands invokable through `ptx wrap &lt;subcommand&gt;`
 - [ ] Exit codes follow the documented contract
 - [ ] `ptx` is reproducible: re-running produces an identical manifest
       given an identical `Cargo.lock`
