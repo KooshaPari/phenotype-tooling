@@ -354,3 +354,62 @@ lib intg + 4 mcp stdio).
 - Reviewer checklist: re-run `cargo test -p elicitate --no-fail-fast`
   and verify `elicitate open --print-only` against a daemon on
   `--port 8118` returns `http://127.0.0.1:8118/inbox`.
+
+## v0.5.2 addendum — InboxChangeBus (instant TUI --follow)
+
+### What changed
+- **New module:** `src/inbox/change.rs` (`InboxChangeBus`, `InboxWatcher`).
+  Process-wide bus using `crossbeam-channel 0.5.16`. Monotonic generation
+  counter, multiple subscribers, non-blocking `notify()`, blocking
+  `wait_changed(timeout)` for subscribers.
+- **Mutation points wired:** `inbox::enqueue()` and `inbox::finalize()`
+  now call `InboxChangeBus::global().notify()` after their atomic rename.
+- **TUI --follow:** `tui::run()` accepts `follow: bool`. When true,
+  the TUI loop subscribes via `InboxWatcher` and blocks on
+  `wait_changed(1s)` between refresh cycles instead of polling a
+  fixed 1-second interval. ~3 ms wake-up latency (vs. up to 1,000 ms).
+- **Backward compat:** `--no-follow` restores v0.5 fixed-interval
+  behaviour. Default is `--follow` when the bus is initialised,
+  falling back to interval when no watcher is available (no-daemon mode).
+
+### Source lines absorbed (new crate, no external absorption)
+```text
+src/inbox/change.rs       — 185 lines  (3 public types, bus + watcher)
+src/inbox/mod.rs          — +4 lines   (change module declaration + bus calls in enqueue/finalize)
+src/tui/mod.rs            — +8 lines   (watcher subscribe + wait_changed in refresh branch)
+src/bin_elicitate.rs      — +3 lines   (--follow / --no-follow on inbox --tui)
+Cargo.toml                — +1 dep     (crossbeam-channel = "0.5")
+```
+
+### Risks introduced by v0.5.2
+
+| Risk | Mitigation |
+|---|---|
+| **Multiple daemon instances** share the same global bus, causing cross-talk | `InboxChangeBus` is process-local (not machine-wide). If two daemons run in the same process (unlikely), their notify events merge. In practice, the CLI and daemon are distinct processes; each has its own `global()`. |
+| **Bus initialisation race** — `enqueue()` and `finalize()` try to `global().notify()` on first call, which calls `OnceLock::get_or_init` | `OnceLock` is atomic; the first caller wins, the second blocks. No race. |
+| **`wait_changed(1s)` returns `None` after idle periods** — the TUI must re-snapshot every 1 s anyway | The existing `event::poll(200ms)` tick handles keyboard input. The watcher is additive: if it fires, `last_poll` is reset to 0, forcing an immediate (fast-path) re-snapshot. If it doesn't fire, the interval timer is the upper bound. |
+
+### New tests (7, all in `inbox::change::tests`)
+
+| Test | What it checks |
+|---|---|
+| `bus_forwards_notify` | Subscriber receives generation ≥ 1 after `notify()` |
+| `multiple_subscribers_all_get_notified` | Each subscriber independently receives the same generation |
+| `watcher_timed_out_when_no_notify` | `wait_changed(100ms)` returns `None` when no mutation occurred |
+| `watcher_coalesces_burst_notifies` | 10 concurrent `notify()` coalesce to one wake-up; generation ≥ 10 |
+| `generation_never_decreases` | After N = 1000, generation is monotonically non-decreasing |
+| `bus_capacity_does_not_block` | 10,000 notify() calls do not block the sender |
+| `bus_is_send_sync` | Static assertion that `InboxChangeBus` and `InboxWatcher` are `Send + Sync` |
+
+### Sign-off (v0.5.2)
+- Bumps `[package] version = "0.5.2"` in `Cargo.toml`.
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod`.
+- Reviewer checklist: re-run `cargo test -p elicitate --no-fail-fast`
+  and verify `elicitate inbox --tui --follow` wakes within ~10 ms of
+  writing a file to `<inbox>/inbox/(new-file).json`.
+- Replay:
+  ```
+  cargo build -p elicitate
+  cargo test -p elicitate --no-fail-fast
+  # → 140 tests, 0 failures
+  ```

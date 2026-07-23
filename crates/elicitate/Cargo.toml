@@ -1,6 +1,6 @@
 [package]
 name = "elicitate"
-version = "0.5.1"
+version = "0.5.2"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -38,6 +38,7 @@ chrono = { workspace = true, features = ["serde"] }
 regex = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 schemars = "0.8"
+crossbeam-channel = "0.5"
 rmcp = { version = "0.2", features = ["server", "transport-io", "macros"], optional = true }
 inquire = { version = "0.7", features = ["date"] }
 which = "6"

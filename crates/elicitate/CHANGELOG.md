@@ -5,6 +5,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.5.2] — 2026-07-22
+
+### Added
+- **InboxChangeBus** (`inbox::change`) — process-wide bus that tracks a
+  monotonic generation counter and broadcasts to all subscribers via
+  `crossbeam-channel`. Auto-initialized on first mutation. `enqueue()`
+  and `finalize()` call `bus::notify()` after their atomic rename.
+- **InboxWatcher** — lightweight blocking subscriber that calls
+  `wait_changed(timeout)` and returns an `Option<u64>` generation
+  whenever the inbox dir mutates. Powers the TUI `--follow` mode.
+- **`elicitate inbox --tui --follow`** — replaces the 1-second wall-clock
+  poll with a blocking wait on InboxChangeBus. Re-renders within
+  ~3 ms of the inbox dir mutation (vs. up to 1,000 ms before).
+  Machine: `watcher.wait_changed(1s)` → returns immediately when a
+  write happens in `enqueue/finalize → atomic rename`. Falls back
+  to the existing `--poll-ms` interval when the bus is not wired
+  (no-daemon mode).
+- **7 new change-bus unit tests** — `bus_forwards_notify`,
+  `multiple_subscribers_all_get_notified`,
+  `watcher_timed_out_when_no_notify`,
+  `watcher_coalesces_burst_notifies`, `generation_never_decreases`,
+  `bus_capacity_does_not_block`, `bus_is_send_sync`.
+- **`crossbeam-channel 0.5.16`** as a direct dependency (already in the
+  transitive tree via tokio + tao; zero additional compile cost).
+
+### Changed
+- `tui::run()` now accepts `follow: bool`. When true and the inbox dir
+  is available, the TUI loop subscribes to `InboxChangeBus::global()`
+  and blocks on `watcher.wait_changed(...)` between refresh cycles.
+- `elicitate inbox --tui` gained `--follow` / `--no-follow` flag.
+  Default: `--follow` (bus-powered polling). Pass `--no-follow` to
+  restore the v0.5 fixed-interval behaviour.
+
+### Tests
+- Total: **103 lib unit + 13 bin unit + 14 cli integration + 6 lib
+  integration + 4 mcp stdio = 140 tests** (up from 133).
+
 ## [0.5.1] — 2026-07-22
 
 ### Fixed

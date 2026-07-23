@@ -275,6 +275,13 @@ struct InboxArgs {
     /// available (CI, `TERM=dumb`, ssh without TTY allocation).
     #[arg(long, conflicts_with_all = &["list", "show", "url", "open", "gc_age_secs"])]
     tui: bool,
+
+    /// In TUI mode, live-follow changes via the inbox change bus instead of
+    /// polling the filesystem. The TUI wakes as soon as `enqueue` or
+    /// `finalize` writes a new file. Default: off (1s poll interval).
+    /// Only meaningful with `--tui`.
+    #[arg(long)]
+    follow: bool,
 }
 
 #[derive(Debug, Args)]
@@ -784,7 +791,7 @@ fn cmd_inbox(args: InboxArgs, inbox_dir: &PathBuf) -> Result<(), String> {
     // TUI viewer — must be checked first because it conflicts with all the
     // JSON-output / open-in-browser subcommands.
     if args.tui {
-        match elicitate::tui_run(inbox_dir) {
+        match elicitate::tui_run(inbox_dir, args.follow) {
             Ok(elicitate::TuiOutcome::Quit)
             | Ok(elicitate::TuiOutcome::Answered(_))
             | Ok(elicitate::TuiOutcome::Dismissed(_)) => return Ok(()),

@@ -69,7 +69,8 @@ use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wra
 use ratatui::Terminal;
 
 use crate::inbox::{
-    list_pending as inbox_list_pending, load as inbox_load, PendingRequest, RequestState,
+    change::InboxWatcher, list_pending as inbox_list_pending, load as inbox_load,
+    PendingRequest, RequestState,
 };
 use crate::spec::{FieldSpec, PromptSpec};
 
@@ -507,7 +508,7 @@ fn render(
 
 /// Run the TUI viewer to completion. Returns the outcome (quit / answered /
 /// dismissed) or `TuiOutcome::NoTty` if the terminal refused raw mode.
-pub fn run(inbox_root: &Path) -> Result<TuiOutcome, String> {
+pub fn run(inbox_root: &Path, follow: bool) -> Result<TuiOutcome, String> {
     let raw_ok = match enter_raw_mode() {
         Ok(b) => b,
         Err(e) => return Err(e),
@@ -524,7 +525,13 @@ pub fn run(inbox_root: &Path) -> Result<TuiOutcome, String> {
         }
     };
 
-    let result = run_loop(&mut terminal, inbox_root);
+    let watcher = if follow {
+        Some(crate::inbox::change::InboxChangeBus::global().subscribe())
+    } else {
+        None
+    };
+
+    let result = run_loop(&mut terminal, inbox_root, watcher);
     leave_raw_mode();
     result
 }
@@ -532,14 +539,30 @@ pub fn run(inbox_root: &Path) -> Result<TuiOutcome, String> {
 fn run_loop(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     inbox_root: &Path,
+    watcher: Option<InboxWatcher>,
 ) -> Result<TuiOutcome, String> {
     let mut state = ViewerState::default();
     let mut last_poll = Instant::now() - POLL_INTERVAL; // force first poll
+    // Track the last generation we've seen from the change bus
+    // so we can avoid re-reading the filesystem on every cycle.
+    let mut last_change_gen = 0u64;
     let mut stdout_handle = stdout();
 
     loop {
-        // Poll the inbox.
-        if last_poll.elapsed() >= POLL_INTERVAL {
+        // Check whether to poll.  When a watcher is available we also consult it
+        // so that a newly-enqueued request wakes us up within ~1 ms instead of
+        // waiting up to POLL_INTERVAL (1 s).
+        let elapsed_ok = last_poll.elapsed() >= POLL_INTERVAL;
+        let changed = watcher.as_ref().map_or(false, |w| {
+            let gen = w.last_seen();
+            let has = gen != last_change_gen;
+            if has {
+                last_change_gen = gen;
+            }
+            has
+        });
+
+        if elapsed_ok || changed {
             match snapshot_inbox(inbox_root) {
                 Ok(entries) => {
                     if entries.len() != state.entries.len() {
