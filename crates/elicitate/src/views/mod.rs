@@ -189,7 +189,168 @@ pub fn render_inbox_index_html(requests: &[PendingRequest]) -> String {
 
 // ---- form detail page ----
 
+/// Render the form-widget HTML for a single [`FieldSpec`] variant.
+///
+/// Each variant emits the appropriate HTML input element:
+/// - `Text` → `<input type=text|name=value …>`
+/// - `LongText` → `<textarea name=value …>`
+/// - `Integer` → `<input type=number name=integer …>`
+/// - `Choice` → `<select name=value><option …>…</option></select>`
+/// - `Boolean` → `<input type=checkbox name=boolean value=on …>`
+/// - `DateTime` → `<input type=date|time|datetime-local name=value …>`
+///
+/// All user-controlled values (label, placeholder, default, choice labels)
+/// pass through [`html_attr`] / [`html_escape`] before insertion.
+#[must_use]
+pub fn render_field_widget(field: &FieldSpec) -> String {
+    match field {
+        FieldSpec::Text {
+            label,
+            default,
+            placeholder,
+            max_length,
+            secret,
+            ..
+        } => {
+            let label_html = html_escape(label);
+            let placeholder_html = placeholder
+                .as_deref()
+                .map(|p| format!(r#" placeholder="{}""#, html_attr(p)))
+                .unwrap_or_default();
+            let default_html = default
+                .as_deref()
+                .map(|d| format!(r#" value="{}""#, html_attr(d)))
+                .unwrap_or_default();
+            let max_len_html = max_length
+                .map(|m| format!(r#" maxlength="{}""#, m))
+                .unwrap_or_default();
+            let input_type = if *secret { "password" } else { "text" };
+            format!(
+                r"<label for=eli-field>{label}</label>\
+                   <input id=eli-field type={input_type} name=value{placeholder}{default}{max_len} required>",
+                label = label_html,
+                input_type = input_type,
+                placeholder = placeholder_html,
+                default = default_html,
+                max_len = max_len_html,
+            )
+        }
+        FieldSpec::LongText {
+            label,
+            default,
+            max_length,
+        } => {
+            let label_html = html_escape(label);
+            let default_html = default
+                .as_deref()
+                .map(|d| html_escape(d))
+                .unwrap_or_default();
+            let max_len_html = max_length
+                .map(|m| format!(r#" maxlength="{}""#, m))
+                .unwrap_or_default();
+            format!(
+                r"<label for=eli-field>{label}</label>\
+                   <textarea id=eli-field name=value{rows}{max_len}>{default}</textarea>",
+                label = label_html,
+                rows = r#" rows="4""#,
+                max_len = max_len_html,
+                default = default_html,
+            )
+        }
+        FieldSpec::Integer {
+            label,
+            min,
+            max,
+            default,
+        } => {
+            let label_html = html_escape(label);
+            let min_html = min.map(|m| format!(r#" min="{}""#, m)).unwrap_or_default();
+            let max_html = max.map(|m| format!(r#" max="{}""#, m)).unwrap_or_default();
+            let default_html = default
+                .map(|d| format!(r#" value="{}""#, d))
+                .unwrap_or_default();
+            format!(
+                r"<label for=eli-field>{label}</label>\
+                   <input id=eli-field type=number name=integer{min}{max}{default} required>",
+                label = label_html,
+                min = min_html,
+                max = max_html,
+                default = default_html,
+            )
+        }
+        FieldSpec::Choice {
+            label,
+            options,
+            default_index,
+        } => {
+            let label_html = html_escape(label);
+            let mut opts = String::with_capacity(options.len() * 64);
+            for (i, opt) in options.iter().enumerate() {
+                let value = html_attr(&opt.value);
+                let label_text = html_escape(&opt.label);
+                let selected = default_index
+                    .map(|d| d == i)
+                    .unwrap_or(false);
+                let sel_attr = if selected { " selected" } else { "" };
+                opts.push_str(&format!(
+                    r#"<option value="{value}"{sel}>{label}</option>"#,
+                    value = value,
+                    sel = sel_attr,
+                    label = label_text,
+                ));
+            }
+            format!(
+                r"<label for=eli-field>{label}</label>\
+                   <select id=eli-field name=value required>{opts}</select>",
+                label = label_html,
+                opts = opts,
+            )
+        }
+        FieldSpec::Boolean { label, default } => {
+            let label_html = html_escape(label);
+            let checked = default.unwrap_or(false);
+            let checked_attr = if checked { " checked" } else { "" };
+            format!(
+                r"<label class=bool><input type=checkbox name=boolean value=on{checked}> \
+                   <span>{label}</span></label>",
+                checked = checked_attr,
+                label = label_html,
+            )
+        }
+        FieldSpec::DateTime {
+            label,
+            default,
+            picker_kind,
+        } => {
+            use crate::spec::DateTimeKind;
+            let input_type = match picker_kind {
+                DateTimeKind::Date => "date",
+                DateTimeKind::Time => "time",
+                DateTimeKind::DateTime => "datetime-local",
+            };
+            let label_html = html_escape(label);
+            let default_html = default
+                .as_deref()
+                .map(|d| format!(r#" value="{}""#, html_attr(d)))
+                .unwrap_or_default();
+            format!(
+                r"<label for=eli-field>{label}</label>\
+                   <input id=eli-field type={input_type} name=value{default} required>",
+                label = label_html,
+                input_type = input_type,
+                default = default_html,
+            )
+        }
+    }
+}
+
 /// Render a form detail page for one pending request.
+///
+/// The page emits a real `<form method=POST action=/inbox/{rid}/answer>`
+/// with input/textarea/select/checkbox widgets per the [`FieldSpec`]
+/// variant. Submitting POSTs the form back to the daemon's
+/// `Route::Answer`, which validates, writes the JSON response file, and
+/// redirects to `/inbox/{rid}/done`.
 #[must_use]
 pub fn render_form_html(req: &PendingRequest) -> String {
     let field_kind = field_kind_label(&req.spec.field);
@@ -199,6 +360,27 @@ pub fn render_form_html(req: &PendingRequest) -> String {
         _ => "",
     };
     let ago = format_age(unix_now_ms_diff(req.queued_at_ms));
+    let widget = render_field_widget(&req.spec.field);
+    let notes_box = req
+        .spec
+        .notes
+        .as_ref()
+        .map(|n| {
+            let req_attr = if n.required { " required" } else { "" };
+            let max_len = n
+                .max_length
+                .map(|m| format!(r#" maxlength="{}""#, m))
+                .unwrap_or_default();
+            format!(
+                r#"<label for=eli-notes>{nl}</label>\
+                   <textarea id=eli-notes name=notes{req}{max_len}>{default}</textarea>"#,
+                nl = html_escape(&n.label),
+                req = req_attr,
+                max_len = max_len,
+                default = html_escape(n.default.as_deref().unwrap_or("")),
+            )
+        })
+        .unwrap_or_default();
     format!(
         "<!doctype html><html lang=en>\
          <meta charset=utf-8>\
@@ -212,9 +394,13 @@ pub fn render_form_html(req: &PendingRequest) -> String {
          <span class=ago>{ago}</span></div>\
          <div class=row-sub><span>{field_kind}</span></div></div></div>\
          <main class=card><h2>{question}</h2>\
-         <p>{notes}</p>\
-         <pre>{spec_preview}</pre>\
-         <a href=/inbox/{rid}/answer class=ok>Answer this request</a></main>\
+         {widget}\
+         {notes_box}\
+         <form method=POST action=/inbox/{rid}/answer class=actions>\
+         <button type=submit name=confirm value=ok class=ok>Submit</button>\
+         <button type=submit name=cancel value=1 class=cancel>Cancel</button>\
+         </form>\
+         </main>\
          </body></html>",
         title = html_escape(req.spec.title.as_str()),
         css = full_html_css(),
@@ -224,8 +410,8 @@ pub fn render_form_html(req: &PendingRequest) -> String {
         ago = ago,
         field_kind = field_kind,
         question = html_escape(&req.spec.question),
-        notes = req.spec.notes.as_ref().map(|n| html_escape(&n.label)).unwrap_or_default(),
-        spec_preview = html_escape(&serde_json::to_string_pretty(&req.spec).unwrap_or_default()),
+        widget = widget,
+        notes_box = notes_box,
     )
 }
 
@@ -442,5 +628,124 @@ mod tests {
         let css = full_html_css();
         assert!(css.contains("max-width:720px"));
         assert!(css.contains("max-width:480px"));
+    }
+
+    // ---- v0.7.0: submit-form-from-browser ----
+
+    /// The form page must emit a real `<form method=POST>` whose action
+    /// points at the daemon's answer route. This is the v0.7.0 contract:
+    /// the user fills the widget, presses Submit, and the browser POSTs
+    /// the body to the daemon (which parses + validates + writes the
+    /// response file).
+    #[test]
+    fn form_emits_post_action() {
+        let req = sample_pending("rid-form-post", Urgency::Info);
+        let html = render_form_html(&req);
+        assert!(
+            html.contains(r#"<form method=POST action=/inbox/rid-form-post/answer"#),
+            "form must post to /inbox/{{rid}}/answer, got: {html}"
+        );
+        assert!(html.contains(r#"name=confirm value=ok"#));
+        assert!(html.contains(r#"name=cancel value=1"#));
+    }
+
+    /// `FieldSpec::Text` renders as a single-line `<input type=text>`
+    /// named `value`. Placeholders, max-length, and `secret=true` (which
+    /// flips the input type to `password`) are all encoded in attributes.
+    #[test]
+    fn text_field_renders_input() {
+        let mut req = sample_pending("rid-text", Urgency::Info);
+        req.spec.field = FieldSpec::Text {
+            label: "Color".into(),
+            placeholder: Some("e.g. blue".into()),
+            default: Some("blue".into()),
+            max_length: Some(64),
+            secret: false,
+            pattern: None,
+        };
+        let html = render_form_html(&req);
+        assert!(
+            html.contains(r#"<input id=eli-field type=text name=value"#),
+            "Text must emit <input type=text name=value …>: {html}"
+        );
+        assert!(html.contains(r#"placeholder="e.g. blue""#));
+        assert!(html.contains(r#"value="blue""#));
+        assert!(html.contains(r#"maxlength="64""#));
+        // Secret flips the input type to password.
+        req.spec.field = FieldSpec::Text {
+            label: "PIN".into(),
+            placeholder: None,
+            default: None,
+            max_length: None,
+            secret: true,
+            pattern: None,
+        };
+        let html_secret = render_form_html(&req);
+        assert!(
+            html_secret.contains(r#"type=password"#),
+            "secret=true must emit type=password: {html_secret}"
+        );
+    }
+
+    /// `FieldSpec::Choice` renders as a `<select name=value>` containing
+    /// one `<option value="…">label</option>` per `ChoiceOption`. The
+    /// `default_index` selects the right option via the `selected` attr.
+    #[test]
+    fn choice_field_renders_select() {
+        let mut req = sample_pending("rid-choice", Urgency::Info);
+        req.spec.field = FieldSpec::Choice {
+            label: "Environment".into(),
+            options: vec![
+                crate::spec::ChoiceOption {
+                    value: "staging".into(),
+                    label: "Staging".into(),
+                    description: None,
+                },
+                crate::spec::ChoiceOption {
+                    value: "prod".into(),
+                    label: "Production".into(),
+                    description: None,
+                },
+            ],
+            default_index: Some(1),
+        };
+        let html = render_form_html(&req);
+        assert!(
+            html.contains(r#"<select id=eli-field name=value required>"#),
+            "Choice must emit <select name=value>: {html}"
+        );
+        assert!(html.contains(r#"<option value="staging""#));
+        assert!(html.contains(r#"<option value="prod" selected"#));
+        assert!(html.contains(r#"<option value="staging">Staging</option>"#));
+        assert!(html.contains(r#"<option value="prod" selected>Production</option>"#));
+    }
+
+    /// `FieldSpec::Boolean` renders as `<input type=checkbox name=boolean
+    /// value=on>`. The label is the visible label text. `default=true`
+    /// adds `checked`.
+    #[test]
+    fn boolean_field_renders_checkbox() {
+        let mut req = sample_pending("rid-bool", Urgency::Info);
+        req.spec.field = FieldSpec::Boolean {
+            label: "Proceed?".into(),
+            default: Some(true),
+        };
+        let html = render_form_html(&req);
+        assert!(
+            html.contains(r#"<input type=checkbox name=boolean value=on checked>"#),
+            "Boolean default=true must emit checked: {html}"
+        );
+        assert!(html.contains("Proceed?"));
+        // Now flip default=false and re-check.
+        req.spec.field = FieldSpec::Boolean {
+            label: "Proceed?".into(),
+            default: Some(false),
+        };
+        let html_false = render_form_html(&req);
+        assert!(
+            html_false.contains(r#"<input type=checkbox name=boolean value=on>"#),
+            "Boolean default=false must not be checked: {html_false}"
+        );
+        assert!(!html_false.contains("checked"));
     }
 }

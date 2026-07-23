@@ -359,37 +359,57 @@ fn handle_connection(
             None => Some(simple_text(404, "request not found")),
         },
         Route::Answer => {
-            if method != "POST" {
-                return write_response(&mut stream, 405, "Method Not Allowed", b"");
-            }
             let id = match id {
                 Some(id) => id,
                 None => return write_response(&mut stream, 400, "Bad Request", b"missing id"),
             };
-            // Read body.
-            let content_length = headers
-                .iter()
-                .find_map(|h| {
-                    let (k, v) = h.split_once(':')?;
-                    if k.eq_ignore_ascii_case("content-length") {
-                        v.trim().parse::<usize>().ok()
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or(0);
-            let mut buf = vec![0u8; content_length];
-            if content_length > 0 {
-                reader.read_exact(&mut buf)?;
-            }
-            match submit_answer(inbox_root, &id, &buf) {
-                Ok(_) => Some(text_response(
-                    200,
-                    "<h1>Answered</h1><p>You can close this tab.</p>",
-                )),
-                Err(e) => Some(text_response(400, &format!("<h1>Error</h1><p>{e}</p>"))),
+            if method == "GET" {
+                // Re-render the form so a user who navigates back / lands
+                // here directly sees the same submission UI.
+                match load(inbox_root, &id) {
+                    Ok(req) => Some(text_response(200, &render_inbox_html(&req))),
+                    Err(_) => Some(simple_text(404, "request not found")),
+                }
+            } else if method != "POST" {
+                return write_response(&mut stream, 405, "Method Not Allowed", b"");
+            } else {
+                // Read body.
+                let content_length = headers
+                    .iter()
+                    .find_map(|h| {
+                        let (k, v) = h.split_once(':')?;
+                        if k.eq_ignore_ascii_case("content-length") {
+                            v.trim().parse::<usize>().ok()
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(0);
+                let mut buf = vec![0u8; content_length];
+                if content_length > 0 {
+                    reader.read_exact(&mut buf)?;
+                }
+                match submit_answer(inbox_root, &id, &buf) {
+                    Ok(_) => redirect_response(&mut stream, &format!("/inbox/{}/done", id))?,
+                    Err(e) => Some(text_response(400, &format!("<h1>Error</h1><p>{e}</p>"))),
+                }
             }
         }
+        Route::Done => match id.and_then(|id| load(inbox_root, &id).ok()) {
+            Some(req) => {
+                let html = crate::views::render_answer_html(
+                    &req.request_id,
+                    matches!(req.state, RequestState::Answered),
+                    if matches!(req.state, RequestState::Answered) {
+                        "Your answer was recorded."
+                    } else {
+                        "Request cancelled."
+                    },
+                );
+                Some(text_response(200, &html))
+            }
+            None => Some(simple_text(404, "request not found")),
+        },
         Route::Static(path) => {
             let stripped = path.trim_start_matches('/');
             let bytes: Vec<u8> = match stripped {
@@ -420,6 +440,7 @@ enum Route {
     Index,
     InboxForm,
     Answer,
+    Done,
     Static(String),
     NotFound,
     Shutdown,
@@ -440,6 +461,15 @@ fn parse_route(target: &str) -> (Route, Option<String>) {
         return (Route::Index, None);
     }
     if let Some(rest) = path.strip_prefix("/inbox/") {
+        // /inbox/{rid}/answer  → submit answer (POST) or re-render form (GET)
+        // /inbox/{rid}/done   → post-submit confirmation page
+        // /inbox/{rid}        → form detail
+        if let Some(rid) = rest.strip_suffix("/answer") {
+            return (Route::Answer, Some(rid.to_string()));
+        }
+        if let Some(rid) = rest.strip_suffix("/done") {
+            return (Route::Done, Some(rid.to_string()));
+        }
         return (Route::InboxForm, Some(rest.to_string()));
     }
     if let Some(rest) = path.strip_prefix("/answer/") {
@@ -465,6 +495,30 @@ fn write_response(
     stream.write_all(body)?;
     stream.flush()?;
     Ok(())
+}
+
+/// Write a 302 redirect to `location` and return `None` so the caller
+/// doesn't accidentally fall through to the default 200 path. Used by
+/// `Route::Answer` (POST) to send the browser to the confirmation page
+/// after writing the response file.
+fn redirect_response(
+    stream: &mut TcpStream,
+    location: &str,
+) -> std::io::Result<Option<String>> {
+    let body = format!(
+        "<!doctype html><meta charset=utf-8><title>redirecting</title>\
+         <body><p>Redirecting to <a href=\"{loc}\">{loc}</a>…</p>",
+        loc = location
+    );
+    write!(
+        stream,
+        "HTTP/1.1 302 Found\r\nLocation: {loc}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+        body.len(),
+        loc = location
+    )?;
+    stream.write_all(body.as_bytes())?;
+    stream.flush()?;
+    Ok(None)
 }
 
 fn simple_text(status: u16, msg: &str) -> String {
@@ -696,6 +750,8 @@ struct FormPayload {
     notes: Option<String>,
     #[serde(default)]
     cancel: Option<String>,
+    #[serde(default)]
+    confirm: Option<String>,
 }
 
 fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(), String> {
@@ -712,7 +768,18 @@ fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(),
         Err(e) => return Err(e.to_string()),
     };
 
-    if payload.cancel.is_some() {
+    // Validate the spec before processing — a stale / corrupt file
+    // shouldn't take down the submit path.
+    req.spec
+        .validate()
+        .map_err(|e| format!("invalid spec: {e}"))?;
+
+    // Determine intent: an explicit `cancel=1` (Cancel button) wins over
+    // `confirm=ok` (Submit button) because HTML forms submit the pressed
+    // button's name+value, and a click on Cancel won't set confirm.
+    let wants_cancel = payload.cancel.is_some() && payload.confirm.is_none();
+
+    if wants_cancel {
         let notes = payload.notes.clone();
         finalize(inbox_root, &PendingRequest {
             state: RequestState::Cancelled,
@@ -743,6 +810,7 @@ fn url_decode_form(body: &str) -> FormPayload {
         integer: None,
         notes: None,
         cancel: None,
+        confirm: None,
     };
     for kv in body.split('&').filter(|s| !s.is_empty()) {
         let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
@@ -753,6 +821,7 @@ fn url_decode_form(body: &str) -> FormPayload {
             "integer" => out.integer = Some(v),
             "notes" => out.notes = Some(v),
             "cancel" => out.cancel = Some(v),
+            "confirm" => out.confirm = Some(v),
             _ => {}
         }
     }
@@ -924,12 +993,164 @@ mod tests {
         };
         let html = render_inbox_html(&req);
         // The form page renders the title via <strong>...</strong> and
-        // uses an <a class=ok href=/inbox/{rid}/answer> link instead of
-        // a real <form action="..."> element.
+        // uses a real <form method=POST action=/inbox/{rid}/answer>
+        // element (v0.7.0 contract — browsers POST the body back to the
+        // daemon for parse + validate + write).
         assert!(html.contains("Approve?"), "title should appear: {html}");
         assert!(
             html.contains("/inbox/req-1/answer"),
-            "answer link should appear: {html}"
+            "answer form action should appear: {html}"
+        );
+        assert!(
+            html.contains(r#"<form method=POST"#),
+            "v0.7.0 form must POST: {html}"
+        );
+    }
+
+    /// v0.7.0 end-to-end: POST a form-encoded body to `submit_answer`,
+    /// confirm the request moves to `Answered` in `answered/` with the
+    /// captured `FieldValue`, and confirm the cancel button flips to
+    /// `Cancelled` with notes preserved.
+    #[test]
+    fn post_handler_writes_answer() {
+        let tmp = tempfile::tempdir().unwrap();
+        let origin = RequestOrigin {
+            hostname: "h".into(),
+            process: "p".into(),
+            pid: 1,
+            callback: None,
+        };
+        let req = PendingRequest {
+            request_id: "post-1".into(),
+            origin,
+            spec: crate::spec::PromptSpec {
+                title: "Choose".into(),
+                question: "Pick env".into(),
+                field: FieldSpec::Choice {
+                    label: "env".into(),
+                    options: vec![
+                        crate::spec::ChoiceOption {
+                            value: "staging".into(),
+                            label: "Staging".into(),
+                            description: None,
+                        },
+                        crate::spec::ChoiceOption {
+                            value: "prod".into(),
+                            label: "Production".into(),
+                            description: None,
+                        },
+                    ],
+                    default_index: None,
+                },
+                notes: Some(crate::spec::NotesSpec {
+                    label: "Why?".into(),
+                    default: None,
+                    max_length: None,
+                    required: false,
+                }),
+                buttons: None,
+                urgency: crate::spec::Urgency::Warning,
+                timeout_secs: 60,
+                request_id: Some("post-1".into()),
+            },
+            queued_at_ms: unix_now_ms(),
+            expires_at_ms: unix_now_ms() + 60_000,
+            state: RequestState::Pending,
+            response: None,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        crate::inbox::enqueue(tmp.path(), &req).unwrap();
+
+        // 1. Submit path: form-encoded POST body, choice=staging, notes,
+        //    confirm=ok → Answered with FieldValue::Choice { value =
+        //    "staging", index = 0 }.
+        let body = b"value=staging&notes=green+build&confirm=ok";
+        submit_answer(tmp.path(), "post-1", body).expect("submit_answer ok");
+        let loaded = load(tmp.path(), "post-1").unwrap();
+        assert_eq!(loaded.state, RequestState::Answered);
+        match loaded.response {
+            Some(ElicitResponse::Answered { value, notes }) => {
+                match value {
+                    FieldValue::Choice { value: v, index } => {
+                        assert_eq!(v, "staging");
+                        assert_eq!(index, 0);
+                    }
+                    other => panic!("expected FieldValue::Choice, got {other:?}"),
+                }
+                assert_eq!(notes.as_deref(), Some("green build"));
+            }
+            other => panic!("expected Answered response, got {other:?}"),
+        }
+        assert!(!tmp.path().join("inbox/post-1.json").exists());
+        assert!(tmp.path().join("answered/post-1.json").exists());
+
+        // 2. Cancel path: a fresh request with cancel=1 → Cancelled with
+        //    the captured notes. (We have to re-enqueue because submit
+        //    finalized the first one.)
+        let req2 = PendingRequest {
+            request_id: "post-2".into(),
+            origin: RequestOrigin {
+                hostname: "h".into(),
+                process: "p".into(),
+                pid: 1,
+                callback: None,
+            },
+            spec: crate::spec::PromptSpec {
+                title: "Approve?".into(),
+                question: "?".into(),
+                field: FieldSpec::Boolean {
+                    label: "?".into(),
+                    default: None,
+                },
+                notes: None,
+                buttons: None,
+                urgency: crate::spec::Urgency::Info,
+                timeout_secs: 60,
+                request_id: Some("post-2".into()),
+            },
+            queued_at_ms: unix_now_ms(),
+            expires_at_ms: unix_now_ms() + 60_000,
+            state: RequestState::Pending,
+            response: None,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        crate::inbox::enqueue(tmp.path(), &req2).unwrap();
+        let body = b"cancel=1&notes=on+second+thought";
+        submit_answer(tmp.path(), "post-2", body).expect("cancel ok");
+        let loaded2 = load(tmp.path(), "post-2").unwrap();
+        assert_eq!(loaded2.state, RequestState::Cancelled);
+        match loaded2.response {
+            Some(ElicitResponse::Cancelled { notes }) => {
+                assert_eq!(notes.as_deref(), Some("on second thought"));
+            }
+            other => panic!("expected Cancelled response, got {other:?}"),
+        }
+    }
+
+    /// v0.7.0: `/inbox/{rid}/answer` must route to `Route::Answer` and
+    /// `/inbox/{rid}/done` must route to `Route::Done`.
+    #[test]
+    fn parse_route_inbox_subpaths() {
+        assert_eq!(
+            parse_route("/inbox/rid-7/answer"),
+            (Route::Answer, Some("rid-7".into()))
+        );
+        assert_eq!(
+            parse_route("/inbox/rid-7/done"),
+            (Route::Done, Some("rid-7".into()))
+        );
+        // Plain form detail still works.
+        assert_eq!(
+            parse_route("/inbox/rid-7"),
+            (Route::InboxForm, Some("rid-7".into()))
+        );
+        // Backward compatibility: the legacy /answer/{rid} prefix still
+        // resolves to Route::Answer.
+        assert_eq!(
+            parse_route("/answer/rid-7"),
+            (Route::Answer, Some("rid-7".into()))
         );
     }
 

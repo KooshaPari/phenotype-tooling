@@ -5,6 +5,87 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.7.0] — 2026-07-23
+
+### Added
+- **Real `<form method=POST>` submission from the browser** —
+  v0.6.0 emitted an `<a class=ok href=/inbox/{rid}/answer>` link the
+  user had to click. v0.7.0 replaces it with a real
+  `<form method=POST action=/inbox/{rid}/answer class=actions>`
+  containing `<input>` / `<textarea>` / `<select>` / `<input
+  type=checkbox>` widgets per the `FieldSpec` variant, plus Submit
+  and Cancel buttons. Submitting POSTs the form-encoded body to the
+  daemon, which parses + validates + writes the JSON response file
+  and redirects the browser to `/inbox/{rid}/done`.
+- **`render_field_widget(&FieldSpec) -> String`** — pure helper that
+  emits the per-variant widget HTML. Text → `<input type=text>`,
+  LongText → `<textarea>`, Integer → `<input type=number>`, Choice →
+  `<select name=value><option …>…</option></select>`, Boolean →
+  `<input type=checkbox name=boolean value=on>`, DateTime →
+  `<input type=date|time|datetime-local>`. `secret=true` flips the
+  text input to `type=password`. All user-controlled values
+  (label, placeholder, default, choice labels) flow through
+  `html_escape()` / `html_attr()`.
+- **`Route::Done` (`GET /inbox/{rid}/done`)** — confirmation page
+  rendered from `views::render_answer_html()` with the appropriate
+  "Answer received" / "Request cancelled" message depending on the
+  finalised state.
+- **`redirect_response(stream, location)`** — emits a 302 redirect
+  with a tiny fallback HTML body so non-redirect-following clients
+  (curl, scripts) still see something.
+- **`submit_answer` validates the spec** before processing — a stale
+  / corrupt spec file on disk no longer takes down the submit path.
+- **`FormPayload::confirm: Option<String>`** — Submit-button field.
+  `cancel=1` only takes precedence over `confirm=ok` when `confirm`
+  is absent (a click on Submit sets `confirm`, a click on Cancel
+  sets `cancel`).
+- **`parse_route` handles `/inbox/{rid}/answer` and
+  `/inbox/{rid}/done`** alongside the legacy `/inbox/{rid}` and
+  `/answer/{rid}` paths.
+- **`Route::Answer` handles GET** — re-renders the form so a user
+  who navigates back / lands on the URL directly sees the same
+  submission UI.
+
+### Changed
+- `views::render_form_html` now emits a real `<form method=POST>`
+  inside its `<main class=card>` rather than a bare link. The
+  previous `<pre>{spec_preview}</pre>` debug dump is gone.
+- `submit_answer` validates the spec before processing (was: blind
+  trust).
+
+### Fixed
+- v0.6.0's `<a class=ok href=/inbox/{rid}/answer>` link required a
+  click before the daemon would record anything. v0.7.0's
+  `<form method=POST>` submission works with curl,
+  `wget --post-data`, native HTML form submits, and `fetch()` —
+  every browser-equivalent path now round-trips.
+
+### Tests
+- **6 new tests**:
+  - `views::tests::form_emits_post_action` — the page contains
+    `<form method=POST action=/inbox/{rid}/answer …>` and the
+    Submit + Cancel button markup.
+  - `views::tests::text_field_renders_input` — Text emits
+    `<input type=text name=value …>` with placeholder, default,
+    maxlength; `secret=true` flips to `type=password`.
+  - `views::tests::choice_field_renders_select` — Choice emits
+    `<select name=value>` with one `<option>` per `ChoiceOption`;
+    `default_index` selects the right option via `selected`.
+  - `views::tests::boolean_field_renders_checkbox` — Boolean emits
+    `<input type=checkbox name=boolean value=on>`; `default=true`
+    adds `checked`.
+  - `inbox::daemon::tests::post_handler_writes_answer` —
+    end-to-end: POST a form-encoded body to `submit_answer`,
+    confirm the request moves to `Answered` in `answered/` with the
+    captured `FieldValue::Choice`, and that the cancel button
+    flips to `Cancelled` with notes preserved.
+  - `inbox::daemon::tests::parse_route_inbox_subpaths` — `/inbox/{rid}/answer`
+    and `/inbox/{rid}/done` resolve to `Route::Answer` and
+    `Route::Done` respectively; `/answer/{rid}` legacy path
+    preserved.
+- Total: **149 tests, 0 failures, 0 warnings** (112 lib unit + 13 bin
+  unit + 14 cli integration + 6 lib integration + 4 mcp stdio = 149).
+
 ## [0.6.0] — 2026-07-23
 
 ### Added

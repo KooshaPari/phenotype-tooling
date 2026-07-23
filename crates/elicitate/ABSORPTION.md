@@ -475,3 +475,76 @@ src/lib.rs             — no changes (public API unchanged)
   cargo test -p elicitate --no-fail-fast
   # → 143 tests, 0 failures, 0 warnings
   ```
+
+---
+
+## v0.7.0 addendum — submit-form-from-browser (2026-07-23)
+
+v0.6.0 shipped a browsable inbox at `http://127.0.0.1:<port>/inbox` but
+the form page rendered an `<a class=ok href=/inbox/{rid}/answer>` link
+the user had to click. A real `<form method=POST action=...>` is
+required for: native HTML form submission, `curl --data`, `wget
+--post-data`, `fetch()` from JS, and any browser-equivalent HTTP client.
+v0.7.0 closes that gap.
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `GET /inbox/{rid}` (`render_form_html`) | Now emits `<form method=POST action=/inbox/{rid}/answer class=actions>` with the right `<input>` / `<textarea>` / `<select>` / `<input type=checkbox>` widget per `FieldSpec` variant, plus Submit + Cancel buttons. |
+| `GET /inbox/{rid}/answer` | Re-renders the form so a user who navigates back / lands on the URL directly sees the same submission UI. |
+| `POST /inbox/{rid}/answer` | Parses the form-encoded body (`value`, `integer`, `boolean`, `notes`, `cancel`, `confirm`), validates the spec, calls `coerce_field_value` / `finalize` / writes the JSON response file, then `302` redirects the browser to `/inbox/{rid}/done`. |
+| `GET /inbox/{rid}/done` | Confirmation page rendered from `views::render_answer_html()`. "Answer received" or "Request cancelled" depending on the finalised state. |
+| `submit_answer` | Validates `req.spec` before processing so a stale / corrupt spec file on disk never takes down the submit path. `cancel=1` only takes precedence over `confirm=ok` when `confirm` is absent (a Submit click sets `confirm`; a Cancel click sets `cancel`). |
+
+### Modules touched
+
+```
+src/views/mod.rs          — added render_field_widget(&FieldSpec) (~140 lines)
+                            + rewrote render_form_html to wrap widgets in a real <form method=POST>
+src/inbox/daemon.rs       — Route::Done added to Route enum
+                            + parse_route handles /inbox/{rid}/answer and /inbox/{rid}/done
+                            + handle_connection: Route::Answer now handles GET (re-render form)
+                            + Route::Done renders confirmation page via views::render_answer_html
+                            + submit_answer validates spec + parses confirm/cancel buttons
+                            + redirect_response helper for 302
+src/spec.rs               — no changes (FieldValue + ElicitResponse::Answered already existed from v0.1)
+src/inbox/mod.rs          — no changes (PendingRequest reused)
+src/lib.rs                — no changes (public API unchanged)
+```
+
+### Risks introduced by v0.7.0
+
+| Risk | Mitigation |
+|---|---|
+| **CSRF / hostile form submission** — anyone with localhost access can POST to `/inbox/{rid}/answer` | Same loopback-only policy as v0.3 — `--bind 0.0.0.0` is refused without `--i-know-what-im-doing`. Any localhost process can already read `<inbox>/inbox/*.json`, so the form is not new attack surface. |
+| **Form body size** — a malicious POST could OOM the daemon via huge `value=` | `content-length` is parsed from headers; the daemon allocates `vec![0u8; content_length]` and reads exactly that many bytes. No streaming. For v0.7.0 we accept the existing risk profile; future hardening could cap at e.g. 16 KB. |
+| **`<form method=POST>` submission triggers browser "Confirm form resubmission?" on back/refresh** | The 302 redirect to `/inbox/{rid}/done` lands the user on a GET page, so a refresh re-fetches the confirmation, not the submission. |
+| **Spec validation runs on every POST** | `PromptSpec::validate()` is O(field-spec-size) — microseconds. Negligible. |
+| **`cancel=1` + `confirm=ok` both set** (impossible from a single HTML form click, but possible via curl) | `wants_cancel = payload.cancel.is_some() && payload.confirm.is_none()` — Submit always wins if both are present, which matches the principle of least surprise (the user explicitly confirmed). |
+
+### New tests (6, all green)
+
+| Test | What it checks |
+|---|---|
+| `views::tests::form_emits_post_action` | The form page emits `<form method=POST action=/inbox/{rid}/answer …>` plus Submit + Cancel buttons. |
+| `views::tests::text_field_renders_input` | `FieldSpec::Text` emits `<input type=text name=value …>` with placeholder, default, maxlength; `secret=true` flips to `type=password`. |
+| `views::tests::choice_field_renders_select` | `FieldSpec::Choice` emits `<select name=value>` with one `<option>` per `ChoiceOption`; `default_index` selects the right option via `selected`. |
+| `views::tests::boolean_field_renders_checkbox` | `FieldSpec::Boolean` emits `<input type=checkbox name=boolean value=on>`; `default=true` adds `checked`. |
+| `inbox::daemon::tests::post_handler_writes_answer` | End-to-end: POST a form-encoded body, confirm the request moves to `Answered` in `answered/` with the captured `FieldValue::Choice`, and that the cancel button flips to `Cancelled` with notes preserved. |
+| `inbox::daemon::tests::parse_route_inbox_subpaths` | `/inbox/{rid}/answer` and `/inbox/{rid}/done` resolve to `Route::Answer` and `Route::Done`; legacy `/answer/{rid}` preserved. |
+
+### Sign-off (v0.7.0)
+- Bumps `[package] version = "0.7.0"` in `Cargo.toml`.
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod`.
+- Reviewer checklist: re-run `cargo test -p elicitate --no-fail-fast`
+  and verify the 6 new tests (4 widget tests + 1 POST handler test +
+  1 route parser test) are green.
+- Replay:
+  ```
+  cargo build -p elicitate
+  cargo build -p elicitate --features tray-native
+  cargo test -p elicitate --no-fail-fast
+  cargo test -p elicitate --features tray-native --no-fail-fast
+  # → 149 tests, 0 failures, 0 warnings (both feature configurations)
+  ```
