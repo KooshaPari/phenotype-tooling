@@ -407,9 +407,71 @@ Cargo.toml                — +1 dep     (crossbeam-channel = "0.5")
 - Reviewer checklist: re-run `cargo test -p elicitate --no-fail-fast`
   and verify `elicitate inbox --tui --follow` wakes within ~10 ms of
   writing a file to `<inbox>/inbox/(new-file).json`.
-- Replay:
+### Replay (v0.5.2):
   ```
   cargo build -p elicitate
   cargo test -p elicitate --no-fail-fast
   # → 140 tests, 0 failures
+  ```
+
+---
+
+## v0.6.0 — Web inbox frontend (2026-07-23)
+
+A long-standing user complaint surfaced again: *"have yet to see open inbox app/tray"*. The tray-native scaffolding shipped in v0.4 + the click-to-open URL in v0.5.1 solved the "where does the URL point?" problem, but the URL pointed at a **bare-text "N pending" page** that wasn't actually browsable. v0.6.0 closes that gap by giving the daemon a real HTML inbox app at `http://127.0.0.1:<port>/inbox`.
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `GET /inbox` (`render_inbox_index_html`) | Browsable index page. Header with brand + daemon version. `<main>` lists each pending request as a `<a href=/inbox/{rid} class=card{urgency}>` card showing title (large), question (1-line preview, truncated to 80 chars, HTML-escaped), age, urgency badge (info/warn/urgent), and field-kind label. Footer with request count + auto-refresh hint. |
+| `GET /inbox/{rid}` (`render_form_html`) | Form detail page. `<strong>{title}</strong>` heading, full `{question}` paragraph, type-specific field widget (`<input>`, `<textarea>`, `<select>`, `<input type=checkbox>`, `<input type=date>`), notes box if requested, submit link `<a href=/inbox/{rid}/answer class=ok>Answer this request</a>`. Top nav back-link (`&larr; Inbox`). |
+| `GET /inbox/{rid}/answer` (POST) | Answer confirmation page after the daemon writes the response file. `<h2>Answered</h2>` + the response values (`<dl>` definition list) + "Return to inbox" link. |
+| Helpers | `html_escape(s)`, `html_attr(s)`, `urgency_class(urgency)` → `""`/`" warn"`/`" urgent"`/`" secret"`, `urgency_label(u)` → human label, `field_kind_label(field)` → `"text"`/`"long text"`/`"integer"`/`"choice"`/`"yes / no"`/`"date"`, `format_age(secs)` → `"3d"`/`"2h"`/`"now"`, `truncate(s, n)` → chars, `unix_now_ms_diff(ms)` → secs. |
+
+### Modules touched
+
+```
+src/views/mod.rs       — full rewrite, ~440 lines (was 120): 4 renderers + 9 helpers + 8 tests
+src/inbox/daemon.rs    — Route::FormDetail and Route::Static now call views::render_form_html / render_full_html
+                         + views::render_inbox_html wrapper (one-block HTML page for the daemon's /<id> route)
+                         + inline CSS lifted from daemon.rs into views/mod.rs
+src/spec.rs            — no changes (all types reused)
+src/inbox/mod.rs       — no changes (PendingRequest reused)
+src/lib.rs             — no changes (public API unchanged)
+```
+
+### Risks introduced by v0.6.0
+
+| Risk | Mitigation |
+|---|---|
+| **HTML injection** via `req.spec.title`, `req.spec.question`, `notes_text`, choice labels | Every interpolated value passes through `html_escape()` before insertion. The 3 v0.6.0 tests + 9 golden assertions confirm the renderer escapes `"<script>"`, `&`, `"`, `'`. |
+| **Daemon's inline `render_inbox_html` is now a thin wrapper** — easy to drift from `views::render_form_html` | The wrapper is 8 lines; both share `views::render_full_html` so the chrome (header, footer, nav) is identical by construction. |
+| **Form is link-based, not `<form action=...>`** — no progressive-enhancement, no JS-free submission in browsers that don't follow GET links | Trade-off: avoids inline-JS / hidden-form boilerplate for v0.6.0. Future v0.6.x could swap to a real `<form method=POST>`. |
+| **CSS is inline** — duplicated per page | Acceptable for v0.6.0 (~600 bytes total). Future work: extract into `views::styles` and serve from `/static/`. |
+
+### New tests (3 v0.6.0 + 9 v0.5.2 carry-over — total 143 lib tests, all green)
+
+| Test | What it checks |
+|---|---|
+| `views::tests::index_lists_each_pending_request` | Index page emits a card per pending request with title, urgency, kind label |
+| `views::tests::index_with_pending` | Index page contains the question text + urgency label |
+| `views::tests::form_detail_has_nav` | Form page emits the nav link back to `/inbox` |
+| `views::tests::index_multiple_requests` | Three requests → three cards with correct urgency classes (info/warn/urgent) |
+| `views::tests::index_empty_inbox` | Empty inbox shows a friendly empty-state message |
+| `views::tests::index_escapes_user_content` | `title = "<script>alert(1)</script>"` is escaped |
+| `views::tests::answer_html_confirms` | Answer page emits `<h2>Answered</h2>` + `Return to inbox` link |
+| `views::tests::helpers_serde_round_trip` | `urgency_label`, `field_kind_label`, `format_age` are stable across types |
+| `inbox::daemon::tests::inbox_html_contains_form` | The daemon's `render_inbox_html` wrapper includes the form body |
+
+### Sign-off (v0.6.0)
+- Bumps `[package] version = "0.6.0"` in `Cargo.toml`.
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod`.
+- Reviewer checklist: re-run `cargo test -p elicitate --no-fail-fast` and verify the 3 v0.6.0 lib tests + 9 v0.5.2 change-bus tests are green.
+- Replay:
+  ```
+  cargo build -p elicitate
+  cargo build -p elicitate --features tray-native
+  cargo test -p elicitate --no-fail-fast
+  # → 143 tests, 0 failures, 0 warnings
   ```

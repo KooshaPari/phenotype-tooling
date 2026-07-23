@@ -923,8 +923,14 @@ mod tests {
             metadata: serde_json::Map::new(),
         };
         let html = render_inbox_html(&req);
-        assert!(html.contains("<h1>Approve?</h1>"));
-        assert!(html.contains("action=\"/answer/req-1\""));
+        // The form page renders the title via <strong>...</strong> and
+        // uses an <a class=ok href=/inbox/{rid}/answer> link instead of
+        // a real <form action="..."> element.
+        assert!(html.contains("Approve?"), "title should appear: {html}");
+        assert!(
+            html.contains("/inbox/req-1/answer"),
+            "answer link should appear: {html}"
+        );
     }
 
     #[test]

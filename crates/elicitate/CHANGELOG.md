@@ -5,6 +5,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.6.0] — 2026-07-23
+
+### Added
+- **Web inbox frontend** (`src/views/mod.rs`) — a browsable
+  HTML/CSS inbox at `/inbox` that the daemon serves directly. No
+  external server, no extra binaries. Three pages:
+  - `/inbox` — list of all pending requests as `<a class="card{urg}">`
+    cards sorted newest-first, with urgency badges (`info` / `warn`
+    / `urgent` / `secret`), age stamp (`format_age`), and a 80-char
+    truncated preview.
+  - `/inbox/<id>` — full form detail (mirrors TUI detail pane): title,
+    question, field with the right input type, optional notes box,
+    button labels, "Return to inbox" navbar.
+  - `/inbox/<id>/answer` — confirmation page after answer submission,
+    with the captured values displayed and a `Return to inbox` link.
+- **`render_inbox_index_html()`**, **`render_form_html()`**,
+  **`render_answer_html()`** — pure functions, no I/O, no shared
+  mutable state. They take `&PendingRequest` (or a slice of pending
+  requests) and return `String`. Easy to unit-test.
+- **`urgency_class()`** and **`urgency_label()`** helpers — map
+  `Urgency::{Info,Warning,Error,Secret}` to CSS class + display
+  label. Shared between the index page and the form detail page.
+- **`html_escape()` / `html_attr()`** — minimal HTML escape helpers
+  (covers `&`, `<`, `>`, `"`). Used on every interpolated value.
+- **`format_age()` / `truncate()` / `unix_now_ms_diff()`** — small
+  date/text helpers, shared between index + form pages.
+- **`NAV_HTML`** — the "← Inbox" back-nav fragment, identical on every
+  detail page.
+- **8 new golden-HTML tests** in `views::tests`:
+  `index_empty_dashboard`, `index_with_pending`, `index_multiple_requests`,
+  `form_detail_has_nav`, `answer_page_returns_to_inbox`,
+  `urgency_class_color_mapping`, `field_kind_label_format`,
+  `html_escape_special_chars`.
+- **1 new daemon integration test**: `inbox_html_contains_form`
+  — verifies the inline daemon `render_inbox_html` wrapper around
+  `views::render_form_html` produces the expected HTML.
+
+### Changed
+- The daemon's `Route::Index` handler now returns the full
+  HTML page from `views::render_inbox_index_html(&pending)`.
+  Previously it returned a bare `"elicitate inbox daemon — N pending"`
+  text sentence.
+- Daemon's `Route::Answer` (POST) now renders the answer
+  confirmation page from `views::render_answer_html(&req, &values)`
+  instead of an inline fragment.
+
+### Fixed
+- v0.5.1's `inbox --open` no longer needs to know the bound port:
+  the inbox HTML pages link to themselves with the daemon's actual
+  bind address via the `inbox_live_url()` helper.
+
 ## [0.5.2] — 2026-07-22
 
 ### Added

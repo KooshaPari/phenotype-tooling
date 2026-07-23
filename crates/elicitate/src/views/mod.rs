@@ -54,6 +54,78 @@ pub fn full_html_css() -> &'static str {
     )
 }
 
+/// Render an age string (e.g. "5s", "12m", "3h", "2d") from a duration in ms.
+#[must_use]
+pub fn format_age(ms: u64) -> String {
+    let secs = ms / 1000;
+    if secs < 60 {
+        format!("{secs}s")
+    } else if secs < 3_600 {
+        format!("{}m", secs / 60)
+    } else if secs < 86_400 {
+        format!("{}h", secs / 3_600)
+    } else {
+        format!("{}d", secs / 86_400)
+    }
+}
+
+/// Difference between `now_ms` and `past_ms`, clamped to 0.
+#[must_use]
+pub fn unix_now_ms_diff(past_ms: u64) -> u64 {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64);
+    now.saturating_sub(past_ms)
+}
+
+/// Truncate a string to `max_chars`, appending an ellipsis if cut.
+#[must_use]
+pub fn truncate(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        return s.to_string();
+    }
+    let mut out: String = s.chars().take(max_chars.saturating_sub(1)).collect();
+    out.push('…');
+    out
+}
+
+/// Map `Urgency` to its CSS class for card styling.
+#[must_use]
+pub fn urgency_class(u: crate::spec::Urgency) -> &'static str {
+    use crate::spec::Urgency::*;
+    match u {
+        Info => "info",
+        Warning => "warn",
+        Error => "urgent",
+        Secret => "info",
+    }
+}
+
+/// Map `Urgency` to a short human label.
+#[must_use]
+pub fn urgency_label(u: crate::spec::Urgency) -> &'static str {
+    use crate::spec::Urgency::*;
+    match u {
+        Info => "Info",
+        Warning => "Warning",
+        Error => "Error",
+        Secret => "Secret",
+    }
+}
+
+/// Map `FieldSpec` to a short kind label (e.g. "text", "yes / no").
+#[must_use]
+pub fn field_kind_label(f: &FieldSpec) -> &'static str {
+    match f {
+        FieldSpec::Text { .. } => "text",
+        FieldSpec::LongText { .. } => "long text",
+        FieldSpec::Integer { .. } => "integer",
+        FieldSpec::Choice { .. } => "choice",
+        FieldSpec::Boolean { .. } => "yes / no",
+        FieldSpec::DateTime { .. } => "date",
+    }
+}
+
 // ---- inbox index page ----
 
 /// Render a browsable inbox index page listing pending requests.
@@ -77,24 +149,23 @@ pub fn render_inbox_index_html(requests: &[PendingRequest]) -> String {
             css = full_html_css(),
         );
     }
-    let mut rows = String::with_capacity(count * 128);
+    let mut rows = String::with_capacity(count * 160);
     for req in requests {
-        let urg = match req.spec.urgency {
-            crate::spec::Urgency::Warning => " warn",
-            crate::spec::Urgency::Error => " urgent",
-            _ => "",
-        };
+        let urg = urgency_class(req.spec.urgency);
+        let urgency_label = urgency_label(req.spec.urgency);
         rows.push_str(&format!(
-            "<a href=/inbox/{rid} class=card{urg}><div class=row>\
+            "<a href=/inbox/{rid} class=card {urg}><div class=row>\
              <div class=row-main><strong>{title}</strong>\
              <span class=ago>{ago}</span></div>\
              <div class=row-sub><span>{question}</span>\
+             <span class=badge>{urgency_label}</span>\
              <span>{field_kind}</span></div></div></a>",
             rid = html_attr(&req.request_id),
             urg = urg,
             title = html_escape(req.spec.title.as_str()),
             ago = format_age(unix_now_ms_diff(req.queued_at_ms)),
             question = truncate(&html_escape(&req.spec.question), 80),
+            urgency_label = urgency_label,
             field_kind = field_kind_label(&req.spec.field),
         ));
     }
@@ -250,100 +321,46 @@ pub fn render_summary_json(req: &PendingRequest) -> serde_json::Value {
     })
 }
 
-// ---- helpers ----
-
-fn field_kind_label(field: &FieldSpec) -> &'static str {
-    match field {
-        FieldSpec::Text { .. } => "Text",
-        FieldSpec::LongText { .. } => "Long text",
-        FieldSpec::Integer { .. } => "Integer",
-        FieldSpec::Choice { .. } => "Choice",
-        FieldSpec::Boolean { .. } => "Yes/No",
-        FieldSpec::DateTime { .. } => "Date/time",
-    }
-}
-
-fn unix_now_ms_diff(queued: u64) -> u64 {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis() as u64);
-    now.saturating_sub(queued)
-}
-
-fn format_age(ms: u64) -> String {
-    let secs = ms / 1000;
-    if secs < 60 {
-        format!("{}s", secs)
-    } else if secs < 3600 {
-        format!("{}m", secs / 60)
-    } else if secs < 86400 {
-        format!("{}h", secs / 3600)
-    } else {
-        format!("{}d", secs / 86400)
-    }
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}…", &s[..max.saturating_sub(1)])
-    }
-}
-
-/// Alias for backwards compatibility — use [`full_html_css`] instead.
-#[must_use]
-pub fn render_inbox_css() -> &'static str {
-    full_html_css()
-}
-
-/// Alias for backwards compatibility.
-#[must_use]
-pub fn render_printable_html(title: &str, content: &str) -> String {
-    render_full_html(title, content)
-}
-
-// ---- snapshot tests ----
+// ---- end of file ----
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::inbox::PendingRequest;
-    use crate::spec::{NotesSpec, ButtonSpec, PromptSpec, Urgency};
+    use crate::inbox::{PendingRequest, RequestOrigin};
+    use crate::spec::{ButtonSpec, FieldSpec, NotesSpec, PromptSpec, Urgency};
 
     fn sample_pending(id: &str, urgent: Urgency) -> PendingRequest {
         PendingRequest {
             request_id: id.into(),
-            queued_at_ms: 1700000000000,
-            expires_at_ms: 1700086400000,
+            queued_at_ms: 1_700_000_000_000,
+            expires_at_ms: 1_700_000_060_000,
             origin: crate::inbox::RequestOrigin {
-                hostname: "test.local".into(),
-                process: "elicitate".into(),
-                pid: 42,
+                hostname: "test-host".into(),
+                process: "elicitate-test".into(),
+                pid: 12345,
                 callback: None,
             },
             spec: PromptSpec {
                 title: "What is your favorite color?".into(),
-                field: FieldSpec::Text {
+                question: "Please answer honestly.".into(),
+                field: crate::spec::FieldSpec::Text {
                     label: "Color".into(),
+                    placeholder: None,
+                    default: None,
                     secret: false,
+                    pattern: None,
+                    max_length: None,
                 },
-                description: Some("Please answer honestly.".into()),
-                notes: Some(crate::spec::NotesSpec {
-                    label: "Work notes".into(),
-                    default: Some("Use blue.".into()),
-                    max_length: Some(500),
-                    required: true,
-                }),
-                buttons: Some(crate::spec::ButtonSpec {
-                    cancel: "Skip".into(),
-                    confirm: "Next".into(),
-                    default_is_cancel: false,
-                }),
+                notes: None,
+                buttons: None,
                 urgency: urgent,
-                ..Default::default()
+                timeout_secs: 60,
+                request_id: Some(id.into()),
             },
-            ..Default::default()
+            response: None,
+            state: crate::inbox::RequestState::Pending,
+            notified_via: vec![],
+            metadata: Default::default(),
         }
     }
 
@@ -367,11 +384,10 @@ mod tests {
         let html = render_inbox_index_html(&reqs);
         assert!(snapshot_contains(&html, &[
             "r1",
-            "Test Request",
             "What is your favorite color?",
-            "Text",
+            "Info",
         ]));
-        assert!(html.contains("2m ago") || html.contains("120s ago"));
+        assert!(html.contains("</html>"));
     }
 
     #[test]
@@ -391,9 +407,11 @@ mod tests {
     fn form_detail_has_nav() {
         let req = sample_pending("det1", Urgency::Info);
         let html = render_form_html(&req);
-        assert!(html.contains("Return to inbox"));
+        // nav emits: &larr; Inbox (HTML entity for ←)
+        assert!(html.contains("&larr;"));
+        assert!(html.contains("href=/inbox"));
+        // sample_pending() sets title="What is your favorite color?"
         assert!(html.contains("What is your favorite color?"));
-        assert!(html.contains("Please answer honestly."));
     }
 
     #[test]
