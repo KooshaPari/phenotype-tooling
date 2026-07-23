@@ -45,4 +45,4 @@ jobs:
             RANGE="${LAST_TAG}..HEAD"
           fi
           echo "Linting range: $RANGE"
-          npx --yes @commitlint/cli --config .commitlintrc.json --from="$LAST_TAG" --to=HEAD
+          npx --yes @commitlint/cli --config commitlint.config.cjs --from="$LAST_TAG" --to=HEAD
