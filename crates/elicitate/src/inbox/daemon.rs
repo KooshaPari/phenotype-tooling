@@ -23,6 +23,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::error::ElicitError;
+#[cfg(test)]
+use crate::spec::Urgency;
 use crate::inbox::notify::{NotifyChannels, surface_all};
 use crate::inbox::{
     PendingRequest, RequestState, finalize, list_pending, load,
@@ -345,13 +347,10 @@ fn handle_connection(
 
     let body = match route {
         Route::Health => Some(simple_text(200, "ok")),
-        Route::Index => Some(simple_text(
+        Route::Index => Some(text_response(
             200,
-            &format!(
-                "elicitate inbox daemon — {} pending",
-                list_pending(inbox_root)
-                    .map(|v| v.len())
-                    .unwrap_or(0)
+            &crate::views::render_inbox_index_html(
+                &list_pending(inbox_root).unwrap_or_default(),
             ),
         )),
         Route::InboxForm => match id.and_then(|id| load(inbox_root, &id).ok()) {
@@ -361,7 +360,15 @@ fn handle_connection(
         Route::Answer => {
             let id = match id {
                 Some(id) => id,
-                None => return write_response(&mut stream, 400, "Bad Request", b"missing id"),
+                None => {
+                    return write_response(
+                        &mut stream,
+                        400,
+                        "Bad Request",
+                        "text/plain; charset=utf-8",
+                        b"missing id",
+                    )
+                }
             };
             if method == "GET" {
                 // Re-render the form so a user who navigates back / lands
@@ -371,7 +378,13 @@ fn handle_connection(
                     Err(_) => Some(simple_text(404, "request not found")),
                 }
             } else if method != "POST" {
-                return write_response(&mut stream, 405, "Method Not Allowed", b"");
+                return write_response(
+                    &mut stream,
+                    405,
+                    "Method Not Allowed",
+                    "text/plain; charset=utf-8",
+                    b"",
+                );
             } else {
                 // Read body.
                 let content_length = headers
@@ -410,14 +423,34 @@ fn handle_connection(
             }
             None => Some(simple_text(404, "request not found")),
         },
-        Route::Static(path) => {
-            let stripped = path.trim_start_matches('/');
-            let bytes: Vec<u8> = match stripped {
-                "" | "index.html" => render_inbox_css().as_bytes().to_vec(),
-                other => format!("/* not found: {other} */").into_bytes(),
-            };
-            return write_response(&mut stream, 200, "OK", &bytes);
-        }
+        Route::Static(p) => match p.as_str() {
+            "" | "index.css" | "index.html" => return write_response(
+                &mut stream,
+                200,
+                "OK",
+                "text/css; charset=utf-8",
+                render_inbox_css().as_bytes(),
+            ),
+            other if other.ends_with(".css") => return write_response(
+                &mut stream,
+                200,
+                "OK",
+                "text/css; charset=utf-8",
+                render_inbox_css().as_bytes(),
+            ),
+            other => {
+                let body = format!(
+                    "not found: {other}"
+                );
+                return write_response(
+                    &mut stream,
+                    404,
+                    "Not Found",
+                    "text/plain; charset=utf-8",
+                    body.as_bytes(),
+                );
+            }
+        },
         Route::NotFound => Some(simple_text(404, "not found")),
         Route::Shutdown => {
             if method == "POST" {
@@ -430,7 +463,13 @@ fn handle_connection(
     };
 
     let body = body.unwrap_or_else(|| simple_text(500, "internal"));
-    write_response(&mut stream, 200, "OK", body.as_bytes())?;
+    write_response(
+        &mut stream,
+        200,
+        "OK",
+        "text/html; charset=utf-8",
+        body.as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -485,11 +524,12 @@ fn write_response(
     stream: &mut TcpStream,
     status: u16,
     reason: &str,
+    content_type: &str,
     body: &[u8],
 ) -> std::io::Result<()> {
     write!(
         stream,
-        "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+        "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: {content_type}\r\n\r\n",
         body.len()
     )?;
     stream.write_all(body)?;
