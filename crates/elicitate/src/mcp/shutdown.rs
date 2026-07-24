@@ -132,3 +132,65 @@ impl Drop for InFlightGuard {
         self.inflight.fetch_sub(1, Ordering::AcqRel);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn cancel_all_returns_zero_when_nothing_inflight() {
+        let coord = ShutdownCoordinator::new(Duration::from_millis(100));
+        let remaining = coord.cancel_all().await;
+        assert_eq!(remaining, 0);
+    }
+
+    #[tokio::test]
+    async fn cancel_all_waits_for_inflight_to_drain() {
+        let coord = Arc::new(ShutdownCoordinator::new(Duration::from_secs(5)));
+        let _guard = coord.register();
+        let coord_clone = coord.clone();
+        // Spawn a task that drops the guard after a short delay
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            drop(_guard);
+        });
+        let remaining = coord_clone.cancel_all().await;
+        assert_eq!(remaining, 0);
+    }
+
+    #[tokio::test]
+    async fn cancel_all_times_out_when_inflight_never_drains() {
+        let coord = ShutdownCoordinator::new(Duration::from_millis(50));
+        let _guard = coord.register();
+        let remaining = coord.cancel_all().await;
+        // The guard is never dropped, so cancel_all should time out
+        // and return the remaining count (1) after 50ms.
+        assert_eq!(remaining, 1);
+    }
+
+    #[tokio::test]
+    async fn register_increments_inflight_count() {
+        let coord = ShutdownCoordinator::new(Duration::from_secs(5));
+        assert_eq!(coord.inflight_count(), 0);
+        let guard = coord.register();
+        assert_eq!(coord.inflight_count(), 1);
+        drop(guard);
+        assert_eq!(coord.inflight_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn multiple_inflight_guards_tracked_correctly() {
+        let coord = Arc::new(ShutdownCoordinator::new(Duration::from_secs(5)));
+        let g1 = coord.register();
+        let g2 = coord.register();
+        let g3 = coord.register();
+        assert_eq!(coord.inflight_count(), 3);
+        drop(g1);
+        assert_eq!(coord.inflight_count(), 2);
+        drop(g2);
+        assert_eq!(coord.inflight_count(), 1);
+        drop(g3);
+        assert_eq!(coord.inflight_count(), 0);
+    }
+}

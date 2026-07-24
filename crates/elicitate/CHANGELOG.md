@@ -5,18 +5,58 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.9.0] — 2026-07-23
+
+### MCP graceful shutdown
+
+The MCP server (`elicitate-mcp`) previously exited abruptly on stdin EOF
+or SIGINT, dropping any in-flight requests. A `ShutdownCoordinator`
+existed in the scaffold but was never wired into the server loop.
+
+- `shutdown.rs`: Restructured `ShutdownCoordinator` with `new()` +
+  `install(Arc<Self>)`. `install()` spawns a tokio task that catches
+  SIGINT, then calls `cancel_all()` to drain in-flight requests with a
+  configurable timeout. `cancel_all()` bumps the cancel token and
+  busy-loops the inflight counter down to zero (or timeout, whichever
+  comes first).
+- `bin_mcp.rs`: `select!` between `rmcp`'s `server.waiting()` and the
+  shutdown `oneshot` receiver. On signal, prints `shutting down…`,
+  calls `coord.cancel_all(timeout)`, breaks the loop.
+- New `--shutdown-timeout-secs` flag (default 5).
+- 5 unit tests: `inflight_bumps_and_drains`, `inflight_parallel_bumps`,
+  `cancel_all_drains_parallel`, `cancel_all_waits_for_drain`,
+  `cancel_all_hits_timeout`.
+- Removed all `dead_code` allowances — the coordinator is now live.
+
+**149 tests → 154 tests (+5).**
+
+## [0.8.0] — 2026-07-23
+
+### Wire /inbox to web frontend, fix Static content-type
+
+The v0.6.0 web frontend (`render_inbox_index_html`) was shipped but
+unreachable from the daemon's root URL — `Route::Index` was still
+returning `simple_text`.
+
+- `Route::Index`: call `render_inbox_index_html(&requests)` from views.
+- `Route::Static`: serve CSS with `text/css; charset=utf-8`, retire
+  the `index.html` alias, return real 404 for unknown paths.
+- `write_response`: accept `content_type` parameter (caller controls
+  Content-Type per route).
+- All 149 tests green (+0).
+
 ## [0.7.0] — 2026-07-23
 
-### Added
-- **Real `<form method=POST>` submission from the browser** —
-  v0.6.0 emitted an `<a class=ok href=/inbox/{rid}/answer>` link the
-  user had to click. v0.7.0 replaces it with a real
-  `<form method=POST action=/inbox/{rid}/answer class=actions>`
-  containing `<input>` / `<textarea>` / `<select>` / `<input
-  type=checkbox>` widgets per the `FieldSpec` variant, plus Submit
-  and Cancel buttons. Submitting POSTs the form-encoded body to the
-  daemon, which parses + validates + writes the JSON response file
-  and redirects the browser to `/inbox/{rid}/done`.
+### Submit form from browser
+
+v0.6.0 emitted an `<a class=ok href=/inbox/{rid}/answer>` link the
+user had to click. v0.7.0 replaces it with a real
+`<form method=POST action=/inbox/{rid}/answer class=actions>`
+containing `<input>` / `<textarea>` / `<select>` / `<input
+type=checkbox>` widgets per the `FieldSpec` variant, plus Submit
+and Cancel buttons. Submitting POSTs the form-encoded body to the
+daemon, which parses + validates + writes the JSON response file
+and redirects the browser to `/inbox/{rid}/done`.
 - **`render_field_widget(&FieldSpec) -> String`** — pure helper that
   emits the per-variant widget HTML. Text → `<input type=text>`,
   LongText → `<textarea>`, Integer → `<input type=number>`, Choice →

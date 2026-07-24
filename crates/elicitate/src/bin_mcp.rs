@@ -7,19 +7,29 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
-use elicitate::mcp::ElicitateMcp;
+use clap::Parser;
 use elicitate::mcp::shutdown::ShutdownCoordinator;
+use elicitate::mcp::ElicitateMcp;
 use rmcp::ServiceExt;
+
+#[derive(Parser)]
+#[command(name = "elicitate-mcp", version)]
+struct Args {
+    /// Timeout in seconds for draining in-flight requests on shutdown.
+    #[arg(long, default_value = "5")]
+    shutdown_timeout_secs: u64,
+}
 
 #[tokio::main]
 async fn main() -> ExitCode {
     init_tracing();
+    let args = Args::parse();
 
     let server = ElicitateMcp::new();
     let transport = rmcp::transport::io::stdio();
 
     let result: Result<(), Box<dyn std::error::Error>> = async {
-        let coord = Arc::new(ShutdownCoordinator::new(Duration::from_secs(5)));
+        let coord = Arc::new(ShutdownCoordinator::new(Duration::from_secs(args.shutdown_timeout_secs)));
         let mut shutdown_rx = ShutdownCoordinator::install(Arc::clone(&coord));
 
         let server = server.serve(transport).await?;
