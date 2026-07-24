@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Extract issue metadata
         id: meta
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const issue = context.payload.issue;
@@ -34,7 +34,7 @@ jobs:
             core.setOutput('url', url);
             core.setOutput('branch', `postmortem/slo-${number}`);
       - name: Create branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Build postmortem file
         run: |
           cat > "postmortems/slo-${{ steps.meta.outputs.number }}.md" <<EOF
@@ -71,7 +71,7 @@ jobs:
           _Yes / No — explain._
           EOF
       - name: Open PR
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: ${{ steps.meta.outputs.branch }}
           title: "postmortem: SLO incident #${{ steps.meta.outputs.number }} — ${{ steps.meta.outputs.title }}"
