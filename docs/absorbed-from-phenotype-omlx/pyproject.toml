@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=83.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -85,7 +85,7 @@ grammar = [
     "xgrammar>=0.1.32",
 ]
 mcp = [
-    "mcp>=1.0.0",
+    "mcp>=1.28.1",
 ]
 modelscope = [
     "modelscope>=1.10.0",
@@ -117,7 +117,7 @@ paroquant = [
 # git-pinned mlx-lm (v0.31.3). build.py installs mlx-audio + paroquant
 # separately via --no-deps post-resolution.
 bundle = [
-    "mcp>=1.0.0",
+    "mcp>=1.28.1",
     "modelscope>=1.10.0",
     # mlx-audio[tts,stt,sts] transitives:
     "scipy>=1.11.0",
@@ -141,7 +141,7 @@ dev = [
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
-    "mcp>=1.0.0",
+    "mcp>=1.28.1",
     "venvstacks>=0.7.0",
 ]
 # PEP 735 dependency groups — consumed by `uv sync --dev`.
@@ -154,7 +154,7 @@ dev = [
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
-    "mcp>=1.0.0",
+    "mcp>=1.28.1",
     "venvstacks>=0.7.0",
 ]
 
