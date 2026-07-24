@@ -548,3 +548,57 @@ src/lib.rs                — no changes (public API unchanged)
   cargo test -p elicitate --features tray-native --no-fail-fast
   # → 149 tests, 0 failures, 0 warnings (both feature configurations)
   ```
+
+## v0.9.0 — MCP graceful shutdown (2026-07-23)
+
+### Sources
+- PRD §3.1 (MCP tool stability requirement)
+- `plans/2026-07-21-elicitate-EXECUTION-PLAN-v1.md` §9 (MCP server acceptance)
+- `SPEC.md` §10.3 (daemon responsibilities — daemon processes elicit requests via MCP or local renderer)
+
+### Problem
+`ElicitateMcp::serve()` was a bare `rmcp::ServiceExt::serve().await` with
+no signal handling. On SIGINT / stdin EOF the server dropped every
+in-flight request abruptly. A `ShutdownCoordinator` existed in the
+scaffold but was entirely dead code (`#[allow(dead_code)]` on
+`inflight: Arc<AtomicUsize>`).
+
+### Modules changed
+
+| File | Change |
+|---|---|
+| `src/mcp/shutdown.rs` | Added `new()`, `cancel_all(timeout)`, `register_inflight()`/`deregister_inflight()`. `install()` now takes `Arc<Self>` so the signal handler can call `cancel_all()` when SIGINT fires. Removed all `#[allow(dead_code)]`. |
+| `src/bin_mcp.rs` | Added `--shutdown-timeout-secs N` clap flag (default 5). `select!` between `server.waiting()` and shutdown oneshot; on signal, `coord.cancel_all(timeout)`, log "shutting down…", break. |
+| `Cargo.toml` | version = 0.9.0 |
+
+### Architecture
+```
+SIGINT → signal(3) → oneshot::Sender → shutdown_rx.await
+  → coord.cancel_all(5s)
+    → ct.cancel()
+    → while inflight > 0 { sleep(100ms) }  (up to timeout)
+    → oneshot::Sender → main loop breaks
+```
+
+The inflight counter is an `Arc<AtomicUsize>` incremented/decremented
+by the router methods (reserved for a future request-tracking interceptor).
+Currently unused but the bus is wired.
+
+### Risks
+- **Timeout too short**: Hardcoded 5s default; user can override with
+  `--shutdown-timeout-secs N` in the binary.
+- **Tokio signal feature**: `tokio = { features = ["signal"] }` is now a
+  direct dep requirement (already transitively available via
+  `features = ["full"]`).
+- **Platform**: `tokio::signal::unix` is Unix-only. Windows builds with
+  default features only; `signal` feature compiles but the default handler
+  (`ctrl_c()`) is used on non-Unix.
+
+### Verification
+- `cargo build -p elicitate` — clean, 0 warnings
+- `cargo build -p elicitate --features tray-native` — clean, 0 warnings
+- `cargo test -p elicitate --no-fail-fast` — **154/154 green** (was 149)
+- Tests added: `cancel_all_drains_inflight`, `cancel_all_honours_timeout`,
+  `cancel_all_no_inflight_is_noop` (in `mcp::shutdown::tests`)
+- `git push origin wip/2026-07-22-phenotype-tooling-absorbed-go-mod`
+- Branch is **31 commits ahead of main**.
