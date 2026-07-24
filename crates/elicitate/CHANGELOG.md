@@ -5,6 +5,124 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.9.0] — 2026-07-23
+
+### Added
+- MCP graceful shutdown via `ShutdownCoordinator`
+- `elicitate-mcp --shutdown-timeout-secs N` flag (default 5s)
+- `cancel_all()` drains in-flight requests on SIGINT before exit
+- `#[cfg(test)]` graceful-shutdown unit tests
+
+### Fixed
+- MCP server no longer exits abruptly on stdin EOF — `select!` between `server.waiting()` and shutdown signal
+
+## [0.8.0] — 2026-07-23
+
+### Fixed
+- `Route::Index` now serves the v0.6.0 `render_inbox_index_html()` page (was returning bare `simple_text`)
+- `Route::Static` CSS now served with `Content-Type: text/css; charset=utf-8` (was `text/html`)
+- `Route::Static` returns real 404 for unknown paths (was JS-style `/* not found */`)
+- `write_response` accepts caller-controlled `content_type` parameter per route
+
+## [0.7.0] — 2026-07-23
+
+### Added
+- `<form method=POST action=/inbox/{rid}/answer>` with per-field widgets:
+  - `<input type=text>` for `FieldSpec::Text` (secret → `type=password`)
+  - `<textarea>` for `FieldSpec::LongText`
+  - `<input type=number>` for `FieldSpec::Integer`
+  - `<select>` for `FieldSpec::Choice`
+  - `<input type=checkbox>` for `FieldSpec::Boolean`
+  - `<input type=date>` for `FieldSpec::DateTime`
+  - Notes `<textarea>` when `PromptSpec.notes` is set
+- `FieldValue` enum + `ElicitResponse::Answered` payload types
+- `Route::Answer(rid)` handles POST → parse form-urlencoded, validate, write answer JSON, 302 redirect to `/inbox/{rid}/done`
+- `Route::Done(rid)` confirmation page
+
+### Tests
++5: form_emits_post_action, text_field_renders_input, choice_field_renders_select, boolean_field_renders_checkbox, post_handler_writes_answer
+
+## [0.6.0] — 2026-07-23
+
+### Added
+- `views::render_inbox_index_html()` — browsable pending-requests index page with urgency badges (info / warn / urgent / secret), time-since-queued, field-kind label
+- `views::render_form_html()` with navbar linking back to `/inbox`
+- `views::render_answer_html()` — answer confirmation page
+- Helpers: `html_escape`, `html_attr`, `format_age`, `truncate`, `unix_now_ms_diff`, `urgency_class`, `urgency_label`, `field_kind_label`
+
+### Tests
++3: index_with_pending (question + urgency badge), form_detail_has_nav (navbar link), index_multiple_requests (warn class for Warning urgency)
+
+## [0.5.2] — 2026-07-22
+
+### Added
+- `InboxChangeBus` — process-wide change bus broadcasting inbox mutations to all subscribers via `crossbeam-channel`
+- `inbox::change::InboxWatcher` — blocking `wait_changed(timeout)` interface
+- `elicitate inbox --tui --follow` — replaces 1-second wall-clock polling with ~3 ms wake-up latency
+- `enqueue()` / `finalize()` call `bus::notify()` after atomic rename
+
+### Tests
++7 change-bus concurrency unit tests
+
+## [0.5.1] — 2026-07-22
+
+### Fixed
+- Tray badge/tooltip now actually update (owner thread was dropping `SetBadge`/`SetTooltip`)
+- `tray_click_url()` no longer hardcoded to `:7117` — reads daemon's actual bound port via `TrayConfig::inbox_url`
+- `elicitate inbox --open` uses `inbox_live_url` (live lockfile + TCP probe), not hardcoded port
+
+### Added
+- `elicitate open [--latest] [--spawn-if-missing] [--print-only]` — standalone open-inbox subcommand
+- `elicitate daemon --auto-open-browser` — pops inbox on first bind
+- `elicitate::inbox_live_url`, `elicitate::inbox_read_lockfile`, `elicitate::open_in_default_browser`
+
+### Tests
++4: live_url_accepts_running_daemon, live_url_returns_none_when_no_lockfile, live_url_rejects_stale_lockfile, live_url_respects_bind_filter
+
+## [0.5.0] — 2026-07-22
+
+### Added
+- Terminal inbox viewer — `elicitate inbox --tui` / `elicitate tui`
+- Split-pane layout: pending requests left, full `PromptSpec` right, status bar bottom
+- Live re-scan every 1s (`--poll-ms` configurable)
+- Default keymap: j/k/↓↑ move, Tab switch, Enter/o open in browser, r/F5 refresh, d dismiss, ? help, q/Esc quit
+- Rebindable via `ELICITATE_TUI_KEYMAP_<KEY>=<action>` env vars
+- Graceful fallback: `TERM=dumb` / no TTY → plain-text output, exit 0
+
+### Tests
++14 tui unit tests (field_summary, format_age, sort order, terminal-state marking, key handling, detail-pane render, etc.)
+
+## [0.4.0] — 2026-07-22
+
+### Added
+- Real native tray icon behind `--features tray-native`
+- Channel-based architecture: `TrayIcon` on dedicated owner thread (`objc2` types are `!Send`)
+- macOS `NSStatusItem` via `tray-icon 0.24`
+- Windows `Shell_NotifyIconW` via `tray-icon` + `windows-sys 0.61`
+- Linux GTK backend via `tray-icon`
+- Badge updates on pending-count change (clamped to u8::MAX, max display "99+")
+- Click → opens `/inbox` in default browser; right-click → menu (Show / Open latest / Quiet / Quit)
+- `NoopTray` fallback when feature is off or `--no-tray` is passed
+
+### Tests
++7 tray module unit tests, +1 daemon smoke test (daemon_with_tray_disabled)
+
+## [0.3.0] — 2026-07-22
+
+### Added
+- `elicitate install` — copies binaries, exports `PATH=`, registers LaunchAgent/schtasks
+- `elicitate uninstall` — reverses idempotently
+- `elicitate daemon` — local HTTP inbox server at `127.0.0.1:7117`
+- `elicitate ask --async` — writes deferred request to inbox dir, agent continues immediately
+- `elicitate wait --request-id ID [--timeout S]` — polls for answer
+- `elicitate answer --request-id ID --value k=v` — scripted reply
+- `elicitate inbox {--list, --show ID, --purge}` — inspect / clean
+- Tray stubs per `cfg(target_os)` — macOS `osascript`, Windows PowerShell
+- Notify fanout `NotifyChannels { imessage, sms, email }` — outbound-only, opt-in via `ELICITATE_NOTIFY_*`
+
+### Tests
++14 CLI integration tests (install, uninstall, inbox, daemon, ask-async)
+
 ## [0.2.0] — 2026-07-22
 
 ### Added
