@@ -4,8 +4,11 @@
 //! to Forge, Codex, Cursor, Claude Code, or any MCP-compatible host.
 
 use std::process::ExitCode;
+use std::sync::Arc;
+use std::time::Duration;
 
 use elicitate::mcp::ElicitateMcp;
+use elicitate::mcp::shutdown::ShutdownCoordinator;
 use rmcp::ServiceExt;
 
 #[tokio::main]
@@ -16,8 +19,19 @@ async fn main() -> ExitCode {
     let transport = rmcp::transport::io::stdio();
 
     let result: Result<(), Box<dyn std::error::Error>> = async {
+        let coord = Arc::new(ShutdownCoordinator::new(Duration::from_secs(5)));
+        let mut shutdown_rx = ShutdownCoordinator::install(Arc::clone(&coord));
+
         let server = server.serve(transport).await?;
-        server.waiting().await?;
+
+        tokio::select! {
+            r = server.waiting() => { r?; }
+            _ = &mut shutdown_rx => {
+                tracing::info!("shutdown signal received, draining in-flight requests");
+                coord.cancel_all().await;
+            }
+        }
+
         Ok(())
     }
     .await;
