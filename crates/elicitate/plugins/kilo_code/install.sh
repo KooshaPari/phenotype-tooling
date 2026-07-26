@@ -22,7 +22,7 @@ if ! command -v elicitate-mcp >/dev/null 2>&1; then
 fi
 
 # 2. Write MCP server entry into ~/.config/kilo/kilo.jsonc
-KILO_CONFIG="$HOME/.config/kilo/kilo.jsonc"
+export KILO_CONFIG="$HOME/.config/kilo/kilo.jsonc"
 mkdir -p "$(dirname "$KILO_CONFIG")"
 [[ -f "$KILO_CONFIG" ]] || echo '{}' > "$KILO_CONFIG"
 
@@ -56,7 +56,6 @@ new_text = json.dumps(cfg, indent=2, sort_keys=False)
 cfg_path.write_text(new_text + "\n")
 print(f"✓ wrote {cfg_path}")
 PYEOF
-export KILO_CONFIG="$KILO_CONFIG"
 
 # 3. Install the elicitate skill into ~/.kilo/skills/
 SKILL_SRC="$SRC/crates/elicitate/.elicitate/skills/elicitate/SKILL.md"

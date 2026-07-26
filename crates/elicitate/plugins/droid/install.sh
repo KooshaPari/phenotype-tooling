@@ -6,27 +6,25 @@
 set -euo pipefail
 
 SRC="/Users/kooshapari/CodeProjects/Phenotype/repos/phenotype-tooling"
-BIN_DIR="$SRC/target/debug"
 
 # 1. Resolve the elicitate-mcp binary
 if ! command -v elicitate-mcp >/dev/null 2>&1; then
-  TARGET="$BIN_DIR/elicitate-mcp"
-  if [[ -x "$TARGET" ]]; then
-    export PATH="$BIN_DIR:$PATH"
-    echo "→ using elicitate-mcp from $TARGET"
-  else
-    echo "→ building elicitate-mcp..."
-    (cd "$SRC" && cargo build -p elicitate --bin elicitate-mcp)
-    export PATH="$BIN_DIR:$PATH"
-  fi
+  echo "→ elicitate-mcp not on PATH"
+  exit 1
 fi
 
 # 2. Write MCP server entry into ~/.factory/mcp.json
 DROID_CONFIG="$HOME/.factory/mcp.json"
+# Remove broken symlinks before writing — droid reads the resolved file
+if [[ -L "$DROID_CONFIG" ]] && [[ ! -e "$DROID_CONFIG" ]]; then
+  echo "→ removing broken symlink at $DROID_CONFIG"
+  rm -f "$DROID_CONFIG"
+fi
 mkdir -p "$(dirname "$DROID_CONFIG")"
 [[ -f "$DROID_CONFIG" ]] || echo '{}' > "$DROID_CONFIG"
 
-python3 <<'PYEOF'
+# 3. Use Python heredoc for safe JSON merge (preserves any other MCP servers)
+DROID_CONFIG="$DROID_CONFIG" python3 <<'PYEOF'
 import json, os, pathlib
 
 cfg_path = pathlib.Path(os.environ["DROID_CONFIG"])
@@ -46,9 +44,8 @@ servers["elicitate"] = {
 cfg_path.write_text(json.dumps(cfg, indent=2, sort_keys=False) + "\n")
 print(f"✓ wrote {cfg_path}")
 PYEOF
-export DROID_CONFIG="$DROID_CONFIG"
 
-# 3. Install the elicitate skill into ~/.factory/skills-dir/elicitate
+# 4. Install the elicitate skill into ~/.factory/skills-dir/elicitate
 SKILL_SRC="$SRC/crates/elicitate/.elicitate/skills/elicitate/SKILL.md"
 SKILL_DIR="$HOME/.factory/skills-dir/elicitate"
 SKILL_DEST="$SKILL_DIR/SKILL.md"
@@ -56,7 +53,7 @@ mkdir -p "$SKILL_DIR"
 cp "$SKILL_SRC" "$SKILL_DEST"
 echo "→ installed skill at $SKILL_DEST"
 
-# 4. Verify
+# 5. Verify
 echo "→ verification:"
 grep -q '"elicitate"' "$DROID_CONFIG" || { echo "FAIL: elicitate not registered in mcp.json"; exit 1; }
 test -f "$SKILL_DEST" || { echo "FAIL: skill not installed"; exit 1; }
