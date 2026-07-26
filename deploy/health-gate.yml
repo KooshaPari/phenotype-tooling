@@ -1,0 +1,62 @@
+# Health-gate configuration for WP-29 production runtime roll-outs.
+# Consumed by .github/workflows/canary-rollout.yml + `pt deploy` subcommand.
+# When all checks pass for the canary lane, the rollout is promoted to 100%.
+
+version: "1"
+
+# Global thresholds — every check must satisfy its `must_pass` condition
+# before the rollout is promoted. If any check fails, the rollout is
+# rolled back automatically and the WP-19 incident workflow is paged.
+defaults:
+  duration_minutes: 10          # how long the canary lane runs before promotion
+  error_budget_burn_pct: 1.0    # max % of remaining error budget the canary may burn
+  rollback_on_failure: true     # auto-rollback if any check fails
+
+# Per-stream thresholds. The CLI-stream has a tighter SLO so its
+# health gate is more conservative than ops / core.
+streams:
+  cli-stream:
+    duration_minutes: 5
+    error_budget_burn_pct: 0.5
+    required_success_rate: 0.999
+
+  ops-stream:
+    duration_minutes: 10
+    error_budget_burn_pct: 1.0
+    required_success_rate: 0.99
+
+  core-stream:
+    duration_minutes: 15
+    error_budget_burn_pct: 1.0
+    required_success_rate: 0.99
+
+# WP-09 SLO checks — these are the Prometheus recording rules from
+# observability/prometheus/phenotype-tooling.rules.yml that drive the
+# PHENOTYPE-1/2/3 alerts.
+checks:
+  - name: cli_success_rate
+    type: prometheus
+    query: 'cli:dashboard:success_rate'
+    operator: '>='
+    threshold: 0.999
+    must_pass: true
+
+  - name: cli_startup_p95
+    type: prometheus
+    query: 'cli:dashboard:startup_p95'
+    operator: '<='
+    threshold: 0.2  # 200ms p95
+    must_pass: true
+
+  - name: cli_invocation_rate
+    type: prometheus
+    query: 'rate(cli_invocations_total[5m])'
+    operator: '>'
+    threshold: 1.0   # at least 1 invocation/sec to be statistically meaningful
+    must_pass: false
+
+# The health-gate runner fetches all `must_pass: true` checks, runs
+# them against the canary lane's Prometheus instance, and only
+# returns OK if every check satisfies its threshold for the full
+# duration window. On any check failure the canary is killed and
+# the previous stable deployment is reinstated.

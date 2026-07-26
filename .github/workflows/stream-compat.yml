@@ -1,0 +1,136 @@
+name: stream-compat
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/cross-stream-dependencies.json'
+      - 'workspace.metadata.toml'
+      - 'crates/phenotype-cli/src/lib.rs'
+      - 'crates/phenotype-cli/src/workspace/**'
+      - 'crates/phenotype-cli/src/observability/**'
+      - 'crates/phenotype-cli/src/deploy.rs'
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      core_version:
+        description: 'core-stream version to pin against (default: last 3 minors)'
+        required: false
+        default: ''
+
+# WP-30: assert that downstream streams keep working when core-stream is
+# pinned at N, N-1, N-2. Runs the matrix runner script which:
+#   1. Reads .github/cross-stream-dependencies.json (WP-26).
+#   2. Builds cli-stream + ops-stream with core-stream pinned at the
+#      three previous minor versions.
+#   3. Invokes `cargo test --test stream_compat` for each combination.
+#   4. Aggregates pass/fail into a markdown PR-comment + a manifest.json.
+# Non-current core-stream versions that fail any cross-stream test block
+# the PR via the required stream-compat check on branch-protection/main.json.
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  RUSTFLAGS: -D warnings
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        core_version: ['current', 'previous-1', 'previous-2']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Pin core-stream to ${\{ matrix.core_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$MATRIX_CORE_VERSION" = "current" ]; then
+            echo "Using current core-stream — no pinning"
+            exit 0
+          fi
+          # Translate 'previous-N' to the actual core-stream semver ref.
+          python3 scripts/resolve_core_version.py \
+            --strategy "$MATRIX_CORE_VERSION" \
+            --output .core-pin
+          CORE_PIN="$(cat .core-pin)"
+          echo "Pinning core-stream at $CORE_PIN"
+          # Patch workspace.metadata.toml to declare all core crates at
+          # that semver, and remove the lower bound in core-stream's
+          # own Cargo.toml so resolution backsolves to $CORE_PIN.
+          python3 scripts/pin_core_stream.py "$CORE_PIN"
+
+      - name: Resolve cargo metadata
+        shell: bash
+        run: |
+          cargo metadata --format-version 1 --no-deps > cargo-meta.json
+          echo "::notice::Captured cargo metadata ($(jq '.workspace_members | length' cargo-meta.json) workspace members)"
+
+      - name: Run stream-compat matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/stream_compat_matrix.py \
+            --core-version "$MATRIX_CORE_VERSION" \
+            --output "stream-compat-$MATRIX_CORE_VERSION.json"
+          # Fail loud if any cross-stream test failed.
+          python3 - << 'PY'
+            import json, sys
+            with open("stream-compat-$MATRIX_CORE_VERSION.json") as f:
+              d = json.load(f)
+            failed = [(core, combo) for core, combos in d["matrix"].items() for combo, status in combos.items() if status != "pass"]
+            if failed:
+              print("FAILED:", failed, file=sys.stderr)
+              sys.exit(1)
+            print("OK: all cross-stream combinations passed for", "$MATRIX_CORE_VERSION")
+          PY
+
+      - name: Upload matrix report
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-compat-${{ matrix.core_version }}-report
+          path: |
+            stream-compat-${{ matrix.core_version }}.json
+            stream-compat-${{ matrix.core_version }}.md
+
+      - name: PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: stream-compat-${{ matrix.core_version }}
+          path: stream-compat-${{ matrix.core_version }}.md
+
+  summary:
+    if: always()
+    needs: [matrix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aggregate matrix results
+        shell: bash
+        run: |
+          python3 scripts/aggregate_stream_compat_matrix.py \
+            --inputs stream-compat-current.json stream-compat-previous-1.json stream-compat-previous-2.json \
+            --output stream-compat-summary.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stream-compat-summary
+          path: stream-compat-summary.md
+      - name: Fail PR on any combination breach
+        if: needs.matrix.result != 'success'
+        run: |
+          echo "::error::stream-compat matrix failed for at least one core-stream version"
+          cat stream-compat-summary.md
+          exit 1

@@ -29,6 +29,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"], option
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", version = "0.1.0", default-features = false, features = ["server"], optional = true }
+serde_yaml = { version = "0.9", optional = true }
 
 [features]
 default = []
@@ -40,6 +41,8 @@ telemetry = ["dep:tracing-subscriber"]
 json = ["dep:serde", "dep:serde_json"]
 # Observability subcommand — exposes /metrics, /health, /slo endpoints via axum.
 observability = ["dep:phenotype-tooling-observability", "async"]
+# pt deploy subcommand — wires deploy/health-gate.yml reading + docker compose orchestration.
+deploy = ["dep:serde_yaml", "json", "async"]
 # Note (ORPHAN-2): The 8 `absorbed-*` and `all-absorbed` features that WP-01
 # scaffolded have been removed. They were declared but never referenced in
 # any source file (verified via grep across the whole workspace). The WP-07
