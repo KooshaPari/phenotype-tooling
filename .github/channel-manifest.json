@@ -1,48 +1,24 @@
 {
-  "name": "phenotype-tooling",
-  "version": "0.3.0",
-  "channels": {
-    "stable": "v0.3.0",
-    "beta": "v0.3.0-beta.1",
-    "nightly": "stream/core/main"
-  },
+  "generated_at": "2026-07-26T00:26:37Z",
   "streams": {
-    "core": {
-      "binary": "dag-scheduler",
-      "container": "phenotype-tooling:stream-core",
-      "channel_pointer": "stream/core/stable",
-      "min_client_version": "0.3.0",
-      "release_cadence": "monthly-minor"
+    "core-stream": {
+      "nightly": {
+        "version": "0.5.0-nightly.20260726",
+        "commit": "859cbb23c"
+      }
     },
-    "cli": {
-      "binary": "pt",
-      "container": "phenotype-tooling:stream-cli",
-      "channel_pointer": "stream/cli/stable",
-      "min_client_version": "0.3.0",
-      "release_cadence": "weekly-minor"
+    "cli-stream": {
+      "nightly": {
+        "version": "0.5.0-nightly.20260726",
+        "commit": "859cbb23c"
+      }
     },
-    "ops": {
-      "binary": "phenotype-tooling-observability",
-      "container": "phenotype-tooling:stream-ops",
-      "channel_pointer": "stream/ops/stable",
-      "min_client_version": "0.3.0",
-      "release_cadence": "per-feat-with-rollback-gate"
+    "ops-stream": {
+      "nightly": {
+        "version": "0.5.0-nightly.20260726",
+        "commit": "859cbb23c"
+      }
     }
   },
-  "health_gates": {
-    "success_rate_threshold": 0.999,
-    "startup_p95_threshold_ms": 200,
-    "error_budget_burn_rate_max": 5.0,
-    "rollout_pause_on_breach": true,
-    "auto_rollback_after_minutes": 30
-  },
-  "deploy": {
-    "image_registry": "ghcr.io/kooshapari/phenotype-tooling",
-    "rollout_strategy": "canary",
-    "canary_percent": 10,
-    "rollout_pause_minutes": 5,
-    "promotion_strategy": "auto-on-health-gate-green",
-    "rollback_strategy": "previous-binary-swap"
-  },
-  "notes": "WP-28/29 channel manifest: stream channel pointers + health-gate thresholds from WP-09/24. Consumers pin a channel in pt.toml; 'pt upgrade --channel beta' rolls forward. Production deploys auto-rollback when success_rate drops below 0.999 or startup_p95 > 200ms for 30 minutes."
+  "schema_version": 1
 }
