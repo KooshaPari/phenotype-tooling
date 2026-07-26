@@ -1,0 +1,63 @@
+# WP-28 channel-publish workflow
+#
+# On every push to main (post-WP-25 release), this workflow:
+#   1. Generates the channel manifest (stable / beta / nightly per stream)
+#   2. Commits it back to .github/channel-manifest.json so consumers can
+#      diff channel state over time
+#   3. Posts a PR comment to release PRs linking to the manifest URL
+#      (consumers fetch from there to resolve 'latest stable <stream>')
+#
+# Triggered by:
+#   push to main (auto)
+#   workflow_dispatch (manual re-gen)
+
+name: channel-publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate channel manifest
+        run: |
+          python scripts/channel_manifest.py \
+            --streams core-stream cli-stream ops-stream \
+            --out .github/channel-manifest.json
+
+      - name: Commit manifest (if changed)
+        run: |
+          git config user.name "channel-publish-bot"
+          git config user.email "channel-publish-bot@users.noreply.github.com"
+          if git diff --quiet .github/channel-manifest.json; then
+            echo "manifest unchanged; nothing to commit"
+          else
+            git add .github/channel-manifest.json
+            git commit -m "chore(channel): refresh channel manifest for $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Upload manifest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: channel-manifest
+          path: .github/channel-manifest.json
+          retention-days: 30

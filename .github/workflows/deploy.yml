@@ -1,0 +1,165 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/channel-manifest.json'
+      - 'deploy/**'
+      - 'Dockerfile'
+  workflow_dispatch:
+    inputs:
+      stream:
+        description: 'Stream to deploy (core / cli / ops)'
+        required: true
+        default: 'cli'
+        type: choice
+        options:
+          - core
+          - cli
+          - ops
+      channel:
+        description: 'Release channel (stable / beta / nightly)'
+        required: true
+        default: 'stable'
+        type: choice
+        options:
+          - stable
+          - beta
+          - nightly
+      canary_pct:
+        description: 'Initial canary traffic percentage'
+        required: false
+        default: '5'
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  deploy:
+    name: deploy-${{ inputs.stream || 'all' }}-${{ inputs.channel || 'stable' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PT_METRICS_PORT: '9090'
+      PT_HEALTH_GATE_PATH: 'deploy/health-gate.yml'
+      DOCKER_BUILDKIT: '1'
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup-qemu
+        uses: docker/setup-qemu-action@v3
+
+      - name: setup-buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: install-cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: install-pt
+        run: |
+          cargo install --path crates/phenotype-cli --bin pt --locked
+
+      - name: read-channel-manifest
+        id: manifest
+        run: |
+          python -c "import json; m=json.load(open('.github/channel-manifest.json','r')); \
+            s='${{ inputs.stream }}' or 'cli'; \
+            c='${{ inputs.channel }}' or 'stable'; \
+            v=m['streams'][s]['channels'][c]['version']; \
+            print(f'version={v}'); print(f'stream={s}'); print(f'channel={c}')" >> "$GITHUB_OUTPUT"
+
+      - name: build-image
+        run: |
+          STREAM="${{ inputs.stream || 'cli' }}"
+          TAG="phenotype-tooling/stream-${STREAM}:${{ steps.manifest.outputs.version }}"
+          docker buildx build \
+            --target "stream-${STREAM}" \
+            --tag "${TAG}" \
+            --tag "phenotype-tooling/stream-${STREAM}:latest" \
+            --label "org.opencontainers.image.version=${{ steps.manifest.outputs.version }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --cache-from "type=gha" \
+            --cache-to "type=gha,mode=max" \
+            --metadata-file /tmp/build-metadata.json \
+            --load \
+            .
+
+      - name: verify-image
+        run: |
+          docker run --rm --detach --name pt-verify \
+            --publish 127.0.0.1:9091:9090/tcp \
+            "phenotype-tooling/stream-${{ inputs.stream || 'cli' }}:${{ steps.manifest.outputs.version }}"
+          sleep 10
+
+          # /health returns ok
+          curl --fail http://127.0.0.1:9091/health
+          echo ""
+
+          # /metrics returns Prometheus text
+          METRICS=$(curl --fail http://127.0.0.1:9091/metrics)
+          echo "$METRICS" | head -5
+          echo "$METRICS" | grep -E "^cli_(invocations_total|errors_total|duration_seconds)" | head -5
+
+          docker stop pt-verify
+
+      - name: canary-deploy
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Canary deploy: ${{ inputs.canary_pct || '5' }}% to stream-${{ inputs.stream || 'cli' }}"
+          docker compose -f deploy/docker-compose.prod.yml \
+            --profile canary up -d
+
+      - name: health-gate-check
+        run: |
+          pt deploy health-gate check \
+            --gate deploy/health-gate.yml \
+            --target "phenotype-tooling/stream-${{ inputs.stream || 'cli' }}:${{ steps.manifest.outputs.version }}" \
+            --metrics-url http://127.0.0.1:9091/metrics \
+            --wait-seconds 30 \
+            --json > /tmp/gate-result.json
+
+          if ! python -c "import json,sys; d=json.load(open('/tmp/gate-result.json')); sys.exit(0 if d.get('passed') else 1)"; then
+            echo "::error::Health gate failed for stream-${{ inputs.stream || 'cli' }}:${{ steps.manifest.outputs.version }}"
+            cat /tmp/gate-result.json
+            exit 1
+          fi
+          echo "Health gate PASSED"
+          cat /tmp/gate-result.json
+
+      - name: sign-image-digest
+        id: sign
+        run: |
+          DIGEST=$(jq -r '.["containerimage.digest"]' /tmp/build-metadata.json)
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          cosign sign --yes "phenotype-tooling/stream-${{ inputs.stream || 'cli' }}@${DIGEST}"
+
+      - name: attach-signed-image
+        run: |
+          DIGEST="${{ steps.sign.outputs.digest }}"
+          cosign attach signature --yes \
+            --signature "phenotype-tooling/stream-${{ inputs.stream || 'cli' }}.sig" \
+            --attestation "phenotype-tooling/stream-${{ inputs.stream || 'cli' }}.att" \
+            "phenotype-tooling/stream-${{ inputs.stream || 'cli' }}@${DIGEST}"
+
+      - name: smoke-test
+        run: |
+          pt self verify --target "phenotype-tooling/stream-${{ inputs.stream || 'cli' }}:${{ steps.manifest.outputs.version }}"
+
+      - name: rollback-on-failure
+        if: failure()
+        run: |
+          echo "::warning::deploy failed — rolling back to previous version"
+          pt deploy rollback --stream "${{ inputs.stream || 'cli' }}"
+
+      - name: notify
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          echo "deploy-${{ inputs.stream || 'cli' }}-${{ inputs.channel || 'stable' }}@${{ steps.manifest.outputs.version }}: $STATUS"
+          echo "::notice title=deploy::$STATUS"
