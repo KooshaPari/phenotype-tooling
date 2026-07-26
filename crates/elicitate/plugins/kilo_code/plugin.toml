@@ -1,0 +1,30 @@
+# elicitate plugin manifest for Kilo Code (kilo)
+# Format reference: kilo mcp add --name <NAME> --command <CMD> --scope user
+
+[plugin]
+name = "elicitate"
+version = "0.9.0"
+agent = "kilo"
+description = "elicitate: native-popup forms + async inbox for agents (Kilo Code MCP server + skill)"
+
+[mcp]
+name = "elicitate-mcp"
+command = "elicitate-mcp"
+# kilo stores its config at ~/.config/kilo/kilo.jsonc (or $KILO_HOME/config.json);
+# the install.sh script registers it via `kilo mcp add --name elicitate-mcp --command elicitate-mcp --scope user`.
+
+[skill]
+source = "../../.elicitate/skills/elicitate/SKILL.md"
+destination = "~/.kilo/skills/elicitate/SKILL.md"
+
+[binaries]
+required = ["elicitate-mcp", "elicitate"]
+install_command = "cargo install --path . --bins elicitate,elicitate-mcp --locked"
+
+[verification]
+mcp_list = "kilo mcp list | grep elicitate-mcp"
+skill_present = "test -f ~/.kilo/skills/elicitate/SKILL.md"
+
+[uninstall]
+mcp_remove = "kilo mcp remove elicitate-mcp --scope user"
+skill_remove = "rm -rf ~/.kilo/skills/elicitate"
