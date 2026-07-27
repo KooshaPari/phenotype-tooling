@@ -20,3 +20,8 @@ __pycache__/
 venv/
 # ===== End standard hygiene ignores =====
 .grade-reports/
+
+# Local install-script artifacts (dropped by plugin install.sh)
+.cursor/
+.forgecode/
+.cursorrules.elicitate
