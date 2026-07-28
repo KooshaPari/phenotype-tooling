@@ -38,7 +38,7 @@ chrono = { workspace = true, features = ["serde"] }
 regex = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 schemars = "0.8"
-rmcp = { version = "1.4", features = ["server", "transport-io", "macros"], optional = true }
+rmcp = { version = "2.2", features = ["server", "transport-io", "macros"], optional = true }
 inquire = { version = "0.9", features = ["date"] }
 which = "6"
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, optional = true }
