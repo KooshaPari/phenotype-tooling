@@ -35,7 +35,6 @@ pub mod mcp;
 #[cfg(feature = "observability")]
 pub mod metrics;
 
-<<<<<<< HEAD
 /// OS tray icon (status bar item / notification area / libappindicator).
 ///
 /// Always available — when `tray-native` is disabled (the default) the
@@ -71,17 +70,6 @@ pub use tui::{
     TuiOutcome, ViewerState,
 };
 pub use tray::{build_tray, MenuAction, Tray, TrayConfig, TrayError, TrayEvent, TrayResult};
-=======
-pub use error::ElicitError;
-pub use inbox::notify::{NotifyAttempt, NotifyChannels, inbox_open_url, inbox_open_url_for};
-pub use inbox::{
-    PendingRequest, RequestOrigin, RequestState,
-    load as inbox_load, list_pending as inbox_list_pending, wait_for_response,
-};
-pub use options::{ElicitOptions, RendererPreference};
-pub use platform::Platform;
-pub use spec::{ButtonSpec, ChoiceOption, DateTimeKind, ElicitResponse, FieldSpec, FieldValue, NotesSpec, PromptSpec, Urgency};
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 pub use views::{render_form_html, render_full_html, render_plain_text, render_summary};
 
 /// Render a popup and block until the user responds (or the popup times out).
@@ -183,17 +171,9 @@ mod tests {
     fn schema_json_is_valid_json_object() {
         let s = schema_json();
         assert!(s.is_object(), "schema_json() must return a JSON object");
-<<<<<<< HEAD
-=======
-        // Must reference $defs (the schemars convention)
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
         assert!(
             s.get("$defs").is_some() || s.get("definitions").is_some(),
             "schema must contain $defs or definitions"
         );
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> origin/dependabot/cargo/schemars-1.2.1

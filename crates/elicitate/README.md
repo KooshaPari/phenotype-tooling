@@ -108,15 +108,10 @@ The inbox daemon (`elicitate daemon`) is the long-running process that:
 
 - serves `http://127.0.0.1:7117/inbox/<id>` as a printable HTML form,
 - receives `POST /answer/<id>` and persists the response, and
-<<<<<<< HEAD
 - on macOS / Windows shows a persistent **tray icon** (v0.4.0) with a pending
   count badge and click-to-open menu (Open inbox / Open latest / Toggle quiet /
   Quit). Build with `--features tray-native`; the default build ships a
   no-op tray everywhere.
-=======
-- on macOS / Windows shows a native tray notification (NSStatusItem /
-  Shell_NotifyIcon) with a click-to-open deep link.
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 The user can answer from any of: the tray menu, the HTML form, iMessage, or
 email — whichever they happen to look at first. The agent's `wait` call

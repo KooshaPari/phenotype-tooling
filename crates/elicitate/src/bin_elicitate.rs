@@ -98,13 +98,10 @@ enum Cmd {
     Daemon(DaemonArgs),
     /// Inspect the inbox: list pending, show one in detail, or open the UI.
     Inbox(InboxArgs),
-<<<<<<< HEAD
     /// Open the inbox in the default browser. Shorthand for
     /// `elicitate inbox --open`. Pass `--latest` to deep-link to the most
     /// recent pending form instead of the index page.
     Open(OpenArgs),
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
     /// Block until a queued `--async` request has been answered (or times out).
     Wait(WaitArgs),
     /// Submit an answer to a queued inbox request via the CLI (no UI).
@@ -236,7 +233,6 @@ struct DaemonArgs {
     /// Fire an OS-native notification (Notification Center / Toast).
     #[arg(long, env = "ELICITATE_NOTIFY_NATIVE")]
     native: bool,
-<<<<<<< HEAD
     /// Disable the OS tray icon even if the `tray-native` feature is on.
     /// Default: tray enabled when the feature is compiled in.
     #[arg(long)]
@@ -251,8 +247,6 @@ struct DaemonArgs {
     /// by default.
     #[arg(long, env = "ELICITATE_AUTO_OPEN_BROWSER")]
     auto_open_browser: bool,
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 }
 
 // ---- inbox ------------------------------------------------------------
@@ -275,7 +269,6 @@ struct InboxArgs {
     /// seconds.
     #[arg(long)]
     gc_age_secs: Option<u64>,
-<<<<<<< HEAD
 
     /// Launch the terminal-UI inbox viewer (`ratatui` split-pane over the
     /// inbox directory). Falls back to plain-text rendering if no TTY is
@@ -304,8 +297,6 @@ struct OpenArgs {
     /// Print the URL without opening the browser. Useful for CI / scripts.
     #[arg(long)]
     print_only: bool,
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 }
 
 // ---- wait / answer ----------------------------------------------------
@@ -363,10 +354,7 @@ fn main() -> ExitCode {
         Cmd::Uninstall(args) => cmd_uninstall(args, &inbox_dir),
         Cmd::Daemon(args) => cmd_daemon(args, &inbox_dir),
         Cmd::Inbox(args) => cmd_inbox(args, &inbox_dir),
-<<<<<<< HEAD
         Cmd::Open(args) => cmd_open(args, &inbox_dir),
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
         Cmd::Wait(args) => cmd_wait(args, &inbox_dir),
         Cmd::Answer(args) => cmd_answer(args, &inbox_dir),
         Cmd::Serve => {
@@ -672,10 +660,7 @@ fn cmd_daemon(args: DaemonArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         port: args.port,
         bind,
         notify,
-<<<<<<< HEAD
         enable_tray: !args.no_tray,
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
     };
     let handle = elicitate::inbox::daemon::start_daemon(cfg)
         .map_err(|e| e.to_string())?;
@@ -686,15 +671,11 @@ fn cmd_daemon(args: DaemonArgs, inbox_dir: &PathBuf) -> Result<(), String> {
             "port": handle.port,
             "bind": handle.bind_addr.to_string(),
             "inbox_root": handle.inbox_root,
-<<<<<<< HEAD
             "open_url": open_url_from_handle(&handle),
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
             "open_url_format": elicitate::inbox_open_url_for("<id>"),
         }))
         .unwrap()
     );
-<<<<<<< HEAD
     if args.auto_open_browser {
         let url = open_url_from_handle(&handle);
         match elicitate::open_in_default_browser(&url) {
@@ -702,8 +683,6 @@ fn cmd_daemon(args: DaemonArgs, inbox_dir: &PathBuf) -> Result<(), String> {
             Err(e) => eprintln!("auto-open failed: {e}"),
         }
     }
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
     // Block on a Ctrl-C / SIGINT / SIGTERM handler so the process stays
     // alive. EOF on stdin (a parent that closed the pipe) is ignored so
     // process supervisors like launchd and the test harness can detach us
@@ -809,7 +788,6 @@ fn wait_for_termination() {
 }
 
 fn cmd_inbox(args: InboxArgs, inbox_dir: &PathBuf) -> Result<(), String> {
-<<<<<<< HEAD
     // TUI viewer — must be checked first because it conflicts with all the
     // JSON-output / open-in-browser subcommands.
     if args.tui {
@@ -831,8 +809,6 @@ fn cmd_inbox(args: InboxArgs, inbox_dir: &PathBuf) -> Result<(), String> {
             Err(e) => return Err(e),
         }
     }
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
     if let Some(id) = args.url {
         let url = elicitate::inbox_open_url_for(&id);
         println!("{url}");
@@ -844,7 +820,6 @@ fn cmd_inbox(args: InboxArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         return Ok(());
     }
     if args.open {
-<<<<<<< HEAD
         // Discover the live daemon (honours port + bind from the lockfile,
         // not the hardcoded DEFAULT_PORT). If no daemon is running, fall
         // back to a default loopback URL so the user at least gets a
@@ -855,14 +830,6 @@ fn cmd_inbox(args: InboxArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         println!("{url}");
         let _ = std::process::Command::new(open_cmd())
             .args(open_args(&url))
-=======
-        // Use 0 = "open inbox index"; the daemon will serve it. If no
-        // daemon is running, we still print the URL.
-        let url = "http://localhost:7117/inbox";
-        println!("{url}");
-        let _ = std::process::Command::new(open_cmd())
-            .args(open_args(url))
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
             .status();
         return Ok(());
     }
@@ -921,7 +888,6 @@ fn open_args(url: &str) -> Vec<String> {
     }
 }
 
-<<<<<<< HEAD
 /// Open the inbox UI in the default browser.
 ///
 /// Discovery order:
@@ -1040,8 +1006,6 @@ unsafe fn libc_setsid() -> i32 {
     setsid()
 }
 
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 fn cmd_wait(args: WaitArgs, inbox_dir: &PathBuf) -> Result<(), String> {
     let poll = Duration::from_millis(args.poll_interval_ms);
     let overall = if args.timeout_secs == 0 {
@@ -1256,12 +1220,9 @@ mod tests {
         assert!(!cfg.native);
     }
 }
-<<<<<<< HEAD
 
 /// Build the index URL of a running daemon from its DaemonHandle.
 /// Used by `cmd_daemon --auto-open-browser` and the JSON status line.
 fn open_url_from_handle(h: &elicitate::inbox::daemon::DaemonHandle) -> String {
     format!("http://{}:{}/inbox", h.bind_addr, h.port)
 }
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1

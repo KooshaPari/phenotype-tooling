@@ -1,14 +1,7 @@
 # elicitate — Research Document
-<<<<<<< HEAD
 > **Date:** 2026-07-22 (updated for v0.5.0 — terminal inbox viewer)
 > **Owner:** @KooshaPari
 > **Status:** SHIPPED (v0.5.0 — 129 / 129 tests green)
-=======
-
-> **Date:** 2026-07-22 (updated for v0.2.0 — async inbox + install)
-> **Owner:** @KooshaPari
-> **Status:** READY-FOR-IMPLEMENTATION (v0.2.0 in review)
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 > **Crate path:** `phenotype-tooling/crates/elicitate/`
 > **Binary name:** `elicitate` (long-form `elicitate-mcp` for the MCP server mode)
 > **Tier:** 2 (extension; UX/AX-facing)
@@ -1132,15 +1125,11 @@ explicit flags.
 ### 18.8 Open follow-ups (M2)
 
 1. **Real native tray bindings** (`tray-native` feature).
-<<<<<<< HEAD
    → **Addressed in v0.4.0 — see §19.**
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 2. **`WinToast` / `BurntToast` shim** for Windows without PowerShell modules.
 3. **iOS push relay** so the iMessage URL surfaces as a true
    tap-to-open notification instead of a deep link.
 4. **HTTPS auto-cert** for `--bind-lan` (mentioned in §17.9 Q1 follow-up).
-<<<<<<< HEAD
 5. **In-process inotify** to drop the 4 Hz polling.
 
 ---
@@ -1381,6 +1370,3 @@ are enough for a 9-action keymap and avoid the YAML/TOML config-debate.
 - Multi-select actions (`x` to mark + `X` to bulk-answer).
 - TUI mode for the `answer` subcommand (readline-style multi-line
   text editor with secret-masking).
-=======
-5. **In-process inotify** to drop the 4 Hz polling.
->>>>>>> origin/dependabot/cargo/schemars-1.2.1

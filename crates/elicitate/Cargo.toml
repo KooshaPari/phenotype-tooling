@@ -1,10 +1,6 @@
 [package]
 name = "elicitate"
-<<<<<<< HEAD
 version = "0.9.0"
-=======
-version = "0.2.0"
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -41,20 +37,14 @@ tracing-subscriber = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 regex = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-<<<<<<< HEAD
 schemars = "0.8"
 crossbeam-channel = "0.5"
 rmcp = { version = "0.2", features = ["server", "transport-io", "macros"], optional = true }
-=======
-schemars = "1.2"
-rmcp = { version = "1.4", features = ["server", "transport-io", "macros"], optional = true }
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 inquire = { version = "0.7", features = ["date"] }
 which = "6"
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, optional = true }
 prometheus = { version = "0.14", optional = true }
 
-<<<<<<< HEAD
 # FFI for native tray — only compiled when the `tray-native` feature is on.
 # tray-icon handles its own platform backends; the objc2/windows-sys crates
 # here are for the badge-text and message-pump extras that tray-icon does not
@@ -76,13 +66,10 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm_0
 ratatui-crossterm = { version = "0.1", features = ["crossterm_0_29"] }
 crossterm = "0.29"
 
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 [features]
 default = ["mcp"]
 observability = ["dep:phenotype-tooling-observability", "dep:prometheus"]
 mcp = ["dep:rmcp"]
-<<<<<<< HEAD
 # Real OS tray icon (NSStatusItem on mac, Shell_NotifyIcon on win,
 # libappindicator on linux) with badge counts and menu. Off by default
 # because it pulls platform-specific dependencies and only makes sense
@@ -94,8 +81,6 @@ tray-native = [
     "dep:objc2-app-kit",
     "dep:windows-sys",
 ]
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 [dev-dependencies]
 tempfile = "3.8"

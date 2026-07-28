@@ -58,11 +58,8 @@ elicitate ask --async     # enqueue and return open_url + request_id instantly
 elicitate wait            # poll for the answer to a previously queued request
 elicitate answer          # submit an answer to a queued request (scriptable)
 elicitate inbox           # list / show / open / clean the inbox
-<<<<<<< HEAD
 elicitate inbox --tui     # launch the ratatui-based terminal inbox viewer
 elicitate tui             # shorthand for `inbox --tui`
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 elicitate daemon          # run the long-lived HTTP + tray + notifier server
 elicitate install         # one-shot setup: copies binaries, writes PATH, registers launch agent
 elicitate uninstall       # remove everything `install` added
@@ -234,7 +231,6 @@ If the daemon dies, the inbox directory is still the source of truth. The
 next daemon instance re-reads it on startup and re-notifies any request
 older than `--retry-after` that hasn't been answered.
 
-<<<<<<< HEAD
 ### 10.4 Tray icon (v0.4.0)
 
 `elicitate daemon` shows a persistent tray icon while it runs, behind the
@@ -276,9 +272,6 @@ Daemon CLI additions for v0.4.0:
   wired into `run_notifier_loop`.
 
 ### 10.5 Install
-=======
-### 10.4 Install
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 `elicitate install` is a one-shot setup that:
 
@@ -295,7 +288,6 @@ Daemon CLI additions for v0.4.0:
 --skip-path` skips step 2. `elicitate uninstall --yes` reverses everything
 without prompting.
 
-<<<<<<< HEAD
 ### 10.6 Terminal inbox viewer (TUI)
 
 `elicitate inbox --tui` opens a full-screen terminal interface on top of
@@ -347,8 +339,6 @@ The TUI does **not** spawn the daemon. It is a thin client over the
 shared `<inbox>/inbox/` directory; it works with or without a daemon
 running.
 
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
 ## 11. Acceptance criteria
 
 A reviewer should be able to:
@@ -373,7 +363,6 @@ A reviewer should be able to:
     `elicitate uninstall --prefix /tmp/test --yes` and confirm they're gone.
 12. Run `elicitate daemon --inbox-dir /tmp/test --port 0` (random port) and confirm it serves
     `GET /health` returning 200.
-<<<<<<< HEAD
 13. With `cargo build -p elicitate --features tray-native`, run
     `elicitate daemon --port 0 --inbox-dir /tmp/test` on macOS / Windows and verify
     a tray icon appears with a pending count badge. The badge increments when
@@ -466,5 +455,3 @@ The shared code path is `elicitate::open_in_default_browser(url)`,
 which routes through `mac::open` / `cmd /c start ""` /
 `xdg-open` depending on the platform — same helper as the v0.3
 notify fanout, now exported for CLI reuse.
-=======
->>>>>>> origin/dependabot/cargo/schemars-1.2.1
