@@ -116,7 +116,7 @@ jobs:
           - { crate: ecosystem-check }    # external API consumer
           - { crate: pr-health }          # external API consumer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Filter matrix (skip if not in crate_filter input)
         if: ${{ inputs.crate_filter != '' && !contains(inputs.crate_filter, matrix.crate) }}
@@ -128,7 +128,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo registry + target
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -190,7 +190,7 @@ jobs:
 
       - name: Upload mutant artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutants-${{ matrix.crate }}
           path: |
@@ -210,7 +210,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Report mutation gate not applicable
         if: ${{ needs.scope.outputs.required != 'true' }}
@@ -224,7 +224,7 @@ jobs:
 
       - name: Download all mutants-summary.txt files
         if: ${{ needs.scope.outputs.required == 'true' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: mutants-out
           pattern: mutants-*
@@ -287,7 +287,7 @@ jobs:
 
       - name: Upload aggregate mutation summary
         if: ${{ needs.scope.outputs.required == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-summary
           path: mutants-summary-all.txt

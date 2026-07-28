@@ -1,0 +1,132 @@
+name: canary-rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      stream:
+        description: 'Stream to roll out (core / cli / ops)'
+        required: true
+        default: 'cli'
+        type: choice
+        options:
+          - core
+          - cli
+          - ops
+      target_version:
+        description: 'Target version (semver, e.g. 0.3.1)'
+        required: true
+        type: string
+      start_pct:
+        description: 'Initial canary traffic percentage'
+        required: false
+        default: '5'
+        type: string
+      ramp_steps:
+        description: 'Comma-separated traffic ramp steps (e.g. 5,25,50,100)'
+        required: false
+        default: '5,25,50,100'
+        type: string
+      health_gate_path:
+        description: 'Health gate config relative to repo root'
+        required: false
+        default: 'deploy/health-gate.yml'
+        type: string
+      rollback_on_alert:
+        description: 'Roll back if PHENOTYPE-1/2/3 alert fires during ramp'
+        required: false
+        default: 'true'
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  ramp:
+    name: canary-ramp
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      STREAM: '${{ inputs.stream }}'
+      TARGET: '${{ inputs.target_version }}'
+      RAMP_STEPS: '${{ inputs.ramp_steps }}'
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install-pt
+        run: |
+          cargo install --path crates/phenotype-cli --bin pt --locked
+
+      - name: resolve-channel-manifest
+        id: manifest
+        run: |
+          python -c "import json; m=json.load(open('.github/channel-manifest.json','r')); \
+            v=m['streams']['${{ inputs.stream }}']['channels']['stable']['version']; \
+            print(f'current_stable={v}')" >> "$GITHUB_OUTPUT"
+
+      - name: baseline-deploy
+        run: |
+          pt deploy start-canary \
+            --stream "${{ inputs.stream }}" \
+            --version "${{ inputs.target_version }}" \
+            --pct "${{ inputs.start_pct }}"
+
+      - name: ramp-step
+        run: |
+          IFS=',' read -ra STEPS <<< "${{ inputs.ramp_steps }}"
+          for STEP_PCT in "${STEPS[@]}"; do
+            echo "::group::Ramp step: ${STEP_PCT}%"
+
+            pt deploy ramp-canary \
+              --stream "${{ inputs.stream }}" \
+              --version "${{ inputs.target_version }}" \
+              --pct "${STEP_PCT}"
+
+            # health-gate check at this ramp level
+            pt deploy health-gate check \
+              --gate "${{ inputs.health_gate_path }}" \
+              --target "phenotype-tooling/stream-${{ inputs.stream }}:${{ inputs.target_version }}" \
+              --metrics-url "http://127.0.0.1:9091/metrics" \
+              --wait-seconds 60 \
+              --json > /tmp/gate-${STEP_PCT}.json || true
+
+            PASSED=$(python -c "import json; print(json.load(open('/tmp/gate-${STEP_PCT}.json')).get('passed', False))")
+            if [ "$PASSED" != "True" ]; then
+              echo "::error::Health gate FAILED at ${STEP_PCT}% — rolling back"
+              pt deploy rollback --stream "${{ inputs.stream }}"
+              exit 1
+            fi
+            echo "Health gate passed at ${STEP_PCT}%"
+
+            sleep 90
+            echo "::endgroup::"
+          done
+
+      - name: promote-to-stable
+        if: success()
+        run: |
+          echo "Promoting ${{ inputs.stream }} to version ${{ inputs.target_version }}"
+          pt deploy promote \
+            --stream "${{ inputs.stream }}" \
+            --version "${{ inputs.target_version }}"
+
+          # advance the channel pointer for stable
+          python - << 'PYEOF'
+          import json
+          m = json.load(open('.github/channel-manifest.json', 'r'))
+          stream = '${{ inputs.stream }}'
+          m['streams'][stream]['channels']['stable']['version'] = '${{ inputs.target_version }}'
+          m['streams'][stream]['channels']['stable']['promoted_at'] = __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+          with open('.github/channel-manifest.json', 'w') as f:
+              json.dump(m, f, indent=2, sort_keys=True)
+              f.write('\n')
+          PYEOF
+
+      - name: notify
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          TARGET="${{ inputs.stream }}@${{ inputs.target_version }}"
+          echo "::notice title=canary-rollout::$TARGET: $STATUS"

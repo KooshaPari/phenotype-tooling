@@ -18,6 +18,16 @@
 #                                          [--template PATH]
 #                                          [--disposition PATH]
 #                                          [--dry-run] [--verbose]
+#   python bin/absorption-justification.py --refresh-inventory
+#                                          [--registry-root PATH]
+#                                          [--org NAME] [--no-cache]
+#                                          [--cache-ttl SECONDS]
+#
+# `--refresh-inventory` queries the GitHub public API via
+# `bin/branch_inventory.py` and writes `audit_candidates.json` next to the
+# registry root (same path the manual `_find_audit_candidates.py` produces).
+# It exits before the per-repo audit loop runs, so `--repos` is not required
+# when `--refresh-inventory` is set.
 #
 # Exits 0 on full success, 1 on partial success, 2 on full failure.
 # ----------------------------------------------------------------------------
@@ -322,16 +332,72 @@ def append_disposition(disposition_path: str, repo: str, meta: dict, branches: l
         fh.write("\n")
 
 
+def run_refresh_inventory(args) -> int:
+    """Invoke bin/branch_inventory.py as a subprocess and ensure the resulting
+    audit_candidates.json is written next to the registry root — the same path
+    the manual `_find_audit_candidates.py` script produces. Returns the
+    subprocess exit code (0 on success)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    inv = os.path.join(here, "branch_inventory.py")
+    out_path = os.path.join(args.registry_root, "audit_candidates.json")
+    inv_args = [
+        sys.executable, inv,
+        "--org", args.org,
+        "--out", out_path,
+    ]
+    if args.no_cache:
+        inv_args.append("--no-cache")
+    if args.cache_ttl is not None:
+        inv_args += ["--cache-ttl", str(args.cache_ttl)]
+    proc = subprocess.run(inv_args, capture_output=True, text=True, check=False)
+    if proc.stdout:
+        sys.stdout.write(proc.stdout)
+    if proc.stderr:
+        sys.stderr.write(proc.stderr)
+    if proc.returncode != 0:
+        sys.stderr.write(
+            f"[absorption-justification][ERROR] --refresh-inventory "
+            f"subprocess exited {proc.returncode}\n"
+        )
+        return proc.returncode
+    if not os.path.exists(out_path):
+        sys.stderr.write(
+            f"[absorption-justification][ERROR] --refresh-inventory did not "
+            f"produce {out_path}\n"
+        )
+        return 2
+    sys.stderr.write(
+        f"[absorption-justification] refreshed inventory at {out_path}\n"
+    )
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="Drive absorption-justification audits for a list of repos.")
-    p.add_argument("--repos", required=True, help="comma-separated repo full_names (KooshaPari/foo,KooshaPari/bar)")
+    p.add_argument("--repos", help="comma-separated repo full_names (KooshaPari/foo,KooshaPari/bar); not required when --refresh-inventory is set")
     p.add_argument("--registry-root", default=".", help="path to phenotype-registry checkout")
     p.add_argument("--audits-dir", default=None, help="where to write audit markdown files (default: <registry-root>/audits/absorption-justifications)")
     p.add_argument("--template", default=None, help="path to ABSORPTION_TEMPLATE.md (default: <registry-root>/../phenotype-tooling/bin/ABSORPTION_TEMPLATE.md)")
     p.add_argument("--disposition", default=None, help="path to disposition-index.json (default: <registry-root>/registry/disposition-index.json)")
     p.add_argument("--dry-run", action="store_true", help="do not write any files")
     p.add_argument("--verbose", action="store_true")
+    p.add_argument("--refresh-inventory", action="store_true",
+                   help="call bin/branch_inventory.py to refresh audit_candidates.json from GitHub, then exit")
+    p.add_argument("--org", default="KooshaPari",
+                   help="GitHub org for --refresh-inventory (default: KooshaPari)")
+    p.add_argument("--no-cache", action="store_true",
+                   help="with --refresh-inventory, skip the branch_inventory cache")
+    p.add_argument("--cache-ttl", type=int, default=None,
+                   help="with --refresh-inventory, override cache TTL seconds")
     args = p.parse_args()
+
+    # --refresh-inventory short-circuits the audit loop: just refresh the
+    # candidates file from GitHub and exit with the subprocess return code.
+    if args.refresh_inventory:
+        return run_refresh_inventory(args)
+
+    if not args.repos:
+        p.error("--repos is required unless --refresh-inventory is set")
 
     date = today_iso()
     # Resolve all paths against the orchestrator's own directory first (this

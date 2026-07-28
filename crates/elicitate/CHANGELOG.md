@@ -7,6 +7,7 @@ documented under "Changed".
 
 ## [0.9.0] — 2026-07-23
 
+<<<<<<< HEAD
 ### MCP graceful shutdown
 
 The MCP server (`elicitate-mcp`) previously exited abruptly on stdin EOF
@@ -125,10 +126,47 @@ and redirects the browser to `/inbox/{rid}/done`.
     preserved.
 - Total: **149 tests, 0 failures, 0 warnings** (112 lib unit + 13 bin
   unit + 14 cli integration + 6 lib integration + 4 mcp stdio = 149).
+=======
+### Added
+- MCP graceful shutdown via `ShutdownCoordinator`
+- `elicitate-mcp --shutdown-timeout-secs N` flag (default 5s)
+- `cancel_all()` drains in-flight requests on SIGINT before exit
+- `#[cfg(test)]` graceful-shutdown unit tests
+
+### Fixed
+- MCP server no longer exits abruptly on stdin EOF — `select!` between `server.waiting()` and shutdown signal
+
+## [0.8.0] — 2026-07-23
+
+### Fixed
+- `Route::Index` now serves the v0.6.0 `render_inbox_index_html()` page (was returning bare `simple_text`)
+- `Route::Static` CSS now served with `Content-Type: text/css; charset=utf-8` (was `text/html`)
+- `Route::Static` returns real 404 for unknown paths (was JS-style `/* not found */`)
+- `write_response` accepts caller-controlled `content_type` parameter per route
+
+## [0.7.0] — 2026-07-23
+
+### Added
+- `<form method=POST action=/inbox/{rid}/answer>` with per-field widgets:
+  - `<input type=text>` for `FieldSpec::Text` (secret → `type=password`)
+  - `<textarea>` for `FieldSpec::LongText`
+  - `<input type=number>` for `FieldSpec::Integer`
+  - `<select>` for `FieldSpec::Choice`
+  - `<input type=checkbox>` for `FieldSpec::Boolean`
+  - `<input type=date>` for `FieldSpec::DateTime`
+  - Notes `<textarea>` when `PromptSpec.notes` is set
+- `FieldValue` enum + `ElicitResponse::Answered` payload types
+- `Route::Answer(rid)` handles POST → parse form-urlencoded, validate, write answer JSON, 302 redirect to `/inbox/{rid}/done`
+- `Route::Done(rid)` confirmation page
+
+### Tests
++5: form_emits_post_action, text_field_renders_input, choice_field_renders_select, boolean_field_renders_checkbox, post_handler_writes_answer
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 ## [0.6.0] — 2026-07-23
 
 ### Added
+<<<<<<< HEAD
 - **Web inbox frontend** (`src/views/mod.rs`) — a browsable
   HTML/CSS inbox at `/inbox` that the daemon serves directly. No
   external server, no extra binaries. Three pages:
@@ -176,10 +214,20 @@ and redirects the browser to `/inbox/{rid}/done`.
 - v0.5.1's `inbox --open` no longer needs to know the bound port:
   the inbox HTML pages link to themselves with the daemon's actual
   bind address via the `inbox_live_url()` helper.
+=======
+- `views::render_inbox_index_html()` — browsable pending-requests index page with urgency badges (info / warn / urgent / secret), time-since-queued, field-kind label
+- `views::render_form_html()` with navbar linking back to `/inbox`
+- `views::render_answer_html()` — answer confirmation page
+- Helpers: `html_escape`, `html_attr`, `format_age`, `truncate`, `unix_now_ms_diff`, `urgency_class`, `urgency_label`, `field_kind_label`
+
+### Tests
++3: index_with_pending (question + urgency badge), form_detail_has_nav (navbar link), index_multiple_requests (warn class for Warning urgency)
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 ## [0.5.2] — 2026-07-22
 
 ### Added
+<<<<<<< HEAD
 - **InboxChangeBus** (`inbox::change`) — process-wide bus that tracks a
   monotonic generation counter and broadcasts to all subscribers via
   `crossbeam-channel`. Auto-initialized on first mutation. `enqueue()`
@@ -213,10 +261,20 @@ and redirects the browser to `/inbox/{rid}/done`.
 ### Tests
 - Total: **103 lib unit + 13 bin unit + 14 cli integration + 6 lib
   integration + 4 mcp stdio = 140 tests** (up from 133).
+=======
+- `InboxChangeBus` — process-wide change bus broadcasting inbox mutations to all subscribers via `crossbeam-channel`
+- `inbox::change::InboxWatcher` — blocking `wait_changed(timeout)` interface
+- `elicitate inbox --tui --follow` — replaces 1-second wall-clock polling with ~3 ms wake-up latency
+- `enqueue()` / `finalize()` call `bus::notify()` after atomic rename
+
+### Tests
++7 change-bus concurrency unit tests
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 ## [0.5.1] — 2026-07-22
 
 ### Fixed
+<<<<<<< HEAD
 - **Tray badge/tooltip never updated** — the v0.4 owner-thread
   architecture dropped `TrayCmd::SetBadge` and `TrayCmd::SetTooltip`
   with a "placeholder" comment. v0.5.1 actually routes them through
@@ -261,10 +319,24 @@ and redirects the browser to `/inbox/{rid}/done`.
 - Bumped total test count: **96 lib unit + 13 bin unit + 14 cli
   integration + 6 lib integration + 4 mcp stdio = 133 tests** (up
   from 129).
+=======
+- Tray badge/tooltip now actually update (owner thread was dropping `SetBadge`/`SetTooltip`)
+- `tray_click_url()` no longer hardcoded to `:7117` — reads daemon's actual bound port via `TrayConfig::inbox_url`
+- `elicitate inbox --open` uses `inbox_live_url` (live lockfile + TCP probe), not hardcoded port
+
+### Added
+- `elicitate open [--latest] [--spawn-if-missing] [--print-only]` — standalone open-inbox subcommand
+- `elicitate daemon --auto-open-browser` — pops inbox on first bind
+- `elicitate::inbox_live_url`, `elicitate::inbox_read_lockfile`, `elicitate::open_in_default_browser`
+
+### Tests
++4: live_url_accepts_running_daemon, live_url_returns_none_when_no_lockfile, live_url_rejects_stale_lockfile, live_url_respects_bind_filter
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 ## [0.5.0] — 2026-07-22
 
 ### Added
+<<<<<<< HEAD
 - **TUI inbox viewer** — `elicitate inbox --tui` (and the `elicitate tui`
   shorthand alias) opens a full-screen terminal UI built on `ratatui` 0.30
   + `crossterm` 0.29. Split-pane layout: pending requests on the left,
@@ -309,10 +381,22 @@ and redirects the browser to `/inbox/{rid}/done`.
   owning thread. Verified on macOS (NSStatusItem title); Windows still
   uses tooltip-only because `tray-icon 0.24` doesn't expose
   `Shell_NotifyIcon` `NIF_TIP` mutation in a stable way.
+=======
+- Terminal inbox viewer — `elicitate inbox --tui` / `elicitate tui`
+- Split-pane layout: pending requests left, full `PromptSpec` right, status bar bottom
+- Live re-scan every 1s (`--poll-ms` configurable)
+- Default keymap: j/k/↓↑ move, Tab switch, Enter/o open in browser, r/F5 refresh, d dismiss, ? help, q/Esc quit
+- Rebindable via `ELICITATE_TUI_KEYMAP_<KEY>=<action>` env vars
+- Graceful fallback: `TERM=dumb` / no TTY → plain-text output, exit 0
+
+### Tests
++14 tui unit tests (field_summary, format_age, sort order, terminal-state marking, key handling, detail-pane render, etc.)
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 ## [0.4.0] — 2026-07-22
 
 ### Added
+<<<<<<< HEAD
 - **Native OS tray icon** gated behind `--features tray-native`. When the
   feature is compiled in, `elicitate daemon` attaches a real status-bar item
   on macOS (`NSStatusItem` via `tray-icon` 0.24 + `objc2-app-kit` 0.3),
@@ -356,10 +440,24 @@ and redirects the browser to `/inbox/{rid}/done`.
   `tray-icon` → `objc2` → `libappindicator` (Linux) or `windows-sys`
   (Windows) and only makes sense when running `elicitate daemon` in an
   interactive session.
+=======
+- Real native tray icon behind `--features tray-native`
+- Channel-based architecture: `TrayIcon` on dedicated owner thread (`objc2` types are `!Send`)
+- macOS `NSStatusItem` via `tray-icon 0.24`
+- Windows `Shell_NotifyIconW` via `tray-icon` + `windows-sys 0.61`
+- Linux GTK backend via `tray-icon`
+- Badge updates on pending-count change (clamped to u8::MAX, max display "99+")
+- Click → opens `/inbox` in default browser; right-click → menu (Show / Open latest / Quiet / Quit)
+- `NoopTray` fallback when feature is off or `--no-tray` is passed
+
+### Tests
++7 tray module unit tests, +1 daemon smoke test (daemon_with_tray_disabled)
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 ## [0.3.0] — 2026-07-22
 
 ### Added
+<<<<<<< HEAD
 - `elicitate install` / `elicitate uninstall` — copies both binaries to a
   stable prefix, optionally appends the prefix to `PATH`, registers a
   LaunchAgent (macOS) or scheduled task (Windows) for the daemon.
@@ -379,6 +477,24 @@ and redirects the browser to `/inbox/{rid}/done`.
 - Total tests: 115 / 115 green.
 
 ## [0.2.0] — 2026-07-22
+=======
+- `elicitate install` — copies binaries, exports `PATH=`, registers LaunchAgent/schtasks
+- `elicitate uninstall` — reverses idempotently
+- `elicitate daemon` — local HTTP inbox server at `127.0.0.1:7117`
+- `elicitate ask --async` — writes deferred request to inbox dir, agent continues immediately
+- `elicitate wait --request-id ID [--timeout S]` — polls for answer
+- `elicitate answer --request-id ID --value k=v` — scripted reply
+- `elicitate inbox {--list, --show ID, --purge}` — inspect / clean
+- Tray stubs per `cfg(target_os)` — macOS `osascript`, Windows PowerShell
+- Notify fanout `NotifyChannels { imessage, sms, email }` — outbound-only, opt-in via `ELICITATE_NOTIFY_*`
+
+### Tests
++14 CLI integration tests (install, uninstall, inbox, daemon, ask-async)
+
+## [0.2.0] — 2026-07-22
+
+### Added
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 - **Async / non-blocking inbox.** `elicitate ask --async` enqueues a request
   in `~/.elicitate/inbox/` and returns immediately with `request_id` and
   `open_url`. The agent's `wait --request-id <id>` polls for the answer.

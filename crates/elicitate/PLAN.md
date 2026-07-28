@@ -73,6 +73,7 @@ form, and (optionally) iMessage / SMS / email notifications routed through exist
 - [x] Smoke-after-install: `elicitate install` copies the binary, then runs
       `elicitate smoke` to verify PATH resolution and link sanity.
 
+<<<<<<< HEAD
 ### M2 — Native tray icon (v0.4.0, addendum)
 
 On 2026-07-22 we replaced the M2 placeholder (which originally scoped the native
@@ -188,6 +189,9 @@ existing surfaces from actually working.
 The M2 scope was originally "wire the macOS / Windows / Linux GUI renderers"
 (already partially done via shell-out to `osascript` and PowerShell — see v0.3).
 What remains is upgrading from shell-out to **in-process FFI**:
+=======
+### M2 — Native renderer implementation (next)
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
 - [ ] Wire macOS renderer: `objc2` + `cocoa` build a real `NSPanel`, lay out a label + control +
       confirm/cancel, run a modal `NSApp::runModal` until the user clicks. Return the typed value
@@ -227,9 +231,15 @@ Each PR is small enough to review in ≤ 200 lines.
 5. **PR-5:** Async inbox subsystem + views + `ask --async` / `wait` / `answer` /
    `inbox` subcommands. *(done in M1)*
 6. **PR-6:** Install / uninstall + daemon + iMessage/email notify channels. *(done in M1)*
+<<<<<<< HEAD
 7. **PR-7:** Tray icon (cross-platform via `tray-icon` + `objc2-app-kit` + `windows-sys`). *(done in M2 — v0.4.0)*
 8. **PR-8:** macOS native renderer (in-process FFI). *(M3)*
 9. **PR-9:** Windows + Linux native renderers (in-process FFI). *(M3)*
+=======
+7. **PR-7:** macOS native renderer. *(M2)*
+8. **PR-8:** Windows native renderer. *(M2)*
+9. **PR-9:** Linux native renderer. *(M2)*
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 10. **PR-10:** Cross-client smoke tests + release. *(M3 / M4)*
 
 ## Review checklist (per PR)

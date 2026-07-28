@@ -6,6 +6,7 @@
 //! `CREATE_NEW_PROCESS_GROUP`), SIGTERM to the server does not
 //! propagate to the popups — they persist until the user closes them
 //! or their timeout fires. This is the desired behavior: closing the
+<<<<<<< HEAD
 //! terminal does not lose the user's in-progress answer.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -92,17 +93,48 @@ impl ShutdownCoordinator {
                 signal(SignalKind::terminate()).expect("install SIGTERM handler");
             let mut sigint =
                 signal(SignalKind::interrupt()).expect("install SIGINT handler");
+=======
+//! terminal should not lose the user's in-progress answer.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use tokio::sync::{oneshot, Mutex};
+
+#[derive(Debug, Default)]
+pub struct ShutdownCoordinator {
+    /// Map of request_id -> cancel-sender. Reserved for the future
+    /// graceful-cancellation path; not yet wired into `ElicitateMcp`.
+    #[allow(dead_code)]
+    inflight: Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>,
+}
+
+impl ShutdownCoordinator {
+    /// Install SIGINT/SIGTERM handlers. Returns immediately; the
+    /// returned `oneshot` resolves when a shutdown signal is received.
+    #[cfg(unix)]
+    pub fn install() -> tokio::sync::oneshot::Receiver<()> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            use tokio::signal::unix::{signal, SignalKind};
+            let mut sigterm = signal(SignalKind::terminate()).expect("install SIGTERM handler");
+            let mut sigint = signal(SignalKind::interrupt()).expect("install SIGINT handler");
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
             tokio::select! {
                 _ = sigterm.recv() => {},
                 _ = sigint.recv() => {},
             }
+<<<<<<< HEAD
             let remaining = this.cancel_all().await;
             tracing::info!(remaining, "graceful shutdown complete");
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
             let _ = tx.send(());
         });
         rx
     }
 
+<<<<<<< HEAD
     /// Install CTRL_CLOSE handler (Windows). Returns immediately; the
     /// returned `oneshot` resolves when a shutdown signal is received.
     /// When the signal fires, `cancel_all()` is called to drain in-flight
@@ -115,10 +147,18 @@ impl ShutdownCoordinator {
             let _ = tokio::signal::ctrl_c().await;
             let remaining = this.cancel_all().await;
             tracing::info!(remaining, "graceful shutdown complete");
+=======
+    #[cfg(not(unix))]
+    pub fn install() -> tokio::sync::oneshot::Receiver<()> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            let _ = tokio::signal::ctrl_c().await;
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
             let _ = tx.send(());
         });
         rx
     }
+<<<<<<< HEAD
 }
 
 /// RAII guard that decrements the in-flight counter when dropped.
@@ -194,3 +234,6 @@ mod tests {
         assert_eq!(coord.inflight_count(), 0);
     }
 }
+=======
+}
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1

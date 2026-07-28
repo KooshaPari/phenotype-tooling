@@ -23,15 +23,21 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::error::ElicitError;
+<<<<<<< HEAD
 #[cfg(test)]
 use crate::spec::Urgency;
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 use crate::inbox::notify::{NotifyChannels, surface_all};
 use crate::inbox::{
     PendingRequest, RequestState, finalize, list_pending, load,
     unix_now_ms,
 };
 use crate::spec::{ElicitResponse, FieldSpec, FieldValue};
+<<<<<<< HEAD
 use crate::tray::{build_tray, MenuAction, Tray, TrayConfig, TrayEvent};
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 #[cfg(test)]
 use std::net::Ipv4Addr;
 use serde::{Deserialize, Serialize};
@@ -82,10 +88,13 @@ pub struct DaemonConfig {
     pub port: u16,
     pub bind: IpAddr,
     pub notify: NotifyChannels,
+<<<<<<< HEAD
     /// If true, attempt to register a tray icon. If `tray-native` is not
     /// compiled in or the OS rejects the registration, the tray is
     /// silently a no-op.
     pub enable_tray: bool,
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 }
 
 /// Boot the daemon. Returns a handle the caller can use to shut it
@@ -130,6 +139,7 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
     let lockfile = cfg.inbox_root.join(LOCKFILE_NAME);
     write_lockfile(&lockfile, &cfg.inbox_root, actual_port, cfg.bind)?;
 
+<<<<<<< HEAD
     let tray_url = format!("http://{}:{}", cfg.bind, actual_port);
     // ---- tray icon (best-effort, never blocks boot) ---------------
     let tray: Arc<dyn Tray> = if cfg.enable_tray {
@@ -152,6 +162,8 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
             .unwrap()
     };
 
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     // ---- worker 1: HTTP server ------------------------------------
     {
         let shutdown = Arc::clone(&shutdown);
@@ -172,6 +184,7 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
         let shutdown = Arc::clone(&shutdown);
         let inbox_root = cfg.inbox_root.clone();
         let notify = cfg.notify.clone();
+<<<<<<< HEAD
         let tray_for_badge = Arc::clone(&tray);
         thread::Builder::new()
             .name("elicitate-notify".into())
@@ -188,6 +201,12 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
             .name("elicitate-tray".into())
             .spawn(move || {
                 run_tray_loop(tray.as_ref(), &shutdown, &fallback_url);
+=======
+        thread::Builder::new()
+            .name("elicitate-notify".into())
+            .spawn(move || {
+                run_notifier_loop(&inbox_root, notify, &shutdown);
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
             })?;
     }
 
@@ -208,7 +227,11 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+<<<<<<< HEAD
 pub struct LockfilePayload {
+=======
+struct LockfilePayload {
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     root: PathBuf,
     port: u16,
     bind: IpAddr,
@@ -232,7 +255,11 @@ fn write_lockfile(
     Ok(())
 }
 
+<<<<<<< HEAD
 pub fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
+=======
+fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     let path = root.join(LOCKFILE_NAME);
     let bytes = std::fs::read(&path).ok()?;
     serde_json::from_slice(&bytes).ok()
@@ -244,6 +271,7 @@ fn is_port_live(bind: IpAddr, port: u16) -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok()
 }
 
+<<<<<<< HEAD
 /// Return the live URL of a running inbox daemon, if any. Reads the
 /// daemon's lockfile and confirms the socket is actually accepting
 /// connections. Returns `None` if no daemon is running or the lockfile
@@ -264,6 +292,8 @@ pub fn live_url(root: &Path, bind_filter: Option<IpAddr>) -> Option<String> {
     Some(format!("http://{}:{}", payload.bind, payload.port))
 }
 
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 // ---- HTTP loop --------------------------------------------------------
 
 fn run_http_loop(
@@ -347,10 +377,20 @@ fn handle_connection(
 
     let body = match route {
         Route::Health => Some(simple_text(200, "ok")),
+<<<<<<< HEAD
         Route::Index => Some(text_response(
             200,
             &crate::views::render_inbox_index_html(
                 &list_pending(inbox_root).unwrap_or_default(),
+=======
+        Route::Index => Some(simple_text(
+            200,
+            &format!(
+                "elicitate inbox daemon — {} pending",
+                list_pending(inbox_root)
+                    .map(|v| v.len())
+                    .unwrap_or(0)
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
             ),
         )),
         Route::InboxForm => match id.and_then(|id| load(inbox_root, &id).ok()) {
@@ -358,6 +398,7 @@ fn handle_connection(
             None => Some(simple_text(404, "request not found")),
         },
         Route::Answer => {
+<<<<<<< HEAD
             let id = match id {
                 Some(id) => id,
                 None => {
@@ -451,6 +492,47 @@ fn handle_connection(
                 );
             }
         },
+=======
+            if method != "POST" {
+                return write_response(&mut stream, 405, "Method Not Allowed", b"");
+            }
+            let id = match id {
+                Some(id) => id,
+                None => return write_response(&mut stream, 400, "Bad Request", b"missing id"),
+            };
+            // Read body.
+            let content_length = headers
+                .iter()
+                .find_map(|h| {
+                    let (k, v) = h.split_once(':')?;
+                    if k.eq_ignore_ascii_case("content-length") {
+                        v.trim().parse::<usize>().ok()
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(0);
+            let mut buf = vec![0u8; content_length];
+            if content_length > 0 {
+                reader.read_exact(&mut buf)?;
+            }
+            match submit_answer(inbox_root, &id, &buf) {
+                Ok(_) => Some(text_response(
+                    200,
+                    "<h1>Answered</h1><p>You can close this tab.</p>",
+                )),
+                Err(e) => Some(text_response(400, &format!("<h1>Error</h1><p>{e}</p>"))),
+            }
+        }
+        Route::Static(path) => {
+            let stripped = path.trim_start_matches('/');
+            let bytes: Vec<u8> = match stripped {
+                "" | "index.html" => render_inbox_css().as_bytes().to_vec(),
+                other => format!("/* not found: {other} */").into_bytes(),
+            };
+            return write_response(&mut stream, 200, "OK", &bytes);
+        }
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
         Route::NotFound => Some(simple_text(404, "not found")),
         Route::Shutdown => {
             if method == "POST" {
@@ -463,6 +545,7 @@ fn handle_connection(
     };
 
     let body = body.unwrap_or_else(|| simple_text(500, "internal"));
+<<<<<<< HEAD
     write_response(
         &mut stream,
         200,
@@ -470,6 +553,9 @@ fn handle_connection(
         "text/html; charset=utf-8",
         body.as_bytes(),
     )?;
+=======
+    write_response(&mut stream, 200, "OK", body.as_bytes())?;
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     Ok(())
 }
 
@@ -479,7 +565,10 @@ enum Route {
     Index,
     InboxForm,
     Answer,
+<<<<<<< HEAD
     Done,
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     Static(String),
     NotFound,
     Shutdown,
@@ -500,6 +589,7 @@ fn parse_route(target: &str) -> (Route, Option<String>) {
         return (Route::Index, None);
     }
     if let Some(rest) = path.strip_prefix("/inbox/") {
+<<<<<<< HEAD
         // /inbox/{rid}/answer  → submit answer (POST) or re-render form (GET)
         // /inbox/{rid}/done   → post-submit confirmation page
         // /inbox/{rid}        → form detail
@@ -509,6 +599,8 @@ fn parse_route(target: &str) -> (Route, Option<String>) {
         if let Some(rid) = rest.strip_suffix("/done") {
             return (Route::Done, Some(rid.to_string()));
         }
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
         return (Route::InboxForm, Some(rest.to_string()));
     }
     if let Some(rest) = path.strip_prefix("/answer/") {
@@ -524,12 +616,19 @@ fn write_response(
     stream: &mut TcpStream,
     status: u16,
     reason: &str,
+<<<<<<< HEAD
     content_type: &str,
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     body: &[u8],
 ) -> std::io::Result<()> {
     write!(
         stream,
+<<<<<<< HEAD
         "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: {content_type}\r\n\r\n",
+=======
+        "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
         body.len()
     )?;
     stream.write_all(body)?;
@@ -537,6 +636,7 @@ fn write_response(
     Ok(())
 }
 
+<<<<<<< HEAD
 /// Write a 302 redirect to `location` and return `None` so the caller
 /// doesn't accidentally fall through to the default 200 path. Used by
 /// `Route::Answer` (POST) to send the browser to the confirmation page
@@ -561,6 +661,8 @@ fn redirect_response(
     Ok(None)
 }
 
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 fn simple_text(status: u16, msg: &str) -> String {
     let _ = status;
     format!(
@@ -626,17 +728,22 @@ fn format_relative_time(ms: u64) -> String {
 
 // ---- Notifier loop ----------------------------------------------------
 
+<<<<<<< HEAD
 fn run_notifier_loop(
     inbox_root: &Path,
     cfg: NotifyChannels,
     shutdown: &Arc<AtomicBool>,
     tray: Option<Arc<dyn Tray>>,
 ) {
+=======
+fn run_notifier_loop(inbox_root: &Path, cfg: NotifyChannels, shutdown: &Arc<AtomicBool>) {
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let deadline = Instant::now() + Duration::from_secs(60 * 60 * 24); // safety net
     while !shutdown.load(Ordering::SeqCst) && Instant::now() < deadline {
         match list_pending(inbox_root) {
             Ok(requests) => {
+<<<<<<< HEAD
                 let pending_count = requests
                     .iter()
                     .filter(|r| matches!(r.state, RequestState::Pending))
@@ -652,6 +759,8 @@ fn run_notifier_loop(
                     };
                     let _ = t.set_badge(&badge);
                 }
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
                 for req in requests {
                     if seen.contains(&req.request_id) {
                         continue;
@@ -689,6 +798,7 @@ fn run_notifier_loop(
     }
 }
 
+<<<<<<< HEAD
 // ---- Tray event pump --------------------------------------------------
 
 /// Long-running loop that dispatches menu events from the tray icon.
@@ -776,6 +886,8 @@ fn open_in_default_browser(url: &str) -> std::io::Result<()> {
     }
 }
 
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 // ---- Answer submission ------------------------------------------------
 
 #[derive(Debug, Deserialize)]
@@ -790,8 +902,11 @@ struct FormPayload {
     notes: Option<String>,
     #[serde(default)]
     cancel: Option<String>,
+<<<<<<< HEAD
     #[serde(default)]
     confirm: Option<String>,
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 }
 
 fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(), String> {
@@ -808,6 +923,7 @@ fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(),
         Err(e) => return Err(e.to_string()),
     };
 
+<<<<<<< HEAD
     // Validate the spec before processing — a stale / corrupt file
     // shouldn't take down the submit path.
     req.spec
@@ -820,6 +936,9 @@ fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(),
     let wants_cancel = payload.cancel.is_some() && payload.confirm.is_none();
 
     if wants_cancel {
+=======
+    if payload.cancel.is_some() {
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
         let notes = payload.notes.clone();
         finalize(inbox_root, &PendingRequest {
             state: RequestState::Cancelled,
@@ -850,7 +969,10 @@ fn url_decode_form(body: &str) -> FormPayload {
         integer: None,
         notes: None,
         cancel: None,
+<<<<<<< HEAD
         confirm: None,
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     };
     for kv in body.split('&').filter(|s| !s.is_empty()) {
         let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
@@ -861,7 +983,10 @@ fn url_decode_form(body: &str) -> FormPayload {
             "integer" => out.integer = Some(v),
             "notes" => out.notes = Some(v),
             "cancel" => out.cancel = Some(v),
+<<<<<<< HEAD
             "confirm" => out.confirm = Some(v),
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
             _ => {}
         }
     }
@@ -1032,6 +1157,7 @@ mod tests {
             metadata: serde_json::Map::new(),
         };
         let html = render_inbox_html(&req);
+<<<<<<< HEAD
         // The form page renders the title via <strong>...</strong> and
         // uses a real <form method=POST action=/inbox/{rid}/answer>
         // element (v0.7.0 contract — browsers POST the body back to the
@@ -1192,6 +1318,10 @@ mod tests {
             parse_route("/answer/rid-7"),
             (Route::Answer, Some("rid-7".into()))
         );
+=======
+        assert!(html.contains("<h1>Approve?</h1>"));
+        assert!(html.contains("action=\"/answer/req-1\""));
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     }
 
     #[test]
@@ -1206,7 +1336,10 @@ mod tests {
             port,
             bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
             notify: NotifyChannels::default(),
+<<<<<<< HEAD
             enable_tray: false,
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
         };
         let handle = start_daemon(cfg).unwrap();
         assert!(handle.port == port);
@@ -1236,6 +1369,7 @@ mod tests {
         handle.stop().unwrap();
         thread::sleep(Duration::from_millis(200));
     }
+<<<<<<< HEAD
 
     // ---- v0.5.1: tray-open regressions ----
 
@@ -1315,6 +1449,8 @@ mod tests {
         std::fs::create_dir_all(&p).unwrap();
         p
     }
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 }
 
 #[cfg(test)]

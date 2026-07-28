@@ -222,6 +222,7 @@ fn run_osascript(script: &str) -> Result<(), String> {
     }
 }
 
+<<<<<<< HEAD
 /// Open `url` in the user's default browser using the platform's
 /// "open" command:
 ///
@@ -233,6 +234,9 @@ fn run_osascript(script: &str) -> Result<(), String> {
 /// is expected to log and continue — opening the browser is a
 /// best-effort side channel, never a hard requirement.
 pub fn open_in_default_browser(url: &str) -> Result<(), String> {
+=======
+fn open_url(url: &str) -> Result<(), String> {
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     use std::process::Command;
     let (cmd, args): (&str, Vec<&str>) = if cfg!(target_os = "macos") {
         ("open", vec![url])
@@ -252,10 +256,13 @@ pub fn open_in_default_browser(url: &str) -> Result<(), String> {
     }
 }
 
+<<<<<<< HEAD
 fn open_url(url: &str) -> Result<(), String> {
     open_in_default_browser(url)
 }
 
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 /// Best-effort HTTP POST of a JSON body. We don't pull in `reqwest`
 /// just for this — a raw TCP write to the host parsed from the URL is
 /// enough for the small NTFY-style payloads we send. If the URL is

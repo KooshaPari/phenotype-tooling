@@ -4,6 +4,7 @@
 //! to Forge, Codex, Cursor, Claude Code, or any MCP-compatible host.
 
 use std::process::ExitCode;
+<<<<<<< HEAD
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -24,11 +25,21 @@ struct Args {
 async fn main() -> ExitCode {
     init_tracing();
     let args = Args::parse();
+=======
+
+use elicitate::mcp::ElicitateMcp;
+use rmcp::ServiceExt;
+
+#[tokio::main]
+async fn main() -> ExitCode {
+    init_tracing();
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 
     let server = ElicitateMcp::new();
     let transport = rmcp::transport::io::stdio();
 
     let result: Result<(), Box<dyn std::error::Error>> = async {
+<<<<<<< HEAD
         let coord = Arc::new(ShutdownCoordinator::new(Duration::from_secs(args.shutdown_timeout_secs)));
         let mut shutdown_rx = ShutdownCoordinator::install(Arc::clone(&coord));
 
@@ -42,6 +53,10 @@ async fn main() -> ExitCode {
             }
         }
 
+=======
+        let server = server.serve(transport).await?;
+        server.waiting().await?;
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
         Ok(())
     }
     .await;

@@ -36,12 +36,18 @@ use serde::{Deserialize, Serialize};
 use crate::error::ElicitError;
 use crate::spec::{ElicitResponse, PromptSpec};
 
+<<<<<<< HEAD
 pub mod change;
 pub mod daemon;
 pub mod notify;
 
 pub use change::{InboxChangeBus, InboxWatcher};
 
+=======
+pub mod daemon;
+pub mod notify;
+
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 /// State of a request in the inbox.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -226,9 +232,12 @@ pub fn answered_dir(root: &Path) -> PathBuf {
 }
 
 /// Persist a pending request to disk. Creates parent dirs if missing.
+<<<<<<< HEAD
 ///
 /// After the atomic rename, pings the global `InboxChangeBus` so any TUI
 /// or daemon subscriber re-renders promptly (no 1 s polling latency).
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
     let dir = inbox_pending_dir(root);
     std::fs::create_dir_all(&dir)?;
@@ -238,7 +247,10 @@ pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError
     let tmp = dir.join(format!("{}.tmp", req.request_id));
     std::fs::write(&tmp, &json)?;
     std::fs::rename(&tmp, &path)?;
+<<<<<<< HEAD
     InboxChangeBus::global().notify(&format!("enqueue:{}", req.request_id));
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     Ok(path)
 }
 
@@ -249,9 +261,12 @@ pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError
 /// serialized to the new path *before* the original pending file is removed.
 /// Renaming alone would carry the pre-answer state forward and the waiter
 /// would never observe the response.
+<<<<<<< HEAD
 ///
 /// Pings the global `InboxChangeBus` after the final write so waiters
 /// unblock immediately (no `poll_interval` latency).
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
     let pending = inbox_pending_dir(root).join(format!("{}.json", req.request_id));
     let answered_dir = answered_dir(root);
@@ -268,7 +283,10 @@ pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitErro
     // 2. Best-effort remove the original pending file (no-op if it was
     //    already removed by another worker).
     std::fs::remove_file(&pending).ok();
+<<<<<<< HEAD
     InboxChangeBus::global().notify(&format!("finalize:{}", req.request_id));
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     Ok(dst)
 }
 
@@ -315,10 +333,13 @@ pub fn list_pending(root: &Path) -> Result<Vec<PendingRequest>, ElicitError> {
 }
 
 /// Wait until `req.request_id` reaches a terminal state or the wait times out.
+<<<<<<< HEAD
 ///
 /// Subscribes to the global `InboxChangeBus` and wakes immediately when
 /// `enqueue` or `finalize` for *any* request pings it (crossbeam broadcast).
 /// `poll_interval` is now only the floor; the wake path is event-driven.
+=======
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
 pub fn wait_for_response(
     root: &Path,
     request_id: &str,
@@ -327,12 +348,16 @@ pub fn wait_for_response(
 ) -> Result<PendingRequest, ElicitError> {
     let start = std::time::Instant::now();
     let deadline = start.checked_add(overall_timeout).unwrap_or(start);
+<<<<<<< HEAD
     let mut watcher = InboxChangeBus::global().subscribe();
     loop {
         // Re-check the file on every wake (handles the case where the
         // notify raced the rename — the rename is in `enqueue`/`finalize`
         // *before* the bus ping, so this is theoretically unreachable,
         // but a defensive load() costs nothing).
+=======
+    loop {
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
         match load(root, request_id) {
             Ok(req) if req.is_terminal() => return Ok(req),
             Ok(_req) => {}
@@ -344,12 +369,16 @@ pub fn wait_for_response(
                     .saturating_duration_since(start),
             ));
         }
+<<<<<<< HEAD
         // Sleep at most `poll_interval` or until the next bus wake, whichever
         // comes first.
         let now = std::time::Instant::now();
         let remaining = deadline.saturating_duration_since(now);
         let cap = poll_interval.min(remaining.max(Duration::from_millis(1)));
         let _ = watcher.wait_changed(cap);
+=======
+        std::thread::sleep(poll_interval);
+>>>>>>> origin/dependabot/cargo/schemars-1.2.1
     }
 }
 
