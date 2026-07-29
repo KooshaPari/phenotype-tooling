@@ -73,7 +73,121 @@ form, and (optionally) iMessage / SMS / email notifications routed through exist
 - [x] Smoke-after-install: `elicitate install` copies the binary, then runs
       `elicitate smoke` to verify PATH resolution and link sanity.
 
-### M2 — Native renderer implementation (next)
+### M2 — Native tray icon (v0.4.0, addendum)
+
+On 2026-07-22 we replaced the M2 placeholder (which originally scoped the native
+popup renderers) with a narrower, higher-value deliverable: **a real persistent
+tray icon for `elicitate daemon`**, behind a feature flag so the default build
+stays portable.
+
+Why swap scope: v0.3 already shipped native popups (Cocoa osascript / Win32
+MessageBox via PowerShell) for blocking elicits. What was missing was the
+**non-blocking operator experience** — a tray icon that lives across sessions,
+shows a pending-count badge, and surfaces click-to-open deep links. That's what
+agents actually need to keep the operator informed when an `ask --async` lands.
+
+- [x] New `tray` module behind `--features tray-native`:
+      `tray::Tray` trait + `tray::NoopTray` (always compiled) + `tray::NativeTray`
+      (gated, cross-platform via `tray-icon 0.24`).
+- [x] macOS tray (`NSStatusItem` via `objc2-app-kit`):
+      menu-bar text = "elicitate · N pending"; tooltip = title + last question;
+      click toggles a menu (Show inbox, Open latest, Toggle quiet, Quit).
+- [x] Windows tray (`Shell_NotifyIconW` via `windows-sys` 0.61): same API surface
+      as macOS; tray events pump on a dedicated OS thread because the Win32
+      message loop is per-thread.
+- [x] Linux tray (libappindicator via `tray-icon`'s `libappindicator` feature);
+      falls back silently when no system tray is available (no panic in CI / SSH).
+- [x] `tray::MenuAction` dispatch: `OpenInbox`, `OpenLatest(request_id)`,
+      `ToggleQuiet`, `Quit`. `Quit` propagates to the daemon shutdown coordinator
+      so the process exits cleanly.
+- [x] `DaemonConfig.enable_tray: bool` (default `true`), wired to a new
+      `--no-tray` CLI flag. When the feature isn't compiled in, `--no-tray` is
+      silently no-op (the daemon still runs).
+- [x] Badge count updates: `tray.update_pending_count(n)` called from the
+      notifier loop whenever the inbox transitions (enqueue / answer / purge).
+- [x] `Arc<dyn Tray>: Send` is achieved by owning-thread + channel architecture;
+      the `TrayIcon` (which is `!Sync` on macOS) lives on a dedicated thread that
+      owns it for its lifetime. Public API is `Send`-only, no `Sync`.
+- [x] 7 new unit tests (`tray::tests`): noop default values, badge text
+      formatting, MenuId parsing, Click event mapping, `build_tray` is `Send`,
+      noop tray can be cloned through Arc, disable reason surfaces in errors.
+
+### M2.5 — Terminal inbox viewer (v0.5.0, addendum)
+
+On 2026-07-22 we shipped the **canonical local UX for the inbox**: a
+`ratatui`-based TUI accessible via `elicitate inbox --tui` (or
+`elicitate tui`). After v0.4 the daemon has a tray icon and the inbox
+is durable on disk; v0.5 closes the gap for users who are already at a
+terminal and want to see + answer pending requests without opening a
+browser.
+
+- [x] New `tui` module: `ViewerConfig`, `InboxEntry`, `Keymap`,
+      `KeyAction`, `snapshot_inbox()`, `run_tui()`.
+- [x] `ratatui` 0.30 + `crossterm` 0.29 as direct dependencies (always
+      compiled; the TUI is the canonical local UX).
+- [x] Split-pane layout: pending requests on the left, full `PromptSpec`
+      on the right, status bar on the bottom. Live re-scan every 1 s
+      (`--poll-ms` configurable).
+- [x] Default keymap: `j/k` or `↓/↑` move; `Tab` switch focus; `Enter`/`o`
+      open in browser; `r`/`F5` refresh; `d` dismiss; `?` help; `q`/`Esc`
+      quit. Rebindable via `ELICITATE_TUI_KEYMAP_<KEY>=<action>` env vars.
+- [x] Graceful fallback: `TERM=dumb`, no TTY, or `ratatui::init()` failure
+      → plain-text output, exit 0. CI / `ssh` without TTY allocation
+      works without extra flags.
+- [x] `bin_elicitate.rs::InboxArgs` gained `--tui` and `--poll-ms`;
+      `cmd_inbox` branches into TUI when set.
+- [x] 14 new unit tests (`tui::tests`): `field_summary`, `format_age`,
+      sort order, terminal-state marking, key handling, position lookup,
+      detail-pane render, focus toggle, truncate, default state, empty
+      dir, sorted snapshot.
+- [x] Resolved the v0.4 "macOS `NSStatusItem` badge text is a placeholder"
+      note: the owner-thread channel now accepts `SetTitle(String)` and
+      `tray-icon::TrayIcon::set_title()` is called from the owning thread.
+      Verified on macOS.
+
+### M2.6 — Open-in-box discoverability fixes (v0.5.1, addendum)
+
+On 2026-07-22 the user reported: "have yet to see open inbox app/tray".
+After v0.4 the tray icon and the daemon's inbox URL both existed, but
+no CLI surface made "open the inbox in my browser" discoverable. v0.5.1
+closes that gap and patches the v0.4 regressions that prevented the
+existing surfaces from actually working.
+
+- [x] **`elicitate open`** — standalone subcommand with `--latest`,
+      `--spawn-if-missing`, `--print-only`, `--inbox-dir`, `--port`.
+      Resolves the live daemon URL via the new
+      `inbox::daemon::live_url(root, bind_filter)` helper (no more
+      hardcoded `:7117`).
+- [x] **`elicitate daemon --auto-open-browser`** — opens the inbox index
+      in the default browser as soon as the daemon finishes binding
+      (also controllable via `ELICITATE_AUTO_OPEN_BROWSER=1`).
+- [x] **Fix #1**: tray badge/tooltip now actually update — the v0.4
+      owner-thread channel was dropping `SetBadge`/`SetTooltip`. Re-routed
+      through `tray_icon::TrayIcon::set_title` + `set_tooltip` on the
+      owning thread.
+- [x] **Fix #2**: tray click URL is read from `TrayConfig::inbox_url`,
+      not hardcoded `http://127.0.0.1:7117`.
+- [x] **Fix #3**: `elicitate inbox --open` and `ask --async` now use
+      `inbox::daemon::live_url()` so they correctly point at whatever
+      port the daemon is bound to.
+- [x] **New public API** for downstream crates:
+      `elicitate::inbox_live_url`,
+      `elicitate::inbox_read_lockfile`,
+      `elicitate::open_in_default_browser`,
+      `elicitate::LockfilePayload`.
+- [x] **4 new regression tests** in `daemon::tests`:
+      `live_url_returns_none_when_no_lockfile`,
+      `live_url_rejects_stale_lockfile`,
+      `live_url_accepts_running_daemon`,
+      `live_url_respects_bind_filter`.
+- [x] Test count grew from 129 → **133** (96 lib + 13 bin + 14 cli + 6
+      lib intg + 4 mcp stdio).
+
+### M3 — Native popup renderers (next, deferred from M2)
+
+The M2 scope was originally "wire the macOS / Windows / Linux GUI renderers"
+(already partially done via shell-out to `osascript` and PowerShell — see v0.3).
+What remains is upgrading from shell-out to **in-process FFI**:
 
 - [ ] Wire macOS renderer: `objc2` + `cocoa` build a real `NSPanel`, lay out a label + control +
       confirm/cancel, run a modal `NSApp::runModal` until the user clicks. Return the typed value
@@ -113,9 +227,9 @@ Each PR is small enough to review in ≤ 200 lines.
 5. **PR-5:** Async inbox subsystem + views + `ask --async` / `wait` / `answer` /
    `inbox` subcommands. *(done in M1)*
 6. **PR-6:** Install / uninstall + daemon + iMessage/email notify channels. *(done in M1)*
-7. **PR-7:** macOS native renderer. *(M2)*
-8. **PR-8:** Windows native renderer. *(M2)*
-9. **PR-9:** Linux native renderer. *(M2)*
+7. **PR-7:** Tray icon (cross-platform via `tray-icon` + `objc2-app-kit` + `windows-sys`). *(done in M2 — v0.4.0)*
+8. **PR-8:** macOS native renderer (in-process FFI). *(M3)*
+9. **PR-9:** Windows + Linux native renderers (in-process FFI). *(M3)*
 10. **PR-10:** Cross-client smoke tests + release. *(M3 / M4)*
 
 ## Review checklist (per PR)

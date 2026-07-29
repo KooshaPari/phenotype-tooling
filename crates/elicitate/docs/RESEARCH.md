@@ -1,8 +1,7 @@
 # elicitate — Research Document
-
-> **Date:** 2026-07-22 (updated for v0.2.0 — async inbox + install)
+> **Date:** 2026-07-22 (updated for v0.5.0 — terminal inbox viewer)
 > **Owner:** @KooshaPari
-> **Status:** READY-FOR-IMPLEMENTATION (v0.2.0 in review)
+> **Status:** SHIPPED (v0.5.0 — 129 / 129 tests green)
 > **Crate path:** `phenotype-tooling/crates/elicitate/`
 > **Binary name:** `elicitate` (long-form `elicitate-mcp` for the MCP server mode)
 > **Tier:** 2 (extension; UX/AX-facing)
@@ -1126,8 +1125,248 @@ explicit flags.
 ### 18.8 Open follow-ups (M2)
 
 1. **Real native tray bindings** (`tray-native` feature).
+   → **Addressed in v0.4.0 — see §19.**
 2. **`WinToast` / `BurntToast` shim** for Windows without PowerShell modules.
 3. **iOS push relay** so the iMessage URL surfaces as a true
    tap-to-open notification instead of a deep link.
 4. **HTTPS auto-cert** for `--bind-lan` (mentioned in §17.9 Q1 follow-up).
 5. **In-process inotify** to drop the 4 Hz polling.
+
+---
+
+## 19. v0.4.0 addendum — persistent tray icon (`tray-native` feature)
+
+> **Date:** 2026-07-22
+> **Status:** SHIPPED (115 / 115 tests green in both default-features and `tray-native` builds)
+
+### 19.1 Why this came before the remaining popup FFI work
+
+The v0.3 plan deferred "real native tray bindings" to M2. v0.4 makes that the
+**M2 deliverable** — and bumps the original "wire the FFI popups" work to M3.
+
+The reasoning is empirical:
+
+1. We already ship native *popups* (Cocoa `NSAlert` via `osascript`,
+   Win32 `MessageBox` via PowerShell `Add-Type`). They're good enough for
+   the blocking case.
+2. What we **don't** ship is a persistent operator-facing presence. A daemon
+   that lives in the background has no way to show "I have 3 prompts waiting"
+   without the user opening a browser.
+3. The FFI popup work is a much larger lift (Cocoa runloop, Win32 message
+   pump, GTK4) and risks destabilizing v0.3's working shell-out path.
+4. The tray is a smaller surface (~600 LOC) and unblocks the operator UX.
+
+### 19.2 Options considered
+
+| Option                              | LOC  | New runtime deps | Cross-platform | Verdict |
+| ----------------------------------- | ---- | ---------------- | -------------- | ------- |
+| Hand-roll per-OS FFI                | ~1500 | none           | ❌ mac only first | Rejected |
+| `tauri::tray` icon module           | ~100  | `wry`, `tao`    | ✅ (full stack) | Rejected (too heavy) |
+| `tray-icon 0.24`                    | ~600  | `objc2-app-kit` (mac), `windows-sys` (win), `libappindicator` (linux) | ✅ | **Adopted** |
+| `ksni` (Linux-only)                 | ~300  | none            | ❌ Linux only   | Rejected |
+| `notify-rust` + `appindicator-rs`   | ~500  | two crates      | partial        | Rejected (overlap) |
+
+### 19.3 The `!Sync` problem
+
+`tray-icon 0.24`'s `TrayIcon` holds an `NSStatusItem` on macOS, which is
+backed by an Objective-C `id` that is `!Send + !Sync`. The whole
+cross-platform abstraction inherits that.
+
+We need `Arc<dyn Tray>` to be `Send` (so the daemon's HTTP task can hold a
+handle and the notifier task can mutate it). We do **not** need `Sync`
+(no one is reading the tray concurrently from multiple threads at once).
+
+Solution: **owning-thread + channel bridge**.
+
+```
+   notifier task ───Arc<dyn Tray>: Send────┐
+                                            ▼
+                                  ┌──────────────────────────┐
+                                  │ tray thread (owns        │
+                                  │   TrayIcon for life)     │
+                                  └──────────┬───────────────┘
+                                             │ crossbeam_channel
+                                             ▼
+                                  poll_menu_action(timeout)
+```
+
+The `Tray` trait is therefore `Send`-only (`pub trait Tray: Send`).
+The producer side holds an `Arc<dyn Tray>` and calls `update_badge` /
+`update_tooltip` / `shutdown`. Those methods forward via channel to the
+tray thread, which mutates the real `TrayIcon`. The consumer side does
+`poll_menu_action(timeout)` which does a non-blocking `try_recv` on the
+incoming menu-event channel that the tray thread also feeds.
+
+This is the same pattern `notify-rust`, `tokio::process`, and `wry` use
+for owning OS handles — it's not novel, but the `tray-icon` crate
+deliberately doesn't expose one, so we provide it here.
+
+### 19.4 Feature flag and compile-time impact
+
+`tray-native` is **off by default** for two reasons:
+
+1. `objc2-app-kit` adds ~30s of cold compile time. CI runners without
+   `sccache` would slow down noticeably.
+2. Linux's `libappindicator` feature links against a shared library
+   that's not always installed in CI containers.
+
+So `cargo build -p elicitate` stays portable and ships a `NoopTray`
+everywhere. `cargo build -p elicitate --features tray-native` produces
+the real macOS / Windows / Linux tray icon.
+
+Both configurations pass all 115 tests — the `tray::tests` exercise
+`NoopTray` and the public `build_tray` factory.
+
+### 19.5 Menu actions and the quiet state
+
+| Menu item           | Action                                               | State changed |
+| ------------------- | ---------------------------------------------------- | ------------- |
+| Open inbox          | Open the inbox index URL in the default browser     | none          |
+| Open latest         | Open the most-recent pending request's URL          | none          |
+| Toggle quiet        | Flip `Arc<AtomicBool> quiet`                        | yes           |
+| Quit                | Trigger daemon graceful shutdown (call `shutdown()`) | yes           |
+
+When `quiet` is on, the notifier loop suppresses both tray toasts and
+notify-channel fanout. The badge still updates so the operator can see
+the queue depth. The "Quit" menu item is the recommended way to stop the
+daemon — it calls `DaemonConfig::shutdown_handle().signal()` and the
+HTTP server returns from `serve()` cleanly.
+
+### 19.6 Verification
+
+| Command                                                              | Result |
+| -------------------------------------------------------------------- | ------ |
+| `cargo build -p elicitate`                                            | clean, 0 warnings |
+| `cargo build -p elicitate --features tray-native`                    | clean, 0 warnings |
+| `cargo test -p elicitate --no-fail-fast`                              | 115 / 115 |
+| `cargo test -p elicitate --features tray-native --no-fail-fast`       | 115 / 115 |
+| Manual: `elicitate daemon --port 0 --inbox-dir /tmp/x` on macOS      | menu-bar item appears, badge updates |
+
+### 19.7 What remains for v0.5+
+
+The next batch of work moves off the v0.4 list:
+
+- Re-bridge `set_title` for macOS so the menu-bar text updates
+  live (currently requires a `!Sync` workaround that's deferred).
+- `notify-rust` cross-platform fallback for Linux tray events.
+- Tray icon theme: real PNG instead of the default `tray-icon`
+  placeholder.
+- Auto-launch the daemon on login on macOS via
+  `~/Library/LaunchAgents/com.phenotype.elicitate.plist`.
+
+---
+
+## 20. v0.5.0 addendum — terminal inbox viewer (`ratatui`-based TUI)
+
+### 20.1 Motivation
+
+After v0.4 the daemon has a tray icon, the inbox is durable on disk,
+and `ask --async` works without a TTY. The remaining gap: how does a
+user actually *see and answer* pending requests when they are
+*already at a terminal*? Right now they would have to open the browser
+to the daemon URL, or pipe `inbox --list` and then `answer` per
+request. Both are friction. The TUI is the local-terminal counterpart
+to the tray icon: when you're at the keyboard, you want to see the
+list, pick one, and answer it from one place.
+
+### 20.2 Why `ratatui` (and not `curses`, `termion`, `tui-rs`)
+
+We surveyed four candidates:
+
+| Crate              | Status      | Verdict                                                                  |
+| ------------------ | ----------- | ------------------------------------------------------------------------ |
+| `ratatui` 0.30     | active      | **Adopt.** Community successor to `tui-rs`; `crossterm` 0.29 backend; clean `ratatui::run()` closure API. |
+| `crossterm` 0.29   | active      | **Adopt** as backend. Same team as ratatui; consistent version pinning. |
+| `tui-rs` 0.19      | archived     | Reject. Last release 2021; no `no_std` story.                            |
+| `cursive` 0.16     | low-maint   | Reject. Different paradigm (immediate-mode alt-screen) — fine for dialogs but heavy for split-pane inbox. |
+| Direct CSI escapes | n/a         | Reject. 200 LOC of key handling alone. No value over ratatui.            |
+
+The cost is ~700 KB of compiled deps; we accept it because every
+`elicitate` install gets a TUI as the canonical local UX, and the
+workspace already pulls in similar-sized deps for the tray (`objc2`
++ `tray-icon` on macOS, `windows-sys` on Windows). We do **not** gate
+the TUI behind a feature flag because the user's instinct on a fresh
+install is `elicitate inbox --tui`, not "rebuild with `--features
+tui`."
+
+### 20.3 Architecture
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ ratatui::run(|terminal| { ... })                           │
+│   ├─ loop:                                                │
+│   │   1. terminal.draw(|frame| render_panes(frame, state)) │
+│   │   2. event::poll(Duration::from_millis(poll_ms))       │
+│   │   3. dispatch key → KeyAction                          │
+│   │   4. apply action (move, focus, refresh, quit, ...)    │
+│   │   5. if poll_ms elapsed: snapshot_inbox(inbox_root)    │
+│   └─ ratatui::restore() on drop / error                    │
+└────────────────────────────────────────────────────────────┘
+```
+
+The TUI is **stateful** (`ViewerState`) but reads **statelessly** from
+disk via `snapshot_inbox(root)` — there is no in-memory cache that
+could go stale. The poll interval defaults to 1 s and is configurable
+via `--poll-ms`.
+
+The TUI does **not** spawn the daemon. It is a thin client over the
+shared `<inbox>/inbox/*.json` directory. If a daemon is running, the
+TUI sees its writes. If no daemon is running, the TUI still works for
+ad-hoc review and answer.
+
+### 20.4 Graceful fallback (the contract)
+
+When `TERM=dumb`, when stdin is not a TTY, or when
+`ratatui::init()` fails (no `DISPLAY` on Linux + missing `WAYLAND_DISPLAY`
++ `tray-icon`'s GTK backend also failing), the TUI must:
+
+1. **not** enter raw mode,
+2. **not** seize the terminal,
+3. **emit** the same plain-text output as `--list`,
+4. **exit 0**.
+
+This is verified by the manual test in §20.7. The fallback is the
+contract because CI / detached sessions / `ssh` without TTY
+allocation must not need extra flags.
+
+### 20.5 Keybinding design
+
+Defaults follow vim conventions for navigation (j/k, g/G) because they
+are keyboard-only friendly and don't fight the user's muscle memory:
+
+| Key            | Action                          | Rationale                                          |
+|----------------|---------------------------------|----------------------------------------------------|
+| `j` / `↓`      | move selection down             | vim + arrow convention; works on any keyboard      |
+| `k` / `↑`      | move selection up               | same                                                |
+| `g` / `G`      | jump first / last               | vim convention for top/bottom                       |
+| `Tab`          | switch focus list ↔ detail      | standard tab navigation                              |
+| `Enter` / `o`  | open form in browser            | "open" — matches file-managers                      |
+| `r` / `F5`     | force refresh                   | `r` for "refresh"; F5 is browser-style              |
+| `d`            | dismiss                         | `d` for "delete" / "dismiss"                        |
+| `?`            | toggle help                     | standard                                            |
+| `q` / `Esc`    | quit                            | vim convention + universal Esc                       |
+
+All keybindings are rebindable via `ELICITATE_TUI_KEYMAP_<KEY>=<action>`
+env vars. We deliberately do not ship a config file in v0.5 — env vars
+are enough for a 9-action keymap and avoid the YAML/TOML config-debate.
+
+### 20.6 Verification matrix (v0.5)
+
+| Gate                                                              | Result                       |
+|-------------------------------------------------------------------|------------------------------|
+| `cargo build -p elicitate`                                        | clean, 0 warnings            |
+| `cargo build -p elicitate --features tray-native`                 | clean, 0 warnings            |
+| `cargo test -p elicitate --no-fail-fast`                          | **129 / 129**                |
+| 14 new TUI unit tests (sort, age labels, key handling, render)    | all pass                     |
+| Live: `elicitate inbox --tui --inbox-dir <dir>` on real TTY       | split pane renders, `q` quits |
+| Live: `TERM=dumb elicitate inbox --tui --inbox-dir <dir>`         | exits 0, plain-text output   |
+
+### 20.7 What remains for v0.6+
+
+- Mouse support (click to select, double-click to open).
+- Config-file for keybindings (`config.toml` next to the inbox).
+- Inline answer editor in the detail pane (right now detail pane
+  shows the spec but you still have to `Enter` to answer in browser).
+- Multi-select actions (`x` to mark + `X` to bulk-answer).
+- TUI mode for the `answer` subcommand (readline-style multi-line
+  text editor with secret-masking).

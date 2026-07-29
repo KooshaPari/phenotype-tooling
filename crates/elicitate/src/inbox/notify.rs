@@ -222,7 +222,17 @@ fn run_osascript(script: &str) -> Result<(), String> {
     }
 }
 
-fn open_url(url: &str) -> Result<(), String> {
+/// Open `url` in the user's default browser using the platform's
+/// "open" command:
+///
+/// - macOS: `open <url>`
+/// - Windows: `cmd /c start "" <url>`
+/// - Linux / BSD / other: `xdg-open <url>`
+///
+/// Returns `Ok(())` on exit-status 0; `Err(msg)` otherwise. The caller
+/// is expected to log and continue — opening the browser is a
+/// best-effort side channel, never a hard requirement.
+pub fn open_in_default_browser(url: &str) -> Result<(), String> {
     use std::process::Command;
     let (cmd, args): (&str, Vec<&str>) = if cfg!(target_os = "macos") {
         ("open", vec![url])
@@ -240,6 +250,10 @@ fn open_url(url: &str) -> Result<(), String> {
     } else {
         Err(format!("{cmd} exit {status:?}"))
     }
+}
+
+fn open_url(url: &str) -> Result<(), String> {
+    open_in_default_browser(url)
 }
 
 /// Best-effort HTTP POST of a JSON body. We don't pull in `reqwest`

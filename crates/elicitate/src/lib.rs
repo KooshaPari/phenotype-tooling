@@ -35,15 +35,41 @@ pub mod mcp;
 #[cfg(feature = "observability")]
 pub mod metrics;
 
+/// OS tray icon (status bar item / notification area / libappindicator).
+///
+/// Always available — when `tray-native` is disabled (the default) the
+/// module exposes a `NoopTray` so the daemon doesn't need conditional
+/// compilation at every call site.
+pub mod tray;
+
+/// Terminal-UI inbox viewer (`elicitate inbox --tui`).
+///
+/// Renders a split-pane terminal interface over the same on-disk inbox the
+/// daemon writes to. Uses `ratatui` + `crossterm`; falls back to plain-text
+/// rendering when no TTY is available (e.g. CI, `TERM=dumb`, ssh without
+/// TTY allocation).
+pub mod tui;
+
 pub use error::ElicitError;
-pub use inbox::notify::{NotifyAttempt, NotifyChannels, inbox_open_url, inbox_open_url_for};
+pub use inbox::daemon::{
+    live_url as inbox_live_url, read_lockfile as inbox_read_lockfile, DEFAULT_PORT as INBOX_DEFAULT_PORT,
+};
+pub use inbox::notify::{inbox_open_url, inbox_open_url_for, open_in_default_browser, NotifyAttempt, NotifyChannels};
 pub use inbox::{
-    PendingRequest, RequestOrigin, RequestState,
-    load as inbox_load, list_pending as inbox_list_pending, wait_for_response,
+    load as inbox_load, list_pending as inbox_list_pending, wait_for_response, PendingRequest,
+    RequestOrigin, RequestState,
 };
 pub use options::{ElicitOptions, RendererPreference};
 pub use platform::Platform;
-pub use spec::{ButtonSpec, ChoiceOption, DateTimeKind, ElicitResponse, FieldSpec, FieldValue, NotesSpec, PromptSpec, Urgency};
+pub use spec::{
+    ButtonSpec, ChoiceOption, DateTimeKind, ElicitResponse, FieldSpec, FieldValue, NotesSpec,
+    PromptSpec, Urgency,
+};
+pub use tui::{
+    render_plain as tui_render_plain, run as tui_run, snapshot_inbox as tui_snapshot, ListEntry,
+    TuiOutcome, ViewerState,
+};
+pub use tray::{build_tray, MenuAction, Tray, TrayConfig, TrayError, TrayEvent, TrayResult};
 pub use views::{render_form_html, render_full_html, render_plain_text, render_summary};
 
 /// Render a popup and block until the user responds (or the popup times out).
@@ -145,7 +171,6 @@ mod tests {
     fn schema_json_is_valid_json_object() {
         let s = schema_json();
         assert!(s.is_object(), "schema_json() must return a JSON object");
-        // Must reference $defs (the schemars convention)
         assert!(
             s.get("$defs").is_some() || s.get("definitions").is_some(),
             "schema must contain $defs or definitions"

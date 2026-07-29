@@ -1,0 +1,60 @@
+name: elicitate GUI tests
+
+# Per plans/2026-07-21-elicitate-EXECUTION-PLAN-v1.md §12.2.
+#
+# Manual-only because CI VMs do not have user-attached displays for
+# modal popups (`osascript` / PowerShell Win32 forms). The default CI
+# path (`reusable/rust-ci.yml`) already runs the non-GUI tests via
+# `cargo test -p elicitate`. This workflow adds the host-bound, ignored
+# integration tests that require a real interactive session.
+#
+# Trigger: `workflow_dispatch` only.
+# Invoked from the Actions tab → "elicitate GUI tests" → "Run workflow".
+
+on:
+  workflow_dispatch:  # only manual trigger
+
+jobs:
+  macos:
+    name: macOS GUI smoke
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "phenotype-tooling-elicitate"
+
+      # The --ignored integration tests live in tests/platform_macos.rs
+      # and require a logged-in user session for NSAlert / osascript to
+      # attach to WindowServer. They are tagged `#[ignore]` so the
+      # default `cargo test` (which the reusable CI runs) skips them.
+      - name: Run ignored macOS GUI tests
+        run: cargo test -p elicitate --features observability -- --ignored
+
+  windows:
+    name: Windows GUI smoke
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "phenotype-tooling-elicitate"
+
+      # Win32 form tests in tests/platform_windows.rs require an
+      # interactive desktop session for `Add-Type -AssemblyName
+      # System.Windows.Forms` to host a modal dialog. Same `#[ignore]`
+      # gate as the macOS path.
+      - name: Run ignored Windows GUI tests
+        run: cargo test -p elicitate --features observability -- --ignored

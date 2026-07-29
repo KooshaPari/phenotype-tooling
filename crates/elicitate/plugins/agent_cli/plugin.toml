@@ -1,0 +1,24 @@
+[elicitate]
+name = "elicitate"
+version = "0.9.0"
+description = "Non-blocking elicitation tool: native macOS/Windows popups, async inbox daemon, MCP tool, optional tray icon."
+mcp_server = "elicitate-mcp"
+skill_dir = "~/.cursor/skills/elicitate"
+inbox_dir = "~/.elicitate/inbox"
+auto_open_browser = true
+
+[elicitate.platforms]
+macos = ["NSStatusItem via osascript (default)", "NSStatusItem via tray-icon (--features tray-native)"]
+windows = ["Win32 MessageBox via PowerShell (default)", "Shell_NotifyIcon via tray-icon (--features tray-native)"]
+linux = ["zenity/kdialog fallback", "tray-icon GTK backend (--features tray-native)"]
+
+[elicitate.modes]
+sync = "blocks until user answers; default on macOS/Windows with display"
+async = "enqueue to inbox dir, agent continues; --async flag or default in headless"
+
+[elicitate.inbox]
+cli_list = "elicitate inbox --list"
+cli_show = "elicitate inbox --show <id>"
+tui = "elicitate inbox --tui [--follow]"
+open_browser = "elicitate open [--latest] [--spawn-if-missing] [--print-only]"
+tray = "tray icon with badge count + menu (Open inbox / Open latest / Quiet / Quit)"

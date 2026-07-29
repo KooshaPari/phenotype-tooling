@@ -4,20 +4,44 @@
 //! to Forge, Codex, Cursor, Claude Code, or any MCP-compatible host.
 
 use std::process::ExitCode;
+use std::sync::Arc;
+use std::time::Duration;
 
+use clap::Parser;
+use elicitate::mcp::shutdown::ShutdownCoordinator;
 use elicitate::mcp::ElicitateMcp;
 use rmcp::ServiceExt;
+
+#[derive(Parser)]
+#[command(name = "elicitate-mcp", version)]
+struct Args {
+    /// Timeout in seconds for draining in-flight requests on shutdown.
+    #[arg(long, default_value = "5")]
+    shutdown_timeout_secs: u64,
+}
 
 #[tokio::main]
 async fn main() -> ExitCode {
     init_tracing();
+    let args = Args::parse();
 
     let server = ElicitateMcp::new();
     let transport = rmcp::transport::io::stdio();
 
     let result: Result<(), Box<dyn std::error::Error>> = async {
+        let coord = Arc::new(ShutdownCoordinator::new(Duration::from_secs(args.shutdown_timeout_secs)));
+        let mut shutdown_rx = ShutdownCoordinator::install(Arc::clone(&coord));
+
         let server = server.serve(transport).await?;
-        server.waiting().await?;
+
+        tokio::select! {
+            r = server.waiting() => { r?; }
+            _ = &mut shutdown_rx => {
+                tracing::info!("shutdown signal received, draining in-flight requests");
+                coord.cancel_all().await;
+            }
+        }
+
         Ok(())
     }
     .await;

@@ -58,6 +58,8 @@ elicitate ask --async     # enqueue and return open_url + request_id instantly
 elicitate wait            # poll for the answer to a previously queued request
 elicitate answer          # submit an answer to a queued request (scriptable)
 elicitate inbox           # list / show / open / clean the inbox
+elicitate inbox --tui     # launch the ratatui-based terminal inbox viewer
+elicitate tui             # shorthand for `inbox --tui`
 elicitate daemon          # run the long-lived HTTP + tray + notifier server
 elicitate install         # one-shot setup: copies binaries, writes PATH, registers launch agent
 elicitate uninstall       # remove everything `install` added
@@ -229,7 +231,47 @@ If the daemon dies, the inbox directory is still the source of truth. The
 next daemon instance re-reads it on startup and re-notifies any request
 older than `--retry-after` that hasn't been answered.
 
-### 10.4 Install
+### 10.4 Tray icon (v0.4.0)
+
+`elicitate daemon` shows a persistent tray icon while it runs, behind the
+`--features tray-native` Cargo feature. The feature is **off by default** so
+the default build stays portable (no `objc2`, no `windows-sys`, no GTK).
+
+API surface (`elicitate::tray`):
+
+```rust
+pub trait Tray: Send {
+    fn update_badge(&self, pending: usize);
+    fn update_tooltip(&self, text: &str);
+    fn poll_menu_action(&self, timeout: Duration) -> Option<MenuAction>;
+    fn shutdown(&self);
+}
+
+pub enum MenuAction { OpenInbox, OpenLatest(String), ToggleQuiet, Quit }
+
+pub fn build_tray(cfg: &TrayConfig) -> Result<Arc<dyn Tray>, TrayError>;
+```
+
+`NoopTray` is always compiled and used when `tray-native` is not enabled.
+`NativeTray` wraps `tray-icon 0.24`, which under the hood uses
+`objc2-app-kit` on macOS, `windows-sys` `Shell_NotifyIconW` on Windows,
+and `libappindicator` on Linux.
+
+Why an owning-thread + channel architecture: `tray-icon`'s `TrayIcon` is
+`!Sync` (it holds `NSStatusItem` on macOS). The trait is therefore
+`Send`-only (not `Sync`); the `TrayIcon` lives on a dedicated OS thread
+that owns it for its lifetime, and `poll_menu_action` does a non-blocking
+`try_recv` on a `crossbeam_channel` from any other thread.
+
+Daemon CLI additions for v0.4.0:
+
+- `elicitate daemon --no-tray` — skip tray initialization (silently
+  no-ops if the feature isn't compiled in).
+- The tray badge updates whenever the inbox transitions
+  (`enqueue` / `answer` / `purge`) via a `NotifierHandle` callback
+  wired into `run_notifier_loop`.
+
+### 10.5 Install
 
 `elicitate install` is a one-shot setup that:
 
@@ -245,6 +287,57 @@ older than `--retry-after` that hasn't been answered.
 `elicitate install --no-launch-agent` skips step 3. `elicitate install
 --skip-path` skips step 2. `elicitate uninstall --yes` reverses everything
 without prompting.
+
+### 10.6 Terminal inbox viewer (TUI)
+
+`elicitate inbox --tui` opens a full-screen terminal interface on top of
+the same `<inbox>/inbox/*.json` files the daemon reads. It is the
+canonical local UX for the inbox: no daemon required, no browser
+required.
+
+Library API (`elicitate::tui`):
+
+```rust
+pub struct ViewerConfig { inbox_dir: PathBuf, poll_ms: u64, focus_on_list: bool }
+pub struct InboxEntry { request_id: String, title: String, state_badge: String, age_label: String, is_terminal: bool }
+pub fn snapshot_inbox(root: &Path) -> Vec<InboxEntry>;
+pub fn run_tui(cfg: ViewerConfig) -> Result<(), TuiError>;
+```
+
+Layout — split pane:
+- Left pane: list of pending requests, newest first. Each row shows
+  request id (cyan), title (white), state badge `[pending]`, `[seen]`,
+  `[answered]`, `[cancelled]`, `[expired]` (yellow for live, dark-gray
+  for terminal), age label (e.g. `12s`, `3m`, `1h`).
+- Right pane: full `PromptSpec` of the selected request — title,
+  question, field spec with kind + label + (for `Choice`) option list,
+  urgency, origin (CLI / MCP / notify), and the recorded response if
+  one exists.
+- Bottom status bar: row count, refresh interval, current keymap hint.
+
+Keybindings (default; rebindable via `ELICITATE_TUI_KEYMAP_*` env vars):
+
+| Key            | Action                          |
+|----------------|---------------------------------|
+| `j` / `↓`      | move selection down             |
+| `k` / `↑`      | move selection up               |
+| `g` / `G`      | jump to first / last            |
+| `Tab`          | switch focus between list & detail |
+| `Enter` / `o`  | open selected form in default browser |
+| `r` / `F5`     | force refresh                   |
+| `d`            | mark request dismissed          |
+| `?`            | toggle keybinding cheat-sheet   |
+| `q` / `Esc`    | quit                            |
+
+Graceful fallback — when `TERM=dumb`, stdin is not a TTY, or
+`ratatui::init()` fails, `--tui` falls back to plain-text rendering
+(same output as `--list`) and exits 0. This is the contract: CI,
+detached sessions, and `ssh` without TTY allocation must work without
+extra flags.
+
+The TUI does **not** spawn the daemon. It is a thin client over the
+shared `<inbox>/inbox/` directory; it works with or without a daemon
+running.
 
 ## 11. Acceptance criteria
 
@@ -270,3 +363,95 @@ A reviewer should be able to:
     `elicitate uninstall --prefix /tmp/test --yes` and confirm they're gone.
 12. Run `elicitate daemon --inbox-dir /tmp/test --port 0` (random port) and confirm it serves
     `GET /health` returning 200.
+13. With `cargo build -p elicitate --features tray-native`, run
+    `elicitate daemon --port 0 --inbox-dir /tmp/test` on macOS / Windows and verify
+    a tray icon appears with a pending count badge. The badge increments when
+    `elicitate ask --async` enqueues a request and decrements when
+    `elicitate answer` resolves it.
+14. `cargo test -p elicitate --features tray-native` and `cargo test -p elicitate`
+    (default features) both pass — same test count, same test IDs.
+15. Run `elicitate ask --async --inbox-dir <dir> --from-file spec.json` to enqueue
+    a request, then run `elicitate inbox --tui --inbox-dir <dir>` in a TTY.
+    Observe the request in the left pane with `[pending]` badge, the full
+    `PromptSpec` in the right pane, and `j`/`k` moves selection. Press `Enter`
+    to open the form URL in the default browser, or `q` to quit cleanly.
+    Repeat with `TERM=dumb` and observe the same `--tui` invocation exits 0
+    and prints a plain-text summary instead of entering raw mode.
+16. Run `elicitate open` (no daemon running) and observe the command
+    printing a clear "no daemon running on port 7117" error and a
+    one-line `did you mean: elicitate daemon --auto-open-browser`
+    hint. With `--spawn-if-missing`, observe a detached daemon being
+    spawned and the URL opening in the default browser within 1 s.
+17. With a daemon already running on `--port 8118`, run
+    `elicitate open` and observe the URL printed / opened points at
+    `http://127.0.0.1:8118/inbox`, **not** the hardcoded `:7117`.
+    The same applies to `elicitate inbox --open`, `elicitate inbox --tui`
+    (auto-opens if `--auto-open` is set), and the tray-icon left-click
+    handler.
+18. After enqueuing 3 requests via `elicitate ask --async`, with the
+    tray-native feature compiled in and `elicitate daemon` running on
+    macOS / Windows, observe the menu-bar badge shows "3" (or "3+"
+    if over the display threshold). After running
+    `elicitate answer --request-id <id>` for one of them, observe the
+    badge decrements to "2" within the poll interval (≤ 1 s by
+    default).
+19. Tooltip on the tray icon reflects the live state: hover the
+    tray icon after a request is enqueued and observe
+    `elicitate · 3 pending · 0 answered` (or similar). After all
+    requests are answered, observe
+    `elicitate · 0 pending · 3 answered`.
+20. `cargo test -p elicitate` reports **133 tests, 0 failures** across
+    both the default feature set and `--features tray-native`. The 4
+    new v0.5.1 regression tests (`live_url_*`) all pass.
+
+## 12. Out of scope (v0.5.x)
+
+Deferred to v0.6+:
+
+- **macOS native notifications** via `objc2` + `NSUserNotification` /
+  `UNUserNotificationCenter`. v0.5 currently uses a generic
+  `osascript` shell-out; the native binding gets a richer UI (actions,
+  replies inline).
+- **Windows Action Center** notifications via `windows-sys` +
+  `Shell_NotifyIconGetRect` / toast APIs.
+- **Linux D-Bus StatusNotifierItem** — currently routes through
+  `tray-icon`'s GTK backend. A direct D-Bus binding removes the
+  GTK dependency for headless servers.
+- **`$EDITOR` integration** for the TUI's `a` (answer) action — open
+  the response YAML in `$VISUAL` and parse on save.
+- **Per-crate distribution** — `elicitate` is not yet published to
+  crates.io. Publishing is gated on a stable 1.0 API, which requires
+  locking down the `FieldSpec` enum, the `ElicitResponse` wire format,
+  and the `Tray` trait.
+- **Code-signing + notarization** for `elicitate-mcp` so it can be
+  whitelisted in MCP clients that require signed bundles.
+
+### 10.7 Open-in-box (v0.5.1)
+
+The user's experience of "open the inbox" is split across four
+surfaces, all of which must be discoverable from `elicitate --help`:
+
+1. **Standalone CLI** — `elicitate open [--latest] [--spawn-if-missing] [--print-only] [--inbox-dir DIR] [--port N]`.
+   - `--latest` deep-links to the most recently enqueued pending form
+     (vs. the inbox index if omitted).
+   - `--spawn-if-missing` launches a detached `elicitate daemon` if
+     no daemon is running on the requested port (saves the user one
+     command).
+   - `--print-only` skips the platform `xdg-open` / `open` call and
+     just prints the URL — useful for piping into other tools.
+2. **Inbox subcommand** — `elicitate inbox --open` and
+   `elicitate inbox --show <id>` now use the live daemon URL
+   (`inbox::daemon::live_url`) instead of a hardcoded port, so they
+   work with `elicitate daemon --port 8118` etc.
+3. **Daemon auto-open** — `elicitate daemon --auto-open-browser`
+   (off by default, override via `ELICITATE_AUTO_OPEN_BROWSER=1`)
+   pops the inbox index in the default browser as soon as the
+   daemon is listening.
+4. **Tray icon left-click** — the macOS `NSStatusItem` (or Windows
+   `Shell_NotifyIcon`) opens the inbox index. The right-click menu
+   adds `Open inbox` / `Open latest` / `Quit` items.
+
+The shared code path is `elicitate::open_in_default_browser(url)`,
+which routes through `mac::open` / `cmd /c start ""` /
+`xdg-open` depending on the platform — same helper as the v0.3
+notify fanout, now exported for CLI reuse.

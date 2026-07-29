@@ -1,0 +1,18 @@
+# elicitate plugin manifest for Claude Code
+# Installs: elicitate-mcp into Claude Code's MCP catalog + skill into ~/.claude/skills/
+
+[plugin]
+name = "elicitate"
+version = "0.9.0"
+description = "elicitate MCP server — pop up native forms via Claude Code"
+homepage = "https://github.com/kooshapari/phenotype/tree/main/crates/elicitate"
+author = "phenotype"
+
+[mcp]
+# claude mcp add <name> -- <command> [args...]
+command = "elicitate-mcp"
+
+[skill]
+name = "elicitate"
+description = "Decide when and how to elicit clarification from the user via a native OS popup. Use when a prompt is ambiguous, missing required inputs, or sensitive (secrets / destructive actions)."
+source = "..\\.elicitate/skills/elicitate/SKILL.md"

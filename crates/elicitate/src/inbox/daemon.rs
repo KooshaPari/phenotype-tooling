@@ -23,12 +23,15 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::error::ElicitError;
+#[cfg(test)]
+use crate::spec::Urgency;
 use crate::inbox::notify::{NotifyChannels, surface_all};
 use crate::inbox::{
     PendingRequest, RequestState, finalize, list_pending, load,
     unix_now_ms,
 };
 use crate::spec::{ElicitResponse, FieldSpec, FieldValue};
+use crate::tray::{build_tray, MenuAction, Tray, TrayConfig, TrayEvent};
 #[cfg(test)]
 use std::net::Ipv4Addr;
 use serde::{Deserialize, Serialize};
@@ -79,6 +82,10 @@ pub struct DaemonConfig {
     pub port: u16,
     pub bind: IpAddr,
     pub notify: NotifyChannels,
+    /// If true, attempt to register a tray icon. If `tray-native` is not
+    /// compiled in or the OS rejects the registration, the tray is
+    /// silently a no-op.
+    pub enable_tray: bool,
 }
 
 /// Boot the daemon. Returns a handle the caller can use to shut it
@@ -123,6 +130,28 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
     let lockfile = cfg.inbox_root.join(LOCKFILE_NAME);
     write_lockfile(&lockfile, &cfg.inbox_root, actual_port, cfg.bind)?;
 
+    let tray_url = format!("http://{}:{}", cfg.bind, actual_port);
+    // ---- tray icon (best-effort, never blocks boot) ---------------
+    let tray: Arc<dyn Tray> = if cfg.enable_tray {
+        let tray_cfg = TrayConfig::new(tray_url.clone(), cfg.inbox_root.clone());
+        match build_tray(tray_cfg) {
+            Ok(t) => {
+                info!(backend = t.backend_name(), "tray icon attached");
+                t
+            }
+            Err(e) => {
+                warn!(error = %e, "tray attach failed; daemon will run without tray");
+                // Fall back to a no-op tray by building a default cfg (no
+                // real attach is attempted because the no-op impl never
+                // fails).
+                build_tray(TrayConfig::new(tray_url.clone(), cfg.inbox_root.clone())).unwrap()
+            }
+        }
+    } else {
+        build_tray(TrayConfig::new(tray_url.clone(), cfg.inbox_root.clone()))
+            .unwrap()
+    };
+
     // ---- worker 1: HTTP server ------------------------------------
     {
         let shutdown = Arc::clone(&shutdown);
@@ -143,10 +172,22 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
         let shutdown = Arc::clone(&shutdown);
         let inbox_root = cfg.inbox_root.clone();
         let notify = cfg.notify.clone();
+        let tray_for_badge = Arc::clone(&tray);
         thread::Builder::new()
             .name("elicitate-notify".into())
             .spawn(move || {
-                run_notifier_loop(&inbox_root, notify, &shutdown);
+                run_notifier_loop(&inbox_root, notify, &shutdown, Some(tray_for_badge));
+            })?;
+    }
+
+    // ---- worker 3: tray event pump --------------------------------
+    {
+        let shutdown = Arc::clone(&shutdown);
+        let fallback_url = tray_url.clone();
+        thread::Builder::new()
+            .name("elicitate-tray".into())
+            .spawn(move || {
+                run_tray_loop(tray.as_ref(), &shutdown, &fallback_url);
             })?;
     }
 
@@ -167,7 +208,7 @@ pub fn start_daemon(cfg: DaemonConfig) -> Result<DaemonHandle, ElicitError> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct LockfilePayload {
+pub struct LockfilePayload {
     root: PathBuf,
     port: u16,
     bind: IpAddr,
@@ -191,7 +232,7 @@ fn write_lockfile(
     Ok(())
 }
 
-fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
+pub fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
     let path = root.join(LOCKFILE_NAME);
     let bytes = std::fs::read(&path).ok()?;
     serde_json::from_slice(&bytes).ok()
@@ -201,6 +242,26 @@ fn read_lockfile(root: &Path) -> Option<LockfilePayload> {
 fn is_port_live(bind: IpAddr, port: u16) -> bool {
     let addr = SocketAddr::new(bind, port);
     TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok()
+}
+
+/// Return the live URL of a running inbox daemon, if any. Reads the
+/// daemon's lockfile and confirms the socket is actually accepting
+/// connections. Returns `None` if no daemon is running or the lockfile
+/// is stale (e.g. process died without cleanup).
+///
+/// `bind_filter` lets the caller restrict to a particular bind address
+/// (loopback vs. LAN). Pass `None` to accept any bind address.
+pub fn live_url(root: &Path, bind_filter: Option<IpAddr>) -> Option<String> {
+    let payload = read_lockfile(root)?;
+    if let Some(addr) = bind_filter {
+        if payload.bind != addr {
+            return None;
+        }
+    }
+    if !is_port_live(payload.bind, payload.port) {
+        return None;
+    }
+    Some(format!("http://{}:{}", payload.bind, payload.port))
 }
 
 // ---- HTTP loop --------------------------------------------------------
@@ -286,13 +347,10 @@ fn handle_connection(
 
     let body = match route {
         Route::Health => Some(simple_text(200, "ok")),
-        Route::Index => Some(simple_text(
+        Route::Index => Some(text_response(
             200,
-            &format!(
-                "elicitate inbox daemon — {} pending",
-                list_pending(inbox_root)
-                    .map(|v| v.len())
-                    .unwrap_or(0)
+            &crate::views::render_inbox_index_html(
+                &list_pending(inbox_root).unwrap_or_default(),
             ),
         )),
         Route::InboxForm => match id.and_then(|id| load(inbox_root, &id).ok()) {
@@ -300,45 +358,99 @@ fn handle_connection(
             None => Some(simple_text(404, "request not found")),
         },
         Route::Answer => {
-            if method != "POST" {
-                return write_response(&mut stream, 405, "Method Not Allowed", b"");
-            }
             let id = match id {
                 Some(id) => id,
-                None => return write_response(&mut stream, 400, "Bad Request", b"missing id"),
+                None => {
+                    return write_response(
+                        &mut stream,
+                        400,
+                        "Bad Request",
+                        "text/plain; charset=utf-8",
+                        b"missing id",
+                    )
+                }
             };
-            // Read body.
-            let content_length = headers
-                .iter()
-                .find_map(|h| {
-                    let (k, v) = h.split_once(':')?;
-                    if k.eq_ignore_ascii_case("content-length") {
-                        v.trim().parse::<usize>().ok()
+            if method == "GET" {
+                // Re-render the form so a user who navigates back / lands
+                // here directly sees the same submission UI.
+                match load(inbox_root, &id) {
+                    Ok(req) => Some(text_response(200, &render_inbox_html(&req))),
+                    Err(_) => Some(simple_text(404, "request not found")),
+                }
+            } else if method != "POST" {
+                return write_response(
+                    &mut stream,
+                    405,
+                    "Method Not Allowed",
+                    "text/plain; charset=utf-8",
+                    b"",
+                );
+            } else {
+                // Read body.
+                let content_length = headers
+                    .iter()
+                    .find_map(|h| {
+                        let (k, v) = h.split_once(':')?;
+                        if k.eq_ignore_ascii_case("content-length") {
+                            v.trim().parse::<usize>().ok()
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(0);
+                let mut buf = vec![0u8; content_length];
+                if content_length > 0 {
+                    reader.read_exact(&mut buf)?;
+                }
+                match submit_answer(inbox_root, &id, &buf) {
+                    Ok(_) => redirect_response(&mut stream, &format!("/inbox/{}/done", id))?,
+                    Err(e) => Some(text_response(400, &format!("<h1>Error</h1><p>{e}</p>"))),
+                }
+            }
+        }
+        Route::Done => match id.and_then(|id| load(inbox_root, &id).ok()) {
+            Some(req) => {
+                let html = crate::views::render_answer_html(
+                    &req.request_id,
+                    matches!(req.state, RequestState::Answered),
+                    if matches!(req.state, RequestState::Answered) {
+                        "Your answer was recorded."
                     } else {
-                        None
-                    }
-                })
-                .unwrap_or(0);
-            let mut buf = vec![0u8; content_length];
-            if content_length > 0 {
-                reader.read_exact(&mut buf)?;
+                        "Request cancelled."
+                    },
+                );
+                Some(text_response(200, &html))
             }
-            match submit_answer(inbox_root, &id, &buf) {
-                Ok(_) => Some(text_response(
-                    200,
-                    "<h1>Answered</h1><p>You can close this tab.</p>",
-                )),
-                Err(e) => Some(text_response(400, &format!("<h1>Error</h1><p>{e}</p>"))),
+            None => Some(simple_text(404, "request not found")),
+        },
+        Route::Static(p) => match p.as_str() {
+            "" | "index.css" | "index.html" => return write_response(
+                &mut stream,
+                200,
+                "OK",
+                "text/css; charset=utf-8",
+                render_inbox_css().as_bytes(),
+            ),
+            other if other.ends_with(".css") => return write_response(
+                &mut stream,
+                200,
+                "OK",
+                "text/css; charset=utf-8",
+                render_inbox_css().as_bytes(),
+            ),
+            other => {
+                let body = format!(
+                    "not found: {other}"
+                );
+                return write_response(
+                    &mut stream,
+                    404,
+                    "Not Found",
+                    "text/plain; charset=utf-8",
+                    body.as_bytes(),
+                );
             }
-        }
-        Route::Static(path) => {
-            let stripped = path.trim_start_matches('/');
-            let bytes: Vec<u8> = match stripped {
-                "" | "index.html" => render_inbox_css().as_bytes().to_vec(),
-                other => format!("/* not found: {other} */").into_bytes(),
-            };
-            return write_response(&mut stream, 200, "OK", &bytes);
-        }
+        },
         Route::NotFound => Some(simple_text(404, "not found")),
         Route::Shutdown => {
             if method == "POST" {
@@ -351,7 +463,13 @@ fn handle_connection(
     };
 
     let body = body.unwrap_or_else(|| simple_text(500, "internal"));
-    write_response(&mut stream, 200, "OK", body.as_bytes())?;
+    write_response(
+        &mut stream,
+        200,
+        "OK",
+        "text/html; charset=utf-8",
+        body.as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -361,6 +479,7 @@ enum Route {
     Index,
     InboxForm,
     Answer,
+    Done,
     Static(String),
     NotFound,
     Shutdown,
@@ -381,6 +500,15 @@ fn parse_route(target: &str) -> (Route, Option<String>) {
         return (Route::Index, None);
     }
     if let Some(rest) = path.strip_prefix("/inbox/") {
+        // /inbox/{rid}/answer  → submit answer (POST) or re-render form (GET)
+        // /inbox/{rid}/done   → post-submit confirmation page
+        // /inbox/{rid}        → form detail
+        if let Some(rid) = rest.strip_suffix("/answer") {
+            return (Route::Answer, Some(rid.to_string()));
+        }
+        if let Some(rid) = rest.strip_suffix("/done") {
+            return (Route::Done, Some(rid.to_string()));
+        }
         return (Route::InboxForm, Some(rest.to_string()));
     }
     if let Some(rest) = path.strip_prefix("/answer/") {
@@ -396,16 +524,41 @@ fn write_response(
     stream: &mut TcpStream,
     status: u16,
     reason: &str,
+    content_type: &str,
     body: &[u8],
 ) -> std::io::Result<()> {
     write!(
         stream,
-        "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+        "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: {content_type}\r\n\r\n",
         body.len()
     )?;
     stream.write_all(body)?;
     stream.flush()?;
     Ok(())
+}
+
+/// Write a 302 redirect to `location` and return `None` so the caller
+/// doesn't accidentally fall through to the default 200 path. Used by
+/// `Route::Answer` (POST) to send the browser to the confirmation page
+/// after writing the response file.
+fn redirect_response(
+    stream: &mut TcpStream,
+    location: &str,
+) -> std::io::Result<Option<String>> {
+    let body = format!(
+        "<!doctype html><meta charset=utf-8><title>redirecting</title>\
+         <body><p>Redirecting to <a href=\"{loc}\">{loc}</a>…</p>",
+        loc = location
+    );
+    write!(
+        stream,
+        "HTTP/1.1 302 Found\r\nLocation: {loc}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+        body.len(),
+        loc = location
+    )?;
+    stream.write_all(body.as_bytes())?;
+    stream.flush()?;
+    Ok(None)
 }
 
 fn simple_text(status: u16, msg: &str) -> String {
@@ -473,12 +626,32 @@ fn format_relative_time(ms: u64) -> String {
 
 // ---- Notifier loop ----------------------------------------------------
 
-fn run_notifier_loop(inbox_root: &Path, cfg: NotifyChannels, shutdown: &Arc<AtomicBool>) {
+fn run_notifier_loop(
+    inbox_root: &Path,
+    cfg: NotifyChannels,
+    shutdown: &Arc<AtomicBool>,
+    tray: Option<Arc<dyn Tray>>,
+) {
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let deadline = Instant::now() + Duration::from_secs(60 * 60 * 24); // safety net
     while !shutdown.load(Ordering::SeqCst) && Instant::now() < deadline {
         match list_pending(inbox_root) {
             Ok(requests) => {
+                let pending_count = requests
+                    .iter()
+                    .filter(|r| matches!(r.state, RequestState::Pending))
+                    .count();
+                // Keep the tray badge in sync with the pending count.
+                if let Some(t) = &tray {
+                    let badge: String = if pending_count == 0 {
+                        String::new()
+                    } else if pending_count >= 10 {
+                        "9+".to_string()
+                    } else {
+                        pending_count.to_string()
+                    };
+                    let _ = t.set_badge(&badge);
+                }
                 for req in requests {
                     if seen.contains(&req.request_id) {
                         continue;
@@ -516,6 +689,93 @@ fn run_notifier_loop(inbox_root: &Path, cfg: NotifyChannels, shutdown: &Arc<Atom
     }
 }
 
+// ---- Tray event pump --------------------------------------------------
+
+/// Long-running loop that dispatches menu events from the tray icon.
+/// Runs on its own thread; exits when `shutdown` flips or the OS tray
+/// thread terminates.
+fn run_tray_loop(tray: &dyn Tray, shutdown: &Arc<AtomicBool>, fallback_url: &str) {
+    while !shutdown.load(Ordering::SeqCst) {
+        let Some(event) = tray.try_recv() else {
+            thread::sleep(Duration::from_millis(100));
+            continue;
+        };
+        match event {
+            TrayEvent::Click | TrayEvent::DoubleClick => {
+                // Open the inbox in the default browser. Use `xdg-open` /
+                // `open` / `cmd /c start` depending on OS.
+                let url = tray_click_url(tray, fallback_url);
+                let _ = open_in_default_browser(&url);
+            }
+            TrayEvent::MenuItem { id } => {
+                let action = match id.as_str() {
+                    x if x == MenuAction::OpenInbox.id() => Some(MenuAction::OpenInbox),
+                    x if x == MenuAction::OpenLatest.id() => Some(MenuAction::OpenLatest),
+                    x if x == MenuAction::ToggleQuiet.id() => Some(MenuAction::ToggleQuiet),
+                    x if x == MenuAction::Quit.id() => Some(MenuAction::Quit),
+                    _ => None,
+                };
+                if let Some(a) = action {
+                    let base = tray_click_url(tray, fallback_url);
+                    match a {
+                        MenuAction::OpenInbox => {
+                            let _ = open_in_default_browser(&base);
+                        }
+                        MenuAction::OpenLatest => {
+                            let url = format!("{}/inbox/latest", base);
+                            let _ = open_in_default_browser(&url);
+                        }
+                        MenuAction::ToggleQuiet => {
+                            // Toggle is communicated via tooltip text for now;
+                            // the daemon's --quiet flag remains the canonical
+                            // knob.
+                            let _ = tray.set_tooltip("elicitate inbox (quiet)");
+                        }
+                        MenuAction::Quit => {
+                            info!("quit requested from tray");
+                            shutdown.store(true, Ordering::SeqCst);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Extract the tray's bound URL (from its config) — used as the
+/// click-to-open target. Falls back to the daemon's actual bind
+/// URL if the tray doesn't expose one (legacy NoopTray configs).
+fn tray_click_url(tray: &dyn Tray, fallback: &str) -> String {
+    tray.inbox_url()
+        .map(|u| u.trim_end_matches('/').to_string())
+        .unwrap_or_else(|| fallback.trim_end_matches('/').to_string())
+}
+
+/// Open `url` in the user's default browser. Best-effort; failures
+/// only log at debug level — the tray click UX degrades gracefully to
+/// "nothing visible happened" if there's no browser.
+fn open_in_default_browser(url: &str) -> std::io::Result<()> {
+    use std::process::Command;
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open").arg(url).spawn().map(|_| ())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd").args(["/C", "start", "", url]).spawn().map(|_| ())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open").arg(url).spawn().map(|_| ())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    {
+        let _ = url;
+        Ok(())
+    }
+}
+
 // ---- Answer submission ------------------------------------------------
 
 #[derive(Debug, Deserialize)]
@@ -530,6 +790,8 @@ struct FormPayload {
     notes: Option<String>,
     #[serde(default)]
     cancel: Option<String>,
+    #[serde(default)]
+    confirm: Option<String>,
 }
 
 fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(), String> {
@@ -546,7 +808,18 @@ fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(),
         Err(e) => return Err(e.to_string()),
     };
 
-    if payload.cancel.is_some() {
+    // Validate the spec before processing — a stale / corrupt file
+    // shouldn't take down the submit path.
+    req.spec
+        .validate()
+        .map_err(|e| format!("invalid spec: {e}"))?;
+
+    // Determine intent: an explicit `cancel=1` (Cancel button) wins over
+    // `confirm=ok` (Submit button) because HTML forms submit the pressed
+    // button's name+value, and a click on Cancel won't set confirm.
+    let wants_cancel = payload.cancel.is_some() && payload.confirm.is_none();
+
+    if wants_cancel {
         let notes = payload.notes.clone();
         finalize(inbox_root, &PendingRequest {
             state: RequestState::Cancelled,
@@ -577,6 +850,7 @@ fn url_decode_form(body: &str) -> FormPayload {
         integer: None,
         notes: None,
         cancel: None,
+        confirm: None,
     };
     for kv in body.split('&').filter(|s| !s.is_empty()) {
         let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
@@ -587,6 +861,7 @@ fn url_decode_form(body: &str) -> FormPayload {
             "integer" => out.integer = Some(v),
             "notes" => out.notes = Some(v),
             "cancel" => out.cancel = Some(v),
+            "confirm" => out.confirm = Some(v),
             _ => {}
         }
     }
@@ -757,8 +1032,166 @@ mod tests {
             metadata: serde_json::Map::new(),
         };
         let html = render_inbox_html(&req);
-        assert!(html.contains("<h1>Approve?</h1>"));
-        assert!(html.contains("action=\"/answer/req-1\""));
+        // The form page renders the title via <strong>...</strong> and
+        // uses a real <form method=POST action=/inbox/{rid}/answer>
+        // element (v0.7.0 contract — browsers POST the body back to the
+        // daemon for parse + validate + write).
+        assert!(html.contains("Approve?"), "title should appear: {html}");
+        assert!(
+            html.contains("/inbox/req-1/answer"),
+            "answer form action should appear: {html}"
+        );
+        assert!(
+            html.contains(r#"<form method=POST"#),
+            "v0.7.0 form must POST: {html}"
+        );
+    }
+
+    /// v0.7.0 end-to-end: POST a form-encoded body to `submit_answer`,
+    /// confirm the request moves to `Answered` in `answered/` with the
+    /// captured `FieldValue`, and confirm the cancel button flips to
+    /// `Cancelled` with notes preserved.
+    #[test]
+    fn post_handler_writes_answer() {
+        let tmp = tempfile::tempdir().unwrap();
+        let origin = RequestOrigin {
+            hostname: "h".into(),
+            process: "p".into(),
+            pid: 1,
+            callback: None,
+        };
+        let req = PendingRequest {
+            request_id: "post-1".into(),
+            origin,
+            spec: crate::spec::PromptSpec {
+                title: "Choose".into(),
+                question: "Pick env".into(),
+                field: FieldSpec::Choice {
+                    label: "env".into(),
+                    options: vec![
+                        crate::spec::ChoiceOption {
+                            value: "staging".into(),
+                            label: "Staging".into(),
+                            description: None,
+                        },
+                        crate::spec::ChoiceOption {
+                            value: "prod".into(),
+                            label: "Production".into(),
+                            description: None,
+                        },
+                    ],
+                    default_index: None,
+                },
+                notes: Some(crate::spec::NotesSpec {
+                    label: "Why?".into(),
+                    default: None,
+                    max_length: None,
+                    required: false,
+                }),
+                buttons: None,
+                urgency: crate::spec::Urgency::Warning,
+                timeout_secs: 60,
+                request_id: Some("post-1".into()),
+            },
+            queued_at_ms: unix_now_ms(),
+            expires_at_ms: unix_now_ms() + 60_000,
+            state: RequestState::Pending,
+            response: None,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        crate::inbox::enqueue(tmp.path(), &req).unwrap();
+
+        // 1. Submit path: form-encoded POST body, choice=staging, notes,
+        //    confirm=ok → Answered with FieldValue::Choice { value =
+        //    "staging", index = 0 }.
+        let body = b"value=staging&notes=green+build&confirm=ok";
+        submit_answer(tmp.path(), "post-1", body).expect("submit_answer ok");
+        let loaded = load(tmp.path(), "post-1").unwrap();
+        assert_eq!(loaded.state, RequestState::Answered);
+        match loaded.response {
+            Some(ElicitResponse::Answered { value, notes }) => {
+                match value {
+                    FieldValue::Choice { value: v, index } => {
+                        assert_eq!(v, "staging");
+                        assert_eq!(index, 0);
+                    }
+                    other => panic!("expected FieldValue::Choice, got {other:?}"),
+                }
+                assert_eq!(notes.as_deref(), Some("green build"));
+            }
+            other => panic!("expected Answered response, got {other:?}"),
+        }
+        assert!(!tmp.path().join("inbox/post-1.json").exists());
+        assert!(tmp.path().join("answered/post-1.json").exists());
+
+        // 2. Cancel path: a fresh request with cancel=1 → Cancelled with
+        //    the captured notes. (We have to re-enqueue because submit
+        //    finalized the first one.)
+        let req2 = PendingRequest {
+            request_id: "post-2".into(),
+            origin: RequestOrigin {
+                hostname: "h".into(),
+                process: "p".into(),
+                pid: 1,
+                callback: None,
+            },
+            spec: crate::spec::PromptSpec {
+                title: "Approve?".into(),
+                question: "?".into(),
+                field: FieldSpec::Boolean {
+                    label: "?".into(),
+                    default: None,
+                },
+                notes: None,
+                buttons: None,
+                urgency: crate::spec::Urgency::Info,
+                timeout_secs: 60,
+                request_id: Some("post-2".into()),
+            },
+            queued_at_ms: unix_now_ms(),
+            expires_at_ms: unix_now_ms() + 60_000,
+            state: RequestState::Pending,
+            response: None,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        crate::inbox::enqueue(tmp.path(), &req2).unwrap();
+        let body = b"cancel=1&notes=on+second+thought";
+        submit_answer(tmp.path(), "post-2", body).expect("cancel ok");
+        let loaded2 = load(tmp.path(), "post-2").unwrap();
+        assert_eq!(loaded2.state, RequestState::Cancelled);
+        match loaded2.response {
+            Some(ElicitResponse::Cancelled { notes }) => {
+                assert_eq!(notes.as_deref(), Some("on second thought"));
+            }
+            other => panic!("expected Cancelled response, got {other:?}"),
+        }
+    }
+
+    /// v0.7.0: `/inbox/{rid}/answer` must route to `Route::Answer` and
+    /// `/inbox/{rid}/done` must route to `Route::Done`.
+    #[test]
+    fn parse_route_inbox_subpaths() {
+        assert_eq!(
+            parse_route("/inbox/rid-7/answer"),
+            (Route::Answer, Some("rid-7".into()))
+        );
+        assert_eq!(
+            parse_route("/inbox/rid-7/done"),
+            (Route::Done, Some("rid-7".into()))
+        );
+        // Plain form detail still works.
+        assert_eq!(
+            parse_route("/inbox/rid-7"),
+            (Route::InboxForm, Some("rid-7".into()))
+        );
+        // Backward compatibility: the legacy /answer/{rid} prefix still
+        // resolves to Route::Answer.
+        assert_eq!(
+            parse_route("/answer/rid-7"),
+            (Route::Answer, Some("rid-7".into()))
+        );
     }
 
     #[test]
@@ -773,6 +1206,7 @@ mod tests {
             port,
             bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
             notify: NotifyChannels::default(),
+            enable_tray: false,
         };
         let handle = start_daemon(cfg).unwrap();
         assert!(handle.port == port);
@@ -801,6 +1235,85 @@ mod tests {
         assert!(status.contains("200"), "expected HTTP/1.1 200, got: {status}");
         handle.stop().unwrap();
         thread::sleep(Duration::from_millis(200));
+    }
+
+    // ---- v0.5.1: tray-open regressions ----
+
+    #[test]
+    fn live_url_returns_none_when_no_lockfile() {
+        let dir = tempdir_v051();
+        assert!(live_url(&dir, None).is_none());
+        assert!(read_lockfile(&dir).is_none());
+    }
+
+    #[test]
+    fn live_url_rejects_stale_lockfile() {
+        let dir = tempdir_v051();
+        // Lockfile claims port 1 (always closed on this host) at
+        // 127.0.0.1. live_url should refuse and return None.
+        let payload = LockfilePayload {
+            root: dir.clone(),
+            port: 1,
+            bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            booted_at_ms: unix_now_ms(),
+        };
+        std::fs::write(dir.join(LOCKFILE_NAME), serde_json::to_vec(&payload).unwrap()).unwrap();
+        assert!(live_url(&dir, None).is_none());
+    }
+
+    #[test]
+    fn live_url_accepts_running_daemon() {
+        let dir = tempdir_v051();
+        let port = portpicker::pick_unused_port().expect("no free port");
+        let payload = LockfilePayload {
+            root: dir.clone(),
+            port,
+            bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            booted_at_ms: unix_now_ms(),
+        };
+        std::fs::write(dir.join(LOCKFILE_NAME), serde_json::to_vec(&payload).unwrap()).unwrap();
+        // Bind to the port so is_port_live() returns true. Holding the
+        // listener open for the duration of the assertion is enough.
+        let _hold = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
+            .expect("bind test port");
+        let url = live_url(&dir, None);
+        assert!(url.is_some(), "live_url should accept a live socket");
+        assert!(url.unwrap().contains(&format!(":{port}")));
+    }
+
+    #[test]
+    fn live_url_respects_bind_filter() {
+        let dir = tempdir_v051();
+        let payload = LockfilePayload {
+            root: dir.clone(),
+            port: 1,
+            bind: IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)),
+            booted_at_ms: unix_now_ms(),
+        };
+        std::fs::write(dir.join(LOCKFILE_NAME), serde_json::to_vec(&payload).unwrap()).unwrap();
+        assert!(live_url(&dir, Some(IpAddr::V4(Ipv4Addr::LOCALHOST))).is_none());
+        assert!(
+            live_url(&dir, Some(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)))).is_none(),
+            "is_port_live should reject the non-listening port"
+        );
+    }
+
+    /// Scratch directory under /tmp for v0.5.1 tests. Includes a random
+    /// suffix so concurrent test invocations don't collide on the same
+    /// path (each `cargo test` worker is a separate process).
+    fn tempdir_v051() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let mut p = std::env::temp_dir();
+        p.push(format!(
+            "elicitate-v0.5.1-{}-{}-{}",
+            std::process::id(),
+            unix_now_ms(),
+            n
+        ));
+        std::fs::create_dir_all(&p).unwrap();
+        p
     }
 }
 
