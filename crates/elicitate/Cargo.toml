@@ -39,7 +39,7 @@ regex = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 schemars = "0.8"
 crossbeam-channel = "0.5"
-rmcp = { version = "2.2", features = ["server", "transport-io", "macros"], optional = true }
+rmcp = { version = "0.2", features = ["server", "transport-io", "macros"], optional = true }
 inquire = { version = "0.9", features = ["date"] }
 which = "8"
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, optional = true }
