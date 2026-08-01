@@ -5,7 +5,6 @@
 
 [mcp_servers.elicitate_mcp]
 command = "elicitate-mcp"
-args = ["serve"]
 disabled = false
 trust_level = "trusted"
 

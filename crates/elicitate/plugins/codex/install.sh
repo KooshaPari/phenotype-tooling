@@ -33,7 +33,6 @@ if ! grep -q 'elicitate_mcp' "$MCP_TOML"; then
 # elicitate (added by plugins/elicitate/install.sh)
 [mcp_servers.elicitate_mcp]
 command = "elicitate-mcp"
-args = ["serve"]
 disabled = false
 trust_level = "trusted"
 EOF

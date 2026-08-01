@@ -20,7 +20,6 @@ register_name = "elicitate"
 [[mcp_servers]]
 name = "elicitate_mcp"
 command = "elicitate-mcp"
-args = ["serve"]
 transport = "stdio"
 env = []
 auto_register = true
