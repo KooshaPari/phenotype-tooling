@@ -51,4 +51,8 @@ pub enum ElicitError {
     /// failed to compile.
     #[error("invalid pattern regex: {0}")]
     InvalidRegex(#[from] regex::Error),
+
+    /// Secret-value encryption/decryption failed.
+    #[error("secret crypto error: {0}")]
+    Crypto(#[from] crate::inbox::crypto::CryptoError),
 }

@@ -374,6 +374,7 @@ fn truncate(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn sample_req(request_id: &str) -> PendingRequest {
         let spec = crate::spec::PromptSpec {
@@ -404,6 +405,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         }
     }
 

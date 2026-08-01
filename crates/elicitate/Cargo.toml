@@ -40,6 +40,15 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 schemars = "0.8"
 crossbeam-channel = "0.5"
 rmcp = { version = "0.2", features = ["server", "transport-io", "macros"], optional = true }
+
+# v0.9.0: encrypted-at-rest for FieldSpec::Text { secret: true }.
+# AES-256-GCM (AEAD) + HKDF-SHA256 KDF. Pure-Rust, no_std-friendly,
+# MSRV 1.65 — already in our rust-version=1.75 workspace floor.
+aes-gcm = "0.10"
+hkdf = { version = "0.12", features = ["std"] }
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
 inquire = { version = "0.9", features = ["date"] }
 which = "8"
 phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, optional = true }

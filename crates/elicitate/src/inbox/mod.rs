@@ -28,15 +28,17 @@
 //! [`PendingRequest`] to disk. The native popup path is only used when the
 //! agent explicitly opts in.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::ElicitError;
-use crate::spec::{ElicitResponse, PromptSpec};
+use crate::spec::{ElicitResponse, FieldSpec, FieldValue, PromptSpec};
 
 pub mod change;
+pub mod crypto;
 pub mod daemon;
 pub mod notify;
 
@@ -110,6 +112,12 @@ pub struct PendingRequest {
     /// Free-form metadata for the agent's bookkeeping.
     #[serde(default)]
     pub metadata: serde_json::Map<String, serde_json::Value>,
+
+    /// Encrypted-at-rest values for [`FieldSpec::Text`] fields with
+    /// `secret: true`. Keyed by the field key (label); plaintext is never
+    /// written to disk when encryption is configured.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub encrypted_values: BTreeMap<String, crypto::SecretEnvelope>,
 }
 
 /// Information about the agent that enqueued the request.
@@ -150,6 +158,7 @@ impl PendingRequest {
             response: None,
             notified_via: Vec::new(),
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         }
     }
 
@@ -353,6 +362,46 @@ pub fn wait_for_response(
     }
 }
 
+/// Decrypt any `encrypted_values` entries on an answered request back into
+/// the response's `FieldValue::Text`.
+///
+/// v0.9.0: [`crate::inbox::daemon`] stores ciphertext in
+/// [`PendingRequest::encrypted_values`] and a `[encrypted]` placeholder in
+/// the response. This helper resolves the configured passphrase and swaps
+/// the placeholder back to the real value so the agent's `wait` path gets
+/// the plaintext without writing it to disk.
+///
+/// Returns the request unchanged (with the placeholder still in place) if
+/// there are no encrypted values, and an error if encryption was used but
+/// no passphrase is configured.
+pub fn decrypt_answer(req: &mut PendingRequest) -> Result<(), ElicitError> {
+    if req.encrypted_values.is_empty() {
+        return Ok(());
+    }
+    let pass = crypto::resolve_passphrase(
+        "ELICITATE_SECRET_PASSPHRASE",
+        "ELICITATE_IDENTITY_FILE",
+    )?
+    .ok_or_else(|| {
+        ElicitError::InvalidSpec(
+            "answer is encrypted; set ELICITATE_SECRET_PASSPHRASE \
+             or ELICITATE_IDENTITY_FILE to decrypt"
+                .into(),
+        )
+    })?;
+
+    if let FieldSpec::Text { label, .. } = &req.spec.field {
+        if let Some(env) = req.encrypted_values.get(label) {
+            let pt = crypto::decrypt_value(env, &pass, label, None)?;
+            if let Some(ElicitResponse::Answered { value, .. }) = &mut req.response {
+                *value = FieldValue::Text(String::from_utf8_lossy(&pt).into_owned());
+            }
+        }
+    }
+    req.encrypted_values.clear();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -416,6 +465,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         let dir = Path::new("/x/inbox");
         assert_eq!(req.path_in(dir), PathBuf::from("/x/inbox/abc.json"));
@@ -446,6 +496,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         enqueue(tmp.path(), &req).unwrap();
         let loaded = load(tmp.path(), "rt-1").unwrap();
@@ -481,6 +532,7 @@ mod tests {
             }),
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         enqueue(tmp.path(), &req).unwrap();
         finalize(tmp.path(), &req).unwrap();

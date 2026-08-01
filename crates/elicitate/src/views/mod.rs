@@ -512,6 +512,7 @@ pub fn render_summary_json(req: &PendingRequest) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
     use crate::inbox::{PendingRequest, RequestOrigin};
     use crate::spec::{ButtonSpec, FieldSpec, NotesSpec, PromptSpec, Urgency};
 
@@ -547,6 +548,7 @@ mod tests {
             state: crate::inbox::RequestState::Pending,
             notified_via: vec![],
             metadata: Default::default(),
+            encrypted_values: BTreeMap::new(),
         }
     }
 

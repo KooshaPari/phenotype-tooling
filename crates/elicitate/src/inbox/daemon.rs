@@ -27,8 +27,7 @@ use crate::error::ElicitError;
 use crate::spec::Urgency;
 use crate::inbox::notify::{NotifyChannels, surface_all};
 use crate::inbox::{
-    PendingRequest, RequestState, finalize, list_pending, load,
-    unix_now_ms,
+    crypto, PendingRequest, RequestState, finalize, list_pending, load, unix_now_ms,
 };
 use crate::spec::{ElicitResponse, FieldSpec, FieldValue};
 use crate::tray::{build_tray, MenuAction, Tray, TrayConfig, TrayEvent};
@@ -829,13 +828,43 @@ fn submit_answer(inbox_root: &Path, request_id: &str, body: &[u8]) -> Result<(),
         .map_err(|e| e.to_string())?;
     } else {
         let v = coerce_field_value(&req.spec.field, &payload)?;
+        // v0.9.0: when the field is a secret, encrypt the value at rest.
+        // The response stores a redacted placeholder; the ciphertext lives
+        // in `encrypted_values` keyed by the field label. Plaintext is
+        // never written to disk unless no passphrase is configured.
+        let mut encrypted_values = std::collections::BTreeMap::new();
+        let value = match &req.spec.field {
+            FieldSpec::Text { secret: true, label, .. } => match v {
+                FieldValue::Text(raw) => {
+                    let pass = crypto::resolve_passphrase(
+                        "ELICITATE_SECRET_PASSPHRASE",
+                        "ELICITATE_IDENTITY_FILE",
+                    )
+                    .map_err(|e| format!("secret field: {e}"))?;
+                    let env = match pass {
+                        Some(p) => crypto::encrypt_value(raw.as_bytes(), &p, label)
+                            .map_err(|e| format!("secret field: {e}"))?,
+                        None => return Err(
+                            "secret field requires ELICITATE_SECRET_PASSPHRASE or \
+                             ELICITATE_IDENTITY_FILE to be set"
+                                .to_string(),
+                        ),
+                    };
+                    encrypted_values.insert(label.clone(), env);
+                    FieldValue::Text("[encrypted]".into())
+                }
+                other => other,
+            },
+            _ => v,
+        };
         let response = ElicitResponse::Answered {
-            value: v,
+            value,
             notes: payload.notes,
         };
         let final_req = PendingRequest {
             state: RequestState::Answered,
             response: Some(response),
+            encrypted_values,
             ..req
         };
         finalize(inbox_root, &final_req).map_err(|e| e.to_string())?;
@@ -952,6 +981,7 @@ fn coerce_field_value(field: &FieldSpec, payload: &FormPayload) -> Result<FieldV
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
     use crate::inbox::RequestOrigin;
 
     #[test]
@@ -1030,6 +1060,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         let html = render_inbox_html(&req);
         // The form page renders the title via <strong>...</strong> and
@@ -1099,6 +1130,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         crate::inbox::enqueue(tmp.path(), &req).unwrap();
 
@@ -1155,6 +1187,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         crate::inbox::enqueue(tmp.path(), &req2).unwrap();
         let body = b"cancel=1&notes=on+second+thought";

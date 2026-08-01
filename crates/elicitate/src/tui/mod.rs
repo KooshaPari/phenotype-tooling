@@ -651,6 +651,7 @@ pub fn position_of(snapshot: &[ListEntry], id: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn sample_spec() -> PromptSpec {
         PromptSpec {
@@ -771,6 +772,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         let e = build_entry(&req, 1_001_000);
         assert_eq!(e.state_badge, "[A]");
@@ -874,6 +876,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         let b = PendingRequest {
             request_id: "b".into(),
@@ -885,6 +888,7 @@ mod tests {
             response: None,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         // Swap timestamps so `b` is older.
         a.queued_at_ms = 2_000;
