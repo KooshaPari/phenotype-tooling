@@ -13,14 +13,17 @@ fn repo_root() -> PathBuf {
 }
 
 fn assert_json_registration_has_no_args(path: &Path) {
-    let content = fs::read_to_string(path).unwrap_or_else(|error| {
-        panic!("failed to read MCP config {}: {error}", path.display())
-    });
-    let config: Value = serde_json::from_str(&content).unwrap_or_else(|error| {
-        panic!("MCP config {} is not valid JSON: {error}", path.display())
-    });
+    let content = fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("failed to read MCP config {}: {error}", path.display()));
+    let config: Value = serde_json::from_str(&content)
+        .unwrap_or_else(|error| panic!("MCP config {} is not valid JSON: {error}", path.display()));
     let server = &config["mcpServers"]["elicitate_mcp"];
-    assert_eq!(server["command"], "elicitate-mcp", "wrong command in {}", path.display());
+    assert_eq!(
+        server["command"],
+        "elicitate-mcp",
+        "wrong command in {}",
+        path.display()
+    );
     assert!(
         server.get("args").is_none(),
         "{} must launch elicitate-mcp without args; `serve` is not a valid subcommand",
@@ -29,16 +32,19 @@ fn assert_json_registration_has_no_args(path: &Path) {
 }
 
 fn assert_toml_registration_has_no_args(path: &Path) {
-    let content = fs::read_to_string(path).unwrap_or_else(|error| {
-        panic!("failed to read MCP config {}: {error}", path.display())
-    });
+    let content = fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("failed to read MCP config {}: {error}", path.display()));
     assert!(
-        content.lines().any(|line| line.trim() == "command = \"elicitate-mcp\""),
+        content
+            .lines()
+            .any(|line| line.trim() == "command = \"elicitate-mcp\""),
         "{} must register the elicitate-mcp command",
         path.display()
     );
     assert!(
-        !content.lines().any(|line| line.trim_start().starts_with("args")),
+        !content
+            .lines()
+            .any(|line| line.trim_start().starts_with("args")),
         "{} must launch elicitate-mcp without args; `serve` is not a valid subcommand",
         path.display()
     );
@@ -53,7 +59,28 @@ fn cursor_plugin_registration_has_no_args() {
 
 #[test]
 fn codex_plugin_registration_has_no_args() {
-    assert_toml_registration_has_no_args(&repo_root().join("crates/elicitate/plugins/codex/codex.toml"));
+    assert_toml_registration_has_no_args(
+        &repo_root().join("crates/elicitate/plugins/codex/codex.toml"),
+    );
+}
+
+#[test]
+fn codex_plugin_installer_registration_has_no_args() {
+    let path = repo_root().join("crates/elicitate/plugins/codex/install.sh");
+    let content = fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("failed to read MCP installer {}: {error}", path.display()));
+    assert!(
+        content.contains("command = \"elicitate-mcp\""),
+        "{} must generate the elicitate-mcp command",
+        path.display()
+    );
+    assert!(
+        !content
+            .lines()
+            .any(|line| line.trim_start().starts_with("args")),
+        "{} must generate an elicitate-mcp registration without args",
+        path.display()
+    );
 }
 
 #[test]
