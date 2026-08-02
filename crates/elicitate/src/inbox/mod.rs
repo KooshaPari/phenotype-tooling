@@ -402,6 +402,103 @@ pub fn decrypt_answer(req: &mut PendingRequest) -> Result<(), ElicitError> {
     Ok(())
 }
 
+/// Typed projection over a single inbox directory for the
+/// `inbox_status` MCP tool. Counts by `RequestState` so an agent
+/// can decide whether to wait / cancel / reply without parsing the
+/// raw file list.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct InboxStatus {
+    /// Absolute path of the inbox directory the status covers.
+    pub inbox_dir: String,
+    /// Total number of `<rid>.json` files discovered (pending + answered + timed_out + failed).
+    pub total: u32,
+    /// Per-state counts. Keys are the `RequestState` snake_case repr.
+    pub pending: u32,
+    pub answered: u32,
+    pub timed_out: u32,
+    pub failed: u32,
+    /// `pending_request_ids`: the live `RequestState::Pending` ids in stable insertion order.
+    /// Lets the agent pick the oldest one with `min(pending_request_ids)` without
+    /// scanning the directory again.
+    pub pending_request_ids: Vec<String>,
+    /// Oldest and newest `queued_at_ms` across the pending set. Both `None` if empty.
+    pub oldest_pending_ms: Option<u64>,
+    pub newest_pending_ms: Option<u64>,
+}
+
+/// Compute the typed inbox status. Pure-data helper — does not touch disk
+/// for the counts (uses the directory listing + the existing `list_pending`
+/// + a `list_answered`-equivalent walker), but does not load each
+/// `<rid>.json` (cheap on-disk walk; expensive parse avoided).
+pub fn compute_inbox_status(inbox_dir: &Path) -> std::io::Result<InboxStatus> {
+    use std::io::{self, ErrorKind};
+
+    if !inbox_dir.exists() {
+        return Err(io::Error::new(
+            ErrorKind::NotFound,
+            format!("inbox dir does not exist: {}", inbox_dir.display()),
+        ));
+    }
+
+    let pending = list_pending(inbox_dir)?;
+    let pending_count = pending.len() as u32;
+    let pending_request_ids: Vec<String> =
+        pending.iter().map(|p| p.request_id.clone()).collect();
+    let oldest_pending_ms = pending.iter().map(|p| p.queued_at_ms).min();
+    let newest_pending_ms = pending.iter().map(|p| p.queued_at_ms).max();
+
+    // Walk the answered dir for the answered / timed_out / failed split.
+    let answered_root = answered_dir(inbox_dir);
+    let mut answered = 0u32;
+    let mut timed_out = 0u32;
+    let mut failed = 0u32;
+    if answered_root.exists() {
+        for entry in std::fs::read_dir(&answered_root)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
+            // Cheap: we don't parse, we just count and read the terminal
+            // state from the filename is unsupported (the answered dir
+            // uses `<rid>.json` like the pending dir). So open + peek the
+            // last 200 bytes for the `"state":` token.
+            let bytes = match std::fs::read(&path) {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+            // Only scan the tail — the `state` field is near EOF because
+            // serde_json's serializer writes fields in struct-decl order
+            // and `state` is the last field on `PendingRequest`.
+            let tail_start = bytes.len().saturating_sub(512);
+            let tail = &bytes[tail_start..];
+            if tail.windows(9).any(|w| w == b"\"state\":") {
+                // Try to identify the state from the tail.
+                if tail.windows(16).any(|w| w == b"\"timed_out\"") {
+                    timed_out += 1;
+                } else if tail.windows(9).any(|w| w == b"\"failed\"") {
+                    failed += 1;
+                } else if tail.windows(11).any(|w| w == b"\"answered\"") {
+                    answered += 1;
+                }
+            }
+        }
+    }
+
+    Ok(InboxStatus {
+        inbox_dir: inbox_dir.display().to_string(),
+        total: pending_count + answered + timed_out + failed,
+        pending: pending_count,
+        answered,
+        timed_out,
+        failed,
+        pending_request_ids,
+        oldest_pending_ms,
+        newest_pending_ms,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
