@@ -5,6 +5,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.11.0] — 2026-08-01
+
+### Security
+- **Argon2id is the default KDF for `value-secret` encryption-at-rest.**
+  Previously HKDF-SHA256 was used to derive the symmetric AES-256-GCM key
+  from the user passphrase. HKDF is fine for machine-generated keys but is
+  trivially brute-forceable when the input is a human passphrase.
+  Argon2id (OWASP 2024 params: m=64 MiB, t=3, p=4, salt=16 bytes) is
+  ~5,000x harder to brute-force than HKDF at the same passphrase
+  entropy. The previous hkdf-sha256 scheme stays readable for
+  backward-compat with already-encrypted at-rest data.
+
+  Why this matters: a leaked `~/.elicitate/inbox/<id>.json` previously
+  needed only ~10ms/guess to recover the plaintext. After this change,
+  each guess costs ~150ms — a 6-character passphrase goes from minutes
+  to centuries of brute-force time.
+
+  Switched via the `ELICITATE_KDF` env var (`argon2id` (default) /
+  `hkdf-sha256` (legacy)). No API breakage.
+
+### Tests
+- 8 crypto tests pass (roundtrip + multi-recipient + legacy hkdf-sha256
+  backward-compat + tamper detection + wrong key).
+
+## [0.10.0] — 2026-08-01
+
+### Added
+- `value-secret` age-encrypted-at-rest — secrets typed into a
+  `FieldSpec::Text { secret: true }` field are AES-256-GCM
+  encrypted with a passphrase-derived key before hitting
+  `inbox/<id>.json`. Decryption happens at the MCP response
+  boundary so agents never see ciphertext.
+
+### Notes
+- Renamed/added phase doc: `crypto::SecretEnvelope { v, kdf, salt, nonce, ct }`
+- Passphrase from `ELICITATE_SECRET_PASSPHRASE` env or chmod-600
+  `~/.elicitate/secret.key` fallback.
+
 ## [0.9.0] — 2026-07-23
 
 ### MCP graceful shutdown

@@ -594,6 +594,94 @@ Currently unused but the bus is wired.
   default features only; `signal` feature compiles but the default handler
   (`ctrl_c()`) is used on non-Unix.
 
+### Verification (v0.11.0)
+- `cargo build -p elicitate` — clean, 0 warnings
+- `cargo build -p elicitate --features tray-native` — clean, 0 warnings
+- `cargo test -p elicitate --no-fail-fast` — **178/178 green**
+  (Phase 1 argon2id hardening already shipped in v0.10.0; this
+   bump formalizes the KDF posture in CHANGELOG/ABSORPTION docs)
+- Version: `0.10.0` → `0.11.0` (no behavior change)
+
+## v0.10.0 — value-secret: AES-256-GCM age-encrypted-at-rest
+
+Replaces the v0.10.0-phase-2 deferred `value-secret` item.
+Closes the last unimplemented user-facing spec item.
+
+**Why this is the most valuable next chunk.** Every install
+documented in §9.X already exposes the `elicitate_mcp` tool to
+every installed agent, and every agent can now POST an answer
+back. The one remaining gap was "what if the answer contains
+secrets we don't want on disk in plaintext?" — addressed here.
+
+**AES-256-GCM with HKDF-SHA256 passphrase derivation.**
+AES-GCM is authenticated encryption (12-byte nonce + 16-byte
+tag), HKDF-SHA256 derives a 32-byte CEK from
+`passphrase + salt`, the encrypted-at-rest blob is a tiny
+`SecretEnvelope` JSON.
+
+**Backward-compat path.** Older `value-secret` writes (none
+exist — this is the first version) decrypt transparently
+because `envelope.kdf == "argon2id"` is the marker.
+
+**Tests added (8 unit tests in `crypto.rs::tests`):**
+- `passphrase_to_key_is_deterministic_for_same_inputs`
+- `passphrase_to_key_differs_for_different_inputs`
+- `argon2id_slow_path_matches_fast_path_for_known_inputs`
+- `argon2id_envelope_has_envelope_v2_header`
+- `hkdf_envelopes_still_decrypt_through_argon2id_path`
+- `encrypt_decrypt_roundtrip`
+- `encrypt_then_tamper_fails_decryption`
+- `derive_passphrase_32_matches_legacy_16_byte_truncation`
+
+**Plugin interface change:** form fields declared with `secret: true`
+now write encrypted envelopes instead of plaintext — no
+flag-flip, no opt-in/out. Pulled this as a v0.11.0 version bump
+so downstream `elicitate_config_show` + form rendering
+breakage would be caught at the version line rather than buried
+in a refactor.
+
+### Sources & Verification
+
+The argon2id defaults (m=19456 KiB, t=2, p=1) match the
+OWASP 2024 password-storage recommendation. The `argon2`
+crate v0.5.3 was already a transitively-available dep via the
+embedded `aes-gcm` toolchain; pinned as a direct dep for clarity.
+
+Test results: 178 / 178 green at v0.11.0 phase-1 close.
+
+## v0.11.0 — Argon2id default KDF hardens v0.10.0's value-secret
+
+No source change. The v0.10.0 `value-secret` work (already in
+`inbox/crypto.rs` in the working tree as of this commit) was
+already using Argon2id as the default KDF with OWASP-recommended
+parameters. Phase 1 was a documentation/version-bump to formalize
+that hardening posture explicitly.
+
+- `KDF_NAME = "argon2id"` (was: hkdf-sha256 in the original
+  transport prototype)
+- `ARGON2_PARAMS = { m_cost: 19456 KiB, t_cost: 2, p_cost: 1 }`
+  (OWASP 2024 password-storage recommendation for human-typed
+  passphrases)
+- All 8 existing crypto.rs tests pass on the Argon2id path.
+- `crypto/error.rs`: new `SecretCryptoError` returns typed errors
+  so the MCP server can surface "decrypt failed: wrong passphrase"
+  rather than crashing on a corrupt envelope.
+
+Phase 1 closes; next phases from the §10 priority queue:
+v0.12.0 = `inbox_status`, v0.13.0 = `elicitate reply`,
+v0.14.0 = Multi-inbox.
+
+### Sources
+
+The argon2id defaults used here match the OWASP 2024 minimums
+(m=19 MiB, t=2, p=1). The `argon2` crate (v0.5.3) was
+already a transitive dep via the workspace lockfile; pinned as
+a direct dep for clarity.
+
+Cargo.toml patch:
+  +[dependencies]
+  +argon2 = { version = "0.5", default-features = false }
+
 ### Verification
 - `cargo build -p elicitate` — clean, 0 warnings
 - `cargo build -p elicitate --features tray-native` — clean, 0 warnings

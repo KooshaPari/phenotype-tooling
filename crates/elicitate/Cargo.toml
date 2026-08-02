@@ -1,6 +1,6 @@
 [package]
 name = "elicitate"
-version = "0.9.0"
+version = "0.11.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -41,10 +41,14 @@ schemars = "0.8"
 crossbeam-channel = "0.5"
 rmcp = { version = "0.2", features = ["server", "transport-io", "macros"], optional = true }
 
-# v0.9.0: encrypted-at-rest for FieldSpec::Text { secret: true }.
-# AES-256-GCM (AEAD) + HKDF-SHA256 KDF. Pure-Rust, no_std-friendly,
-# MSRV 1.65 — already in our rust-version=1.75 workspace floor.
+# v0.11.0: default KDF hardened from HKDF-SHA256 to `argon2id`
+# (OWASP 2024 params: m=19 MiB, t=2, p=1). Legacy `hkdf-sha256`
+# envelopes remain decryptable for forward compatibility on
+# existing on-disk data (covers v0.10.0 and earlier).
+# AES-256-GCM (AEAD) for the encryption layer.
+# Pure-Rust, no_std-friendly, MSRV 1.75 — the workspace floor.
 aes-gcm = "0.10"
+argon2 = { version = "0.5", default-features = false, features = ["alloc", "std"] }
 hkdf = { version = "0.12", features = ["std"] }
 sha2 = "0.10"
 base64 = "0.22"
