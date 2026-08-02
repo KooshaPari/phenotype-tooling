@@ -34,7 +34,7 @@
 		"@storybook/test": "^8.6.15",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/kit": "^2.70.1",
+		"@sveltejs/kit": "^2.70.2",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tauri-apps/api": "^2.1.1",
 		"@tauri-apps/cli": "^2.10.1",
@@ -63,7 +63,7 @@
 		"tailwindcss": "^4.2.4",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.59.1",
-		"vite": "^8.1.5",
+		"vite": "^8.2.0",
 		"zod": "^4.3.6"
 	},
 	"dependencies": {
