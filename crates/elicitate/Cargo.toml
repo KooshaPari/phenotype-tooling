@@ -37,7 +37,7 @@ tracing-subscriber = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 regex = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-schemars = "0.8"
+schemars = "1.2"
 crossbeam-channel = "0.5"
 rmcp = { version = "2.2", features = ["server", "transport-io", "macros"], optional = true }
 inquire = { version = "0.9", features = ["date"] }
