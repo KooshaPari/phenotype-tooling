@@ -392,7 +392,7 @@ pub fn decrypt_answer(req: &mut PendingRequest) -> Result<(), ElicitError> {
 
     if let FieldSpec::Text { label, .. } = &req.spec.field {
         if let Some(env) = req.encrypted_values.get(label) {
-            let pt = crypto::decrypt_value(env, &pass, label, None)?;
+            let pt = crypto::decrypt_value(env, &pass, label, &req.spec);
             if let Some(ElicitResponse::Answered { value, .. }) = &mut req.response {
                 *value = FieldValue::Text(String::from_utf8_lossy(&pt).into_owned());
             }
@@ -431,14 +431,14 @@ pub struct InboxStatus {
 /// for the counts (uses the directory listing + the existing `list_pending`
 /// + a `list_answered`-equivalent walker), but does not load each
 /// `<rid>.json` (cheap on-disk walk; expensive parse avoided).
-pub fn compute_inbox_status(inbox_dir: &Path) -> std::io::Result<InboxStatus> {
-    use std::io::{self, ErrorKind};
+pub fn compute_inbox_status(inbox_dir: &Path) -> Result<InboxStatus, ElicitError> {
+    use std::path::Path;
 
     if !inbox_dir.exists() {
-        return Err(io::Error::new(
-            ErrorKind::NotFound,
-            format!("inbox dir does not exist: {}", inbox_dir.display()),
-        ));
+        return Err(ElicitError::RendererFailed(format!(
+            "inbox dir does not exist: {}",
+            inbox_dir.display()
+        )));
     }
 
     let pending = list_pending(inbox_dir)?;
@@ -635,5 +635,121 @@ mod tests {
         finalize(tmp.path(), &req).unwrap();
         let loaded = load(tmp.path(), "fn-1").unwrap();
         assert_eq!(loaded.state, RequestState::Answered);
+    }
+
+    // ---- inbox_status (Phase 2 — v0.12.0) ----
+
+    fn write_pending_with_urgency(
+        dir: &Path,
+        id: &str,
+        title: &str,
+        urgency: crate::spec::Urgency,
+    ) {
+        let spec = PromptSpec {
+            request_id: Some(id.to_string()),
+            title: title.to_string(),
+            question: "question".to_string(),
+            field: FieldSpec::Text {
+                label: "label".into(),
+                default: None,
+                placeholder: None,
+                max_length: None,
+                secret: false,
+                pattern: None,
+            },
+            notes: None,
+            buttons: None,
+            urgency,
+            timeout_secs: 60,
+        };
+    }
+
+    #[test]
+    fn inbox_status_returns_counts_per_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+
+        // 2 pending, 1 answered, 1 cancelled — total 4
+        write_pending_with_urgency(dir, "p1", "P1", crate::spec::Urgency::Info);
+        write_pending_with_urgency(dir, "p2", "P2", crate::spec::Urgency::Warning);
+        write_pending_with_urgency(dir, "a1", "A1", crate::spec::Urgency::Info);
+        // finalize as answered
+        let spec = crate::spec::PromptSpec {
+            title: "A1".into(),
+            question: "a1?".into(),
+            field: crate::spec::FieldSpec::Text { label: "label".into(), default: None, placeholder: None, max_length: None, secret: false, pattern: None },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::Info,
+            timeout_secs: 600,
+            request_id: Some("a1".into()),
+        };
+        let req = PendingRequest {
+            request_id: "a1".into(),
+            queued_at_ms: 0,
+            expires_at_ms: 0,
+            origin: RequestOrigin { hostname: "".into(), process: "".into(), pid: 0, callback: None },
+            spec,
+            response: Some(ElicitResponse::Answered { values: std::collections::BTreeMap::new(), notes: None }),
+            state: RequestState::Answered,
+            notified_via: vec![],
+            metadata: std::collections::BTreeMap::new(),
+        };
+        finalize(dir, &req).unwrap();
+        write_pending_with_urgency(dir, "c1", "C1", crate::spec::Urgency::Info);
+        // finalize as cancelled
+        let mut req_c = load(dir, "c1").unwrap();
+        req_c.response = Some(ElicitResponse::Cancelled);
+        req_c.state = RequestState::Cancelled;
+        finalize(dir, &req_c).unwrap();
+
+        let status = compute_inbox_status(dir).unwrap();
+        assert_eq!(status.pending, 2);
+        assert_eq!(status.answered, 1);
+        assert_eq!(status.timed_out, 0);
+        assert_eq!(status.failed, 0);
+        assert_eq!(status.total, 4);
+    }
+
+    #[test]
+    fn inbox_status_empty_dir_returns_zero_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let status = compute_inbox_status(tmp.path()).unwrap();
+        assert_eq!(status.pending, 0);
+        assert_eq!(status.answered, 0);
+        assert_eq!(status.timed_out, 0);
+        assert_eq!(status.failed, 0);
+        assert_eq!(status.total, 0);
+    }
+
+    #[test]
+    fn inbox_status_missing_dir_returns_renderer_failed_not_io() {
+        let bogus = Path::new("/no/such/path/elicitate-inbox-test-abc");
+        let err = compute_inbox_status(bogus).unwrap_err();
+        match err {
+            ElicitError::RendererFailed(msg) => {
+                assert!(msg.contains("not found") || msg.contains("error reading inbox"));
+            }
+            other => panic!("expected RendererFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn inbox_status_counts_match_list_pending() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_pending_with_urgency(dir, "p1", "P1", crate::spec::Urgency::Info);
+        write_pending_with_urgency(dir, "p2", "P2", crate::spec::Urgency::Info);
+        write_pending_with_urgency(dir, "a1", "A1", crate::spec::Urgency::Info);
+        // finalize as cancelled
+        let mut req = load(dir, "a1").unwrap();
+        req.response = Some(ElicitResponse::Cancelled);
+        req.state = RequestState::Cancelled;
+        finalize(dir, &req).unwrap();
+
+        let status = compute_inbox_status(dir).unwrap();
+        let pending_ids: std::collections::HashSet<String> = list_pending(dir).unwrap().iter().map(|p| p.request_id.clone()).collect();
+        assert_eq!(status.pending as usize, pending_ids.len());
+        assert_eq!(status.total, 3);
     }
 }
