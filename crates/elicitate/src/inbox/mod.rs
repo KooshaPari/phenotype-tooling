@@ -392,7 +392,8 @@ pub fn decrypt_answer(req: &mut PendingRequest) -> Result<(), ElicitError> {
 
     if let FieldSpec::Text { label, .. } = &req.spec.field {
         if let Some(env) = req.encrypted_values.get(label) {
-            let pt = crypto::decrypt_value(env, &pass, label, &req.spec);
+            let pt = crypto::decrypt_value(env, &pass, label, None)
+                .map_err(|e| ElicitError::InvalidSpec(e.to_string()))?;
             if let Some(ElicitResponse::Answered { value, .. }) = &mut req.response {
                 *value = FieldValue::Text(String::from_utf8_lossy(&pt).into_owned());
             }
@@ -662,12 +663,24 @@ mod tests {
             urgency,
             timeout_secs: 60,
         };
-    }
-
-    #[test]
-    fn inbox_status_returns_counts_per_state() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path();
+        let req = PendingRequest {
+            request_id: id.to_string(),
+            queued_at_ms: 0,
+            expires_at_ms: 0,
+            origin: RequestOrigin { hostname: "".into(), process: "".into(), pid: 0, callback: None },
+            spec,
+            response: None,
+            state: RequestState::Pending,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
+        };
+        enqueue(dir, &req).ok();
+            // mark a1 as answered
+            let mut answered = req;
+            answered.response = Some(ElicitResponse::Answered { value: FieldValue::Bool(true), notes: None });
+            answered.state = RequestState::Answered;
+            answered.metadata = serde_json::Map::new();
 
         // 2 pending, 1 answered, 1 cancelled — total 4
         write_pending_with_urgency(dir, "p1", "P1", crate::spec::Urgency::Info);
@@ -690,16 +703,16 @@ mod tests {
             expires_at_ms: 0,
             origin: RequestOrigin { hostname: "".into(), process: "".into(), pid: 0, callback: None },
             spec,
-            response: Some(ElicitResponse::Answered { values: std::collections::BTreeMap::new(), notes: None }),
+            response: Some(ElicitResponse::Answered { value: crate::spec::FieldValue::Bool(true), notes: None }),
             state: RequestState::Answered,
             notified_via: vec![],
-            metadata: std::collections::BTreeMap::new(),
+            metadata: serde_json::Map::new(),
         };
         finalize(dir, &req).unwrap();
         write_pending_with_urgency(dir, "c1", "C1", crate::spec::Urgency::Info);
         // finalize as cancelled
         let mut req_c = load(dir, "c1").unwrap();
-        req_c.response = Some(ElicitResponse::Cancelled);
+req_c.response = Some(ElicitResponse::Cancelled { notes: None });
         req_c.state = RequestState::Cancelled;
         finalize(dir, &req_c).unwrap();
 
@@ -743,7 +756,7 @@ mod tests {
         write_pending_with_urgency(dir, "a1", "A1", crate::spec::Urgency::Info);
         // finalize as cancelled
         let mut req = load(dir, "a1").unwrap();
-        req.response = Some(ElicitResponse::Cancelled);
+        req.response = Some(ElicitResponse::Cancelled { notes: None });
         req.state = RequestState::Cancelled;
         finalize(dir, &req).unwrap();
 
