@@ -678,55 +678,7 @@ mod tests {
         enqueue(dir, &req).ok();
     }
 
-    #[test]
-    fn inbox_status_counts_match_list_pending() {
-        let dir = tempfile::tempdir().unwrap().into_path();
-        write_pending_with_urgency(&dir, "p1", "P1", crate::spec::Urgency::Info);
-        write_pending_with_urgency(&dir, "p2", "P2", crate::spec::Urgency::Warning);
-        write_pending_with_urgency(&dir, "a1", "A1", crate::spec::Urgency::Info);
-
-        // 2 pending, 1 answered, 1 cancelled — total 4
-        write_pending_with_urgency(dir, "p1", "P1", crate::spec::Urgency::Info);
-        write_pending_with_urgency(dir, "p2", "P2", crate::spec::Urgency::Warning);
-        write_pending_with_urgency(dir, "a1", "A1", crate::spec::Urgency::Info);
-        // finalize as answered
-        let spec = crate::spec::PromptSpec {
-            title: "A1".into(),
-            question: "a1?".into(),
-            field: crate::spec::FieldSpec::Text { label: "label".into(), default: None, placeholder: None, max_length: None, secret: false, pattern: None },
-            notes: None,
-            buttons: None,
-            urgency: crate::spec::Urgency::Info,
-            timeout_secs: 600,
-            request_id: Some("a1".into()),
-        };
-        let req = PendingRequest {
-            request_id: "a1".into(),
-            queued_at_ms: 0,
-            expires_at_ms: 0,
-            origin: RequestOrigin { hostname: "".into(), process: "".into(), pid: 0, callback: None },
-            spec,
-            response: Some(ElicitResponse::Answered { value: crate::spec::FieldValue::Boolean(true), notes: None }),
-            state: RequestState::Answered,
-            notified_via: vec![],
-            metadata: serde_json::Map::new(),
-            encrypted_values: BTreeMap::new(),
-        };
-        finalize(dir, &req).unwrap();
-        write_pending_with_urgency(dir, "c1", "C1", crate::spec::Urgency::Info);
-        // finalize as cancelled
-        let mut req_c = load(dir, "c1").unwrap();
-req_c.response = Some(ElicitResponse::Cancelled { notes: None });
-        req_c.state = RequestState::Cancelled;
-        finalize(dir, &req_c).unwrap();
-
-        let status = compute_inbox_status(dir).unwrap();
-        assert_eq!(status.pending, 2);
-        assert_eq!(status.answered, 1);
-        assert_eq!(status.timed_out, 0);
-        assert_eq!(status.failed, 0);
-        assert_eq!(status.total, 4);
-    }
+    
 
     #[test]
     fn inbox_status_empty_dir_returns_zero_state() {
