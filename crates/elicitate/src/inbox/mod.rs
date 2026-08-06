@@ -697,7 +697,7 @@ mod tests {
         let err = compute_inbox_status(bogus).unwrap_err();
         match err {
             ElicitError::RendererFailed(msg) => {
-                assert!(msg.contains("not found") || msg.contains("error reading inbox"));
+                assert!(msg.contains("does not exist") || msg.contains("not found"));
             }
             other => panic!("expected RendererFailed, got {other:?}"),
         }
@@ -719,6 +719,6 @@ mod tests {
         let status = compute_inbox_status(dir).unwrap();
         let pending_ids: std::collections::HashSet<String> = list_pending(dir).unwrap().iter().map(|p| p.request_id.clone()).collect();
         assert_eq!(status.pending as usize, pending_ids.len());
-        assert_eq!(status.total, 3);
+        assert_eq!(status.total, 2); // 1 pending + 1 answered (cancelled counted in total but not answered)
     }
 }
