@@ -676,11 +676,14 @@ mod tests {
             encrypted_values: BTreeMap::new(),
         };
         enqueue(dir, &req).ok();
-            // mark a1 as answered
-            let mut answered = req;
-            answered.response = Some(ElicitResponse::Answered { value: FieldValue::Boolean(true), notes: None });
-            answered.state = RequestState::Answered;
-            answered.metadata = serde_json::Map::new();
+    }
+
+    #[test]
+    fn inbox_status_counts_match_list_pending() {
+        let dir = tempfile::tempdir().unwrap().into_path();
+        write_pending_with_urgency(&dir, "p1", "P1", crate::spec::Urgency::Info);
+        write_pending_with_urgency(&dir, "p2", "P2", crate::spec::Urgency::Warning);
+        write_pending_with_urgency(&dir, "a1", "A1", crate::spec::Urgency::Info);
 
         // 2 pending, 1 answered, 1 cancelled — total 4
         write_pending_with_urgency(dir, "p1", "P1", crate::spec::Urgency::Info);
