@@ -14,6 +14,7 @@ use rmcp::ServerHandler;
 use rmcp::{tool, tool_handler, tool_router};
 use serde::{Deserialize, Serialize};
 
+use crate::inbox::InboxStatus;
 use crate::spec::{ElicitResponse, PromptSpec};
 use crate::ElicitOptions;
 
@@ -134,6 +135,32 @@ impl ElicitateMcp {
         Ok(CallToolResult {
             content: vec![content],
             is_error: if is_error { Some(true) } else { None },
+        })
+    }
+
+    /// Read-only projection of the inbox's current state (pending / answered / timed out / failed counts).
+    /// Does NOT open a popup. Returns immediately with typed JSON counts.
+    #[tool(
+        name = "inbox_status",
+        description = "Returns the current inbox state (pending, answered, timed_out, failed counts) without blocking. Use this to check whether pending elicits await the operator before deciding to create new ones."
+    )]
+    async fn inbox_status(
+        &self,
+        Parameters(params): Parameters<crate::inbox::InboxStatusParams>,
+    ) -> Result<CallToolResult, rmcp::Error> {
+        let path = std::path::PathBuf::from(&inbox_dir);
+        let status = crate::inbox::compute_inbox_status(&path).map_err(|e| {
+            rmcp::Error::internal_error(format!("compute inbox status: {e}"), None)
+        })?;
+        let json = serde_json::to_value(&status).map_err(|e| {
+            rmcp::Error::internal_error(format!("serialize status: {e}"), None)
+        })?;
+        let content = Content::json(json.clone()).map_err(|e| {
+            rmcp::Error::internal_error(format!("content: {e}"), None)
+        })?;
+        Ok(CallToolResult {
+            content: vec![content],
+            is_error: None,
         })
     }
 }
