@@ -678,7 +678,7 @@ mod tests {
         enqueue(dir, &req).ok();
             // mark a1 as answered
             let mut answered = req;
-            answered.response = Some(ElicitResponse::Answered { value: FieldValue::Bool(true), notes: None });
+            answered.response = Some(ElicitResponse::Answered { value: FieldValue::Boolean(true), notes: None });
             answered.state = RequestState::Answered;
             answered.metadata = serde_json::Map::new();
 
@@ -703,10 +703,11 @@ mod tests {
             expires_at_ms: 0,
             origin: RequestOrigin { hostname: "".into(), process: "".into(), pid: 0, callback: None },
             spec,
-            response: Some(ElicitResponse::Answered { value: crate::spec::FieldValue::Bool(true), notes: None }),
+            response: Some(ElicitResponse::Answered { value: crate::spec::FieldValue::Boolean(true), notes: None }),
             state: RequestState::Answered,
             notified_via: vec![],
             metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
         };
         finalize(dir, &req).unwrap();
         write_pending_with_urgency(dir, "c1", "C1", crate::spec::Urgency::Info);
