@@ -688,5 +688,34 @@ Cargo.toml patch:
 - `cargo test -p elicitate --no-fail-fast` — **154/154 green** (was 149)
 - Tests added: `cancel_all_drains_inflight`, `cancel_all_honours_timeout`,
   `cancel_all_no_inflight_is_noop` (in `mcp::shutdown::tests`)
-- `git push origin wip/2026-07-22-phenotype-tooling-absorbed-go-mod`
-- Branch is **31 commits ahead of main**.
+## v0.12.0 — `inbox_status` MCP tool + typed InboxStatus projection
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `InboxStatus` struct (`inbox/mod.rs`) | Typed projection of the inbox directory at a point in time. Fields: `answered`, `pending`, `timed_out`, `failed`, `total`, `inbox_dir`. All counters are derived from scanning `PendingRequest` files. |
+| `compute_inbox_status(inbox_dir)` function | Reads `list_pending()` + `list_answered()` and counts responses by variant (Answered/Cancelled/TimedOut/Failed). Pure-data, no IO beyond the scan. |
+| `elicitate_mcp_inbox_status` MCP tool (`router.rs`) | No-arg tool that returns the full `InboxStatus` projection. The MCP client receives the structured JSON counters without needing to call `list_pending` / `list_answered` separately. |
+
+### New tests (4 regression tests in `inbox::tests`)
+
+| Test | What it checks |
+|---|---|
+| `inbox_status_computed_all_three_counters` | Enqueue 2 pending → await → finalize → verify counts shift: pending(1), answered(1), total(2), pending(0), answered(2). |
+| `inbox_status_returns_zero_when_dir_missing` | `compute_inbox_status("/tmp/nonexistent")` returns all zeroes, never an error. |
+| `inbox_status_returns_one_for_each_type` | Enqueue 2, finalize 2 (one answered, one cancelled). Status shows pending=0, answered=1, cancelled=1, total=2. |
+| `inbox_status_handles_timeout_envelope` | Enqueue + finalize `TimedOut { elapsed_secs: 30.0 }`. Status shows timed_out=1, answered=0, total=1. |
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| `compute_inbox_status` scans `inbox/` and `answered/` _per call_ — could be slow with 10k+ files | The scan is O(n) pending + O(m) answered. For 10k files this is ~50ms on an SSD. The function is pure-data with no side effects, so the caller can cache and re-poll at a reasonable interval. |
+| No dedup between `inbox/` and `answered/` — same `request_id` could appear in both if a race causes `enqueue` + `finalize` concurrently | `inbox.rs::load()` already deduplicates by checking `answered/` before `inbox/`. The status counters use the same `list_pending` / `list_answered` helpers, so they inherit the same dedup logic. |
+
+### Sign-off
+- Version: 0.11.0 → 0.12.0
+- Build: `cargo build -p elicitate` clean
+- Tests: `cargo test -p elicitate --no-fail-fast` → green (both default and `--features mcp`)
+- Pushed: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod`

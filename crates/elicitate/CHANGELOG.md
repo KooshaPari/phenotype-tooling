@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.12.0] — 2026-08-05
+
+### Added
+
+- **`inbox_status` MCP tool** — typed projection over the inbox directory that returns
+  an `InboxStatus { total, pending, answered, timed_out, failed }` struct to the
+  MCP client without blocking on a popup. Accepts an optional `inbox_dir` parameter
+  (defaults to `~/.elicitate/inbox`).
+- **`InboxStatus { total, pending, answered, timed_out, failed }`** — public struct
+  with `compute_inbox_status(inbox_dir)` function that counts requests by their
+  `response` state via `list_pending` + `list_answered` + a `timed_out` backward
+  scan from the answered dir.
+- **5 regression tests** (`inbox_status_computed_all_three_counters` tests the
+  status shape with 1 pending, 1 answered, 1 cancelled, 1 timed_out — all four
+  counters are independently asserted).
+
+### Changed
+
+- Version bumped to 0.12.0.
+
 ## [0.11.0] — 2026-08-01
 
 ### Security
