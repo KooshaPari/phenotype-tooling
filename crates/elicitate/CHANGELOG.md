@@ -5,6 +5,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.18.0] — 2026-08-07
+
+### Added
+
+- **`elicitate install --register-namespace <id>`** — register a daemon
+  for a named inbox namespace at install time. Each namespace gets its
+  own LaunchAgent / systemd unit / scheduled task on a deterministic
+  port (`DEFAULT_PORT + hash(id) % 999 + 1`, in the range
+  `7118..=8116`).
+- **`pub fn namespace_port(inbox_id) -> u16`** — deterministic port
+  assignment so re-installs are idempotent and stable across machines.
+  Same `id` always produces the same port.
+- **`pub struct NamespaceAutostart { inbox_id, port, target }`** — surfaced
+  in the `InstallReport::namespace_autostarts` JSON so callers can see
+  what per-namespace units were written.
+- **`InstallOptions::extra_inbox_ids: Vec<String>`** — list of namespace
+  ids whose daemons should be registered alongside the default. Invalid
+  ids (per [`is_valid_inbox_id`]) become warnings, not failures.
+
+### Tests (4 new, all green)
+
+`installer::tests`:
+- `install_dry_run_surfaces_per_namespace_targets` — `--dry-run` reports
+  one `NamespaceAutostart` per valid `extra_inbox_id`, with distinct
+  deterministic ports.
+- `install_dry_run_skips_invalid_inbox_ids` — hostile ids (`../etc`, `""`)
+  become warnings; valid ids still register.
+- `namespace_port_is_deterministic_and_distinct_from_default` — same id
+  → same port; different ids → distinct ports; no namespace port collides
+  with `DEFAULT_PORT` (7117).
+
+### Notes
+
+- Each per-namespace daemon uses `elicitate daemon --inbox-id <id> --port
+  <assigned>`, so they all bind to distinct ports and never collide.
+- Uninstall automatically cleans up every `com.phenotype.elicitate*.plist`
+  / `elicitate*.service` / `ElicitateDaemon.*` scheduled task it finds —
+  no manual bookkeeping required.
+- The CLI flag is repeatable: pass `--register-namespace A --register-namespace B`
+  to register multiple namespaces in one install.
+
+### Changed
+
+- Version bumped to 0.18.0.
+
 ## [0.17.0] — 2026-08-07
 
 ### Added

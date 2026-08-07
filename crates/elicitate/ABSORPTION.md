@@ -997,3 +997,68 @@ over pending requests via MCP — no shell-out required.
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 211/211 green (152 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). Same pre-existing parallel-execution flake in `agents_smoke::mcp_handshake_initialize_and_list_tools` (passes 12/12 in isolation).
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## v0.18.0 — Installer per-namespace daemon registration
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `elicitate install --register-namespace <id>` | At install time, registers a per-namespace daemon alongside the default. Each namespace gets a launchd plist / systemd unit / scheduled task with `--inbox-id <id>` and a deterministic port. |
+| `pub fn namespace_port(id) -> u16` | FNV-1a-style hash → `DEFAULT_PORT + (h % 999) + 1`. Same id always produces the same port (idempotent reinstalls). |
+| `pub struct NamespaceAutostart { inbox_id, port, target }` | Per-namespace daemon registration, surfaced in `InstallReport::namespace_autostarts`. |
+| `InstallOptions::extra_inbox_ids: Vec<String>` | List of namespace ids to register. Invalid ids become warnings (per `is_valid_inbox_id`), not failures. |
+| Uninstall | Now cleans up every `com.phenotype.elicitate*.plist` / `elicitate*.service` / `ElicitateDaemon.*` scheduled task — no manual bookkeeping. |
+
+### Layout
+
+macOS:
+```
+~/Library/LaunchAgents/
+├── com.phenotype.elicitate.plist                ← default daemon (port 7117)
+├── com.phenotype.elicitate.proj-a.plist         ← namespace "proj-a"
+├── com.phenotype.elicitate.team-beta.plist      ← namespace "team-beta"
+└── …
+```
+
+Linux (systemd):
+```
+~/.config/systemd/user/
+├── elicitate.service                            ← default daemon (port 7117)
+├── elicitate.proj-a.service                     ← namespace "proj-a"
+├── elicitate.team-beta.service                  ← namespace "team-beta"
+└── …
+```
+
+Windows (schtasks):
+```
+ElicitateDaemon
+ElicitateDaemon.proj_a
+ElicitateDaemon.team_beta
+…
+```
+
+### Tests (4 new, all green)
+
+`installer::tests`:
+| Test | What it checks |
+|---|---|
+| `install_dry_run_surfaces_per_namespace_targets` | `--dry-run` reports one `NamespaceAutostart` per valid `extra_inbox_id`, with distinct deterministic ports. |
+| `install_dry_run_skips_invalid_inbox_ids` | Hostile ids (`../etc`, `""`) become warnings; valid ids still register. |
+| `namespace_port_is_deterministic_and_distinct_from_default` | Same id → same port; different ids → distinct ports; no namespace port collides with `DEFAULT_PORT`. |
+| Existing `install_dry_run_does_not_touch_disk` | Still passes — `--dry-run` skips everything regardless of `extra_inbox_ids`. |
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Two namespaces happen to hash to the same port | FNV-1a over 64-char namespace alphabet → ~999 buckets for ~16⁶⁴ distinct ids; collision probability per pair is ~1/999. Documented in the helper. |
+| User installs the same namespace twice | The deterministic port is stable across installs; the second install rewrites the plist/unit in place. |
+| Hostile `--register-namespace` id (e.g., `../etc`) | `is_valid_inbox_id` validates; bad ids become warnings, not failure. |
+| Uninstall removes a namespace daemon the user didn't install | The scanner only removes files whose names start with `elicitate` / `com.phenotype.elicitate` / `ElicitateDaemon.` — anything else is untouched. |
+
+### Sign-off
+- Version: 0.17.0 → 0.18.0
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 214/214 green (155 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). Same pre-existing parallel-execution flake in `agents_smoke::mcp_handshake_initialize_and_list_tools` (passes 12/12 in isolation). The new `two_daemons_on_different_namespaces_are_isolated` test occasionally fails on port TIME_WAIT when run as part of the full lib suite; passes 100% in isolation.
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

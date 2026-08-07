@@ -207,6 +207,12 @@ struct InstallArgs {
     /// Print what would happen without writing anything.
     #[arg(long)]
     dry_run: bool,
+    /// Register a daemon for each named inbox namespace in addition to the
+    /// default. Each namespace gets its own LaunchAgent / systemd unit /
+    /// scheduled task on a deterministic port. May be passed multiple times.
+    /// Example: `elicitate install --register-namespace proj-a --register-namespace team-beta`.
+    #[arg(long = "register-namespace", value_name = "ID")]
+    register_namespace: Vec<String>,
 }
 
 #[derive(Debug, Args, Default)]
@@ -636,6 +642,7 @@ fn cmd_install(args: InstallArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         register_launch_agent: !args.no_launch_agent,
         dry_run: args.dry_run,
         update_shell_rc: args.with_shell_rc,
+        extra_inbox_ids: args.register_namespace.clone(),
     })
     .map(|report| {
         println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());

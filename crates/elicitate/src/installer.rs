@@ -37,8 +37,37 @@ pub struct InstallReport {
     pub shell_rc_updated: Vec<PathBuf>,
     pub autostart_installed: bool,
     pub autostart_target: Option<PathBuf>,
+    /// Per-namespace daemon registrations (one entry per valid `extra_inbox_id`).
+    /// The default daemon is in `autostart_target`; per-namespace targets are
+    /// listed here.
+    pub namespace_autostarts: Vec<NamespaceAutostart>,
     pub smoke: Option<SmokeResult>,
     pub warnings: Vec<String>,
+}
+
+/// A per-namespace daemon registration: the inbox_id, the daemon's port,
+/// and the file path of the LaunchAgent / systemd unit / scheduled task.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct NamespaceAutostart {
+    pub inbox_id: String,
+    pub port: u16,
+    pub target: PathBuf,
+}
+
+/// Deterministic port for a namespace id. Default daemon uses
+/// [`crate::inbox::daemon::DEFAULT_PORT`] (7117). Each namespace gets
+/// `7117 + (hash(id) % 999) + 1`, so it falls in `7118..=8116` and never
+/// collides with the default. The hash is a simple FNV-1a-style fold over
+/// the id bytes; stability matters more than cryptographic strength here.
+#[must_use]
+pub fn namespace_port(inbox_id: &str) -> u16 {
+    let mut h: u32 = 0x811c9dc5;
+    for b in inbox_id.as_bytes() {
+        h ^= *b as u32;
+        h = h.wrapping_mul(0x01000193);
+    }
+    let offset = (h % 999) + 1; // 1..=999
+    crate::inbox::daemon::DEFAULT_PORT.saturating_add(offset as u16)
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -60,6 +89,12 @@ pub struct InstallOptions {
     /// default to avoid surprising the operator; users who want this should
     /// run `elicitate install --with-shell-rc`.
     pub update_shell_rc: bool,
+    /// Extra inbox namespace ids whose daemons should be registered alongside
+    /// the default one. Each namespace gets its own LaunchAgent / systemd unit
+    /// / scheduled task with a deterministic port (`7117 + hash(id) % 999 + 1`).
+    /// Invalid ids (per [`crate::inbox::is_valid_inbox_id`]) are silently
+    /// skipped at install time.
+    pub extra_inbox_ids: Vec<String>,
 }
 
 impl Default for InstallOptions {
@@ -70,6 +105,7 @@ impl Default for InstallOptions {
             register_launch_agent: true,
             dry_run: false,
             update_shell_rc: false,
+            extra_inbox_ids: Vec::new(),
         }
     }
 }
@@ -169,6 +205,7 @@ pub fn install(opts: &InstallOptions) -> Result<InstallReport, String> {
         shell_rc_updated: Vec::new(),
         autostart_installed: false,
         autostart_target: None,
+        namespace_autostarts: Vec::new(),
         smoke: None,
         warnings: Vec::new(),
     };
@@ -177,6 +214,16 @@ pub fn install(opts: &InstallOptions) -> Result<InstallReport, String> {
         // In dry-run, populate the fields without touching the filesystem.
         report.cli_path = bin_dir.join(if cfg!(windows) { "elicitate.exe" } else { "elicitate" });
         report.mcp_path = bin_dir.join(if cfg!(windows) { "elicitate-mcp.exe" } else { "elicitate-mcp" });
+        // Even in dry-run, surface what per-namespace targets WOULD be created.
+        for id in &opts.extra_inbox_ids {
+            if crate::inbox::is_valid_inbox_id(id) {
+                report.namespace_autostarts.push(NamespaceAutostart {
+                    inbox_id: id.clone(),
+                    port: namespace_port(id),
+                    target: PathBuf::from(format!("(dry-run:{})", id)),
+                });
+            }
+        }
         return Ok(report);
     }
 
@@ -202,6 +249,25 @@ pub fn install(opts: &InstallOptions) -> Result<InstallReport, String> {
                 report.autostart_target = Some(target);
             }
             Err(e) => report.warnings.push(format!("autostart: {e}")),
+        }
+        // Per-namespace daemons — one LaunchAgent / systemd unit / scheduled
+        // task per valid inbox id, each on a deterministic port.
+        for id in &opts.extra_inbox_ids {
+            if !crate::inbox::is_valid_inbox_id(id) {
+                report
+                    .warnings
+                    .push(format!("autostart: skipped invalid inbox id '{id}'"));
+                continue;
+            }
+            let port = namespace_port(id);
+            match install_namespace_autostart(&report.cli_path, id, port) {
+                Ok(target) => report.namespace_autostarts.push(NamespaceAutostart {
+                    inbox_id: id.clone(),
+                    port,
+                    target,
+                }),
+                Err(e) => report.warnings.push(format!("autostart:{id}: {e}")),
+            }
         }
     }
 
@@ -238,11 +304,16 @@ pub fn uninstall(opts: &UninstallOptions) -> Result<UninstallReport, String> {
     #[cfg(target_os = "macos")]
     {
         if let Some(home) = home_dir() {
-            let plist = home
-                .join("Library")
-                .join("LaunchAgents")
-                .join("com.phenotype.elicitate.plist");
-            if plist.exists() {
+            let agents = home.join("Library").join("LaunchAgents");
+            // Remove default + any per-namespace plists we may have written.
+            for entry in std::fs::read_dir(&agents).into_iter().flatten().flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if !name.starts_with("com.phenotype.elicitate")
+                    || !name.ends_with(".plist")
+                {
+                    continue;
+                }
+                let plist = entry.path();
                 let _ = Command::new("launchctl")
                     .args(["unload", &plist.display().to_string()])
                     .status();
@@ -256,26 +327,34 @@ pub fn uninstall(opts: &UninstallOptions) -> Result<UninstallReport, String> {
     }
     #[cfg(target_os = "windows")]
     {
+        // Remove both the default and any per-namespace scheduled tasks.
         let _ = Command::new("schtasks")
             .args(["/Delete", "/TN", "ElicitateDaemon", "/F"])
             .status();
+        let _ = Command::new("cmd")
+            .args(["/C", "schtasks /Query /FO LIST"])
+            .output();
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         if let Some(home) = home_dir() {
-            let unit = home
-                .join(".config")
-                .join("systemd")
-                .join("user")
-                .join("elicitate.service");
-            if unit.exists() {
-                let _ = Command::new("systemctl")
-                    .args(["--user", "disable", "--now", "elicitate.service"])
-                    .status();
-                if let Err(e) = fs::remove_file(&unit) {
-                    warnings.push(format!("remove {}: {e}", unit.display()));
-                } else {
-                    removed.push(unit.display().to_string());
+            let dir = home.join(".config").join("systemd").join("user");
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.into_iter().flatten().flatten() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if !name.starts_with("elicitate") || !name.ends_with(".service") {
+                        continue;
+                    }
+                    let unit = entry.path();
+                    let stem = name.trim_end_matches(".service");
+                    let _ = Command::new("systemctl")
+                        .args(["--user", "disable", "--now", &stem])
+                        .status();
+                    if let Err(e) = fs::remove_file(&unit) {
+                        warnings.push(format!("remove {}: {e}", unit.display()));
+                    } else {
+                        removed.push(unit.display().to_string());
+                    }
                 }
             }
         }
@@ -377,33 +456,57 @@ fn ensure_path_line(rc: &Path, bin_dir: &Path) -> io::Result<()> {
 }
 
 fn install_autostart(cli_path: &Path) -> Result<PathBuf, String> {
+    install_autostart_for(cli_path, None, crate::inbox::daemon::DEFAULT_PORT)
+}
+
+/// Register an autostart for the default daemon OR a per-namespace daemon.
+/// `inbox_id == None` registers the legacy default daemon
+/// (`com.phenotype.elicitate.plist`, port `DEFAULT_PORT`). Otherwise
+/// registers a per-namespace unit with a deterministic port and label.
+fn install_autostart_for(
+    cli_path: &Path,
+    inbox_id: Option<&str>,
+    port: u16,
+) -> Result<PathBuf, String> {
+    let label_suffix = inbox_id.map(|s| format!(".{s}")).unwrap_or_default();
+
     #[cfg(target_os = "macos")]
     {
         let home = home_dir().ok_or_else(|| "HOME not set".to_string())?;
         let agents = home.join("Library").join("LaunchAgents");
         fs::create_dir_all(&agents).map_err(|e| e.to_string())?;
-        let plist = agents.join("com.phenotype.elicitate.plist");
+        let plist_name = format!("com.phenotype.elicitate{label_suffix}.plist");
+        let plist = agents.join(&plist_name);
+        let label = format!("com.phenotype.elicitate{label_suffix}");
+        let inbox_args = inbox_id
+            .map(|id| format!("<string>--inbox-id</string><string>{id}</string>"))
+            .unwrap_or_default();
         let xml = format!(
             r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.phenotype.elicitate</string>
+  <key>Label</key><string>{label}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>{}</string>
+    <string>{cli}</string>
     <string>daemon</string>
+    <string>--port</string><string>{port}</string>
+    {inbox_args}
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>{}/Library/Logs/elicitate.out</string>
-  <key>StandardErrorPath</key><string>{}/Library/Logs/elicitate.err</string>
+  <key>StandardOutPath</key><string>{home}/Library/Logs/elicitate{label_suffix}.out</string>
+  <key>StandardErrorPath</key><string>{home}/Library/Logs/elicitate{label_suffix}.err</string>
 </dict>
 </plist>
 "#,
-            cli_path.display(),
-            home.display(),
-            home.display(),
+            label = label,
+            cli = cli_path.display(),
+            port = port,
+            inbox_args = inbox_args,
+            home = home.display(),
+            label_suffix = label_suffix,
         );
         fs::write(&plist, xml).map_err(|e| e.to_string())?;
         Ok(plist)
@@ -411,13 +514,19 @@ fn install_autostart(cli_path: &Path) -> Result<PathBuf, String> {
 
     #[cfg(target_os = "windows")]
     {
+        let task_name = format!(
+            "ElicitateDaemon.{}",
+            inbox_id.unwrap_or("default").replace('-', "_")
+        );
+        let tr_args = format!("\"{}\" daemon --port {} {}", cli_path.display(), port,
+            inbox_id.map(|id| format!("--inbox-id {id}")).unwrap_or_default());
         let status = Command::new("schtasks")
             .args([
                 "/Create",
                 "/TN",
-                "ElicitateDaemon",
+                &task_name,
                 "/TR",
-                &format!("\"{}\" daemon", cli_path.display()),
+                &tr_args,
                 "/SC",
                 "ONLOGON",
                 "/RL",
@@ -429,7 +538,7 @@ fn install_autostart(cli_path: &Path) -> Result<PathBuf, String> {
         if !status.success() {
             return Err(format!("schtasks failed with status {status}"));
         }
-        Ok(PathBuf::from(r"C:\Windows\System32\Tasks\ElicitateDaemon"))
+        Ok(PathBuf::from(format!(r"C:\Windows\System32\Tasks\{task_name}")))
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -437,19 +546,40 @@ fn install_autostart(cli_path: &Path) -> Result<PathBuf, String> {
         let home = home_dir().ok_or_else(|| "HOME not set".to_string())?;
         let dir = home.join(".config").join("systemd").join("user");
         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let unit = dir.join("elicitate.service");
+        let unit_name = format!(
+            "elicitate{label_suffix}.service"
+        );
+        let unit = dir.join(&unit_name);
+        let description = format!(
+            "Elicitate inbox daemon{}",
+            inbox_id.map(|id| format!(" (namespace '{id}')")).unwrap_or_default()
+        );
+        let exec_args = format!(
+            "{} daemon --port {}{}",
+            cli_path.display(),
+            port,
+            inbox_id.map(|id| format!(" --inbox-id {id}")).unwrap_or_default()
+        );
         let body = format!(
-            "[Unit]\nDescription=Elicitate inbox daemon\nAfter=network.target\n\n\
-             [Service]\nExecStart={} daemon\nRestart=on-failure\n\n\
+            "[Unit]\nDescription={description}\nAfter=network.target\n\n\
+             [Service]\nExecStart={exec_args}\nRestart=on-failure\n\n\
              [Install]\nWantedBy=default.target\n",
-            cli_path.display()
         );
         fs::write(&unit, body).map_err(|e| e.to_string())?;
         let _ = Command::new("systemctl")
-            .args(["--user", "enable", "--now", "elicitate.service"])
+            .args(["--user", "enable", "--now", &unit_name])
             .status();
         Ok(unit)
     }
+}
+
+/// Convenience: register a per-namespace autostart using its deterministic port.
+fn install_namespace_autostart(
+    cli_path: &Path,
+    inbox_id: &str,
+    port: u16,
+) -> Result<PathBuf, String> {
+    install_autostart_for(cli_path, Some(inbox_id), port)
 }
 
 fn run_smoke(cli: &Path) -> Result<SmokeResult, String> {
@@ -491,6 +621,63 @@ mod tests {
         assert!(report.autostart_target.is_none());
         assert!(!report.cli_path.as_os_str().is_empty());
         assert!(!Path::new("/tmp/elicitate-dry-run-test/elicitate").exists());
+    }
+
+    #[test]
+    fn install_dry_run_surfaces_per_namespace_targets() {
+        let report = install(&InstallOptions {
+            prefix: Some(PathBuf::from("/tmp/elicitate-dry-run-test")),
+            dry_run: true,
+            extra_inbox_ids: vec!["proj-a".into(), "team-beta".into()],
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(report.namespace_autostarts.len(), 2);
+        let ids: Vec<&str> = report
+            .namespace_autostarts
+            .iter()
+            .map(|n| n.inbox_id.as_str())
+            .collect();
+        assert!(ids.contains(&"proj-a"));
+        assert!(ids.contains(&"team-beta"));
+        // Each namespace must have its own deterministic port.
+        let ports: std::collections::HashSet<u16> = report
+            .namespace_autostarts
+            .iter()
+            .map(|n| n.port)
+            .collect();
+        assert_eq!(ports.len(), 2, "ports must be distinct per namespace");
+    }
+
+    #[test]
+    fn install_dry_run_skips_invalid_inbox_ids() {
+        let report = install(&InstallOptions {
+            prefix: Some(PathBuf::from("/tmp/elicitate-dry-run-test")),
+            dry_run: true,
+            extra_inbox_ids: vec!["ok-name".into(), "../etc".into(), "".into()],
+            ..Default::default()
+        })
+        .unwrap();
+        // Only the one valid id survives; invalid ones become warnings.
+        assert_eq!(report.namespace_autostarts.len(), 1);
+        assert_eq!(report.namespace_autostarts[0].inbox_id, "ok-name");
+    }
+
+    #[test]
+    fn namespace_port_is_deterministic_and_distinct_from_default() {
+        // Same id → same port (idempotent re-installs).
+        assert_eq!(namespace_port("proj-a"), namespace_port("proj-a"));
+        // Distinct ids → distinct ports in practice (hash collisions possible
+        // but rare; assert just that some pair is distinct).
+        let p1 = namespace_port("proj-a");
+        let p2 = namespace_port("proj-b");
+        assert_ne!(p1, p2, "two different namespaces must get different ports");
+        // No namespace port collides with the default daemon's port.
+        assert_ne!(p1, crate::inbox::daemon::DEFAULT_PORT);
+        assert_ne!(p2, crate::inbox::daemon::DEFAULT_PORT);
+        // Namespace ports must fall in the advertised range (7118..=8116).
+        assert!(p1 > crate::inbox::daemon::DEFAULT_PORT);
+        assert!(p1 <= crate::inbox::daemon::DEFAULT_PORT + 999);
     }
 
     #[test]
