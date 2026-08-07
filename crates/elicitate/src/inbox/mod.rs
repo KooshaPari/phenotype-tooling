@@ -45,7 +45,7 @@ pub mod notify;
 pub use change::{InboxChangeBus, InboxWatcher};
 
 /// State of a request in the inbox.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RequestState {
     /// Spec is queued and waiting for the user.
@@ -63,7 +63,7 @@ pub enum RequestState {
 }
 
 /// Surface that surfaced this request to the user.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationKind {
     /// No external notification — the user will see it in the inbox UI.
@@ -80,7 +80,15 @@ pub enum NotificationKind {
 }
 
 /// One queued request — the on-disk artifact.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ReplyParams {
+    /// ID of the pending request to attach the reply to.
+    pub request_id: String,
+    /// The reply message text the user will see on the form page.
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PendingRequest {
     /// Stable identifier; mirrors [`PromptSpec::request_id`].
     pub request_id: String,
@@ -121,7 +129,7 @@ pub struct PendingRequest {
 }
 
 /// Information about the agent that enqueued the request.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RequestOrigin {
     pub hostname: String,
     pub process: String,
@@ -281,7 +289,27 @@ pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitErro
     Ok(dst)
 }
 
-/// Load a single request by id from `dir` (pending OR answered).
+/// Write a reply message from an agent to a pending request.
+/// Creates a `.reply.json` file next to the pending request's JSON file.
+/// The reply appears as a contextual note on the form page when the user opens it.
+pub fn write_reply(root: &Path, request_id: &str, message: &str) -> Result<(), ElicitError> {
+    let pending_path = inbox_pending_dir(root).join(format!("{request_id}.json"));
+    if !pending_path.exists() {
+        return Err(ElicitError::RendererFailed(format!(
+            "pending request '{request_id}' not found — cannot attach reply"
+        )));
+    }
+    let reply = serde_json::json!({
+        "request_id": request_id,
+        "message": message,
+    });
+    let reply_path = pending_path.with_extension("reply.json");
+    std::fs::write(&reply_path, serde_json::to_string_pretty(&reply).unwrap())
+        .map_err(|e| ElicitError::RendererFailed(format!("failed to write reply: {e}")))?;
+    Ok(())
+}
+
+/// Load a single pending or answered request by ID.
 pub fn load(root: &Path, request_id: &str) -> Result<PendingRequest, ElicitError> {
     let candidates = [
         inbox_pending_dir(root).join(format!("{request_id}.json")),
@@ -433,8 +461,6 @@ pub struct InboxStatus {
 /// + a `list_answered`-equivalent walker), but does not load each
 /// `<rid>.json` (cheap on-disk walk; expensive parse avoided).
 pub fn compute_inbox_status(inbox_dir: &Path) -> Result<InboxStatus, ElicitError> {
-    use std::path::Path;
-
     if !inbox_dir.exists() {
         return Err(ElicitError::RendererFailed(format!(
             "inbox dir does not exist: {}",
@@ -720,5 +746,66 @@ mod tests {
         let pending_ids: std::collections::HashSet<String> = list_pending(dir).unwrap().iter().map(|p| p.request_id.clone()).collect();
         assert_eq!(status.pending as usize, pending_ids.len());
         assert_eq!(status.total, 2); // 1 pending + 1 answered (cancelled counted in total but not answered)
+    }
+
+    // ---- write_reply (Phase 3 — v0.13.0) ----
+
+    #[test]
+    fn reply_writes_file_for_existing_pending_request() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_pending_with_urgency(dir, "r1", "R1", crate::spec::Urgency::Info);
+
+        write_reply(dir, "r1", "here is some context").unwrap();
+
+        let reply_path = inbox_pending_dir(dir).join("r1.reply.json");
+        assert!(reply_path.exists(), "reply.json must exist after write_reply");
+    }
+
+    #[test]
+    fn reply_returns_renderer_failed_for_missing_pending_request() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+
+        let err = write_reply(dir, "ghost", "no one home").unwrap_err();
+        match err {
+            ElicitError::RendererFailed(msg) => {
+                assert!(msg.contains("ghost"), "error should name the missing id: {msg}");
+                assert!(msg.contains("not found"), "error should explain the cause: {msg}");
+            }
+            other => panic!("expected RendererFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reply_does_not_modify_pending_request_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_pending_with_urgency(dir, "p1", "P1", crate::spec::Urgency::Info);
+
+        let pending_path = inbox_pending_dir(dir).join("p1.json");
+        let original_bytes = std::fs::read(&pending_path).unwrap();
+        let original: serde_json::Value = serde_json::from_slice(&original_bytes).unwrap();
+
+        write_reply(dir, "p1", "contextual note").unwrap();
+
+        let after_bytes = std::fs::read(&pending_path).unwrap();
+        let after: serde_json::Value = serde_json::from_slice(&after_bytes).unwrap();
+        assert_eq!(original, after, "pending JSON must not change when a reply is attached");
+    }
+
+    #[test]
+    fn reply_payload_contains_request_id_and_message() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_pending_with_urgency(dir, "rq-7", "Request Seven", crate::spec::Urgency::Warning);
+
+        write_reply(dir, "rq-7", "operator should pick option B").unwrap();
+
+        let reply_path = inbox_pending_dir(dir).join("rq-7.reply.json");
+        let body: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&reply_path).unwrap()).unwrap();
+        assert_eq!(body["request_id"], "rq-7");
+        assert_eq!(body["message"], "operator should pick option B");
     }
 }

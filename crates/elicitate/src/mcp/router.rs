@@ -14,7 +14,6 @@ use rmcp::ServerHandler;
 use rmcp::{tool, tool_handler, tool_router};
 use serde::{Deserialize, Serialize};
 
-use crate::inbox::{compute_inbox_status, InboxStatus};
 use crate::spec::{ElicitResponse, PromptSpec};
 use crate::ElicitOptions;
 
@@ -155,6 +154,32 @@ impl ElicitateMcp {
             rmcp::Error::internal_error(format!("serialize status: {e}"), None)
         })?;
         let content = Content::json(json.clone()).map_err(|e| {
+            rmcp::Error::internal_error(format!("content: {e}"), None)
+        })?;
+        Ok(CallToolResult {
+            content: vec![content],
+            is_error: None,
+        })
+    }
+
+    /// Send a contextual reply to an existing pending elicit. The reply appears
+    /// as a note on the form page when the operator opens it. Does NOT block.
+    #[tool(
+        name = "elicitate_reply",
+        description = "Attach a context message to a pending elicit. The message appears as a note when the operator opens the form. Does NOT block or pop up a dialog — use this to provide decision context BEFORE the operator answers."
+    )]
+    async fn reply(
+        &self,
+        Parameters(params): Parameters<crate::inbox::ReplyParams>,
+    ) -> Result<CallToolResult, rmcp::Error> {
+        use crate::inbox::write_reply;
+        write_reply(
+            &crate::inbox::default_inbox_root(),
+            &params.request_id,
+            &params.message,
+        )
+        .map_err(|e| rmcp::Error::internal_error(format!("write reply: {e}"), None))?;
+        let content = Content::json(serde_json::json!({"status": "ok"})).map_err(|e| {
             rmcp::Error::internal_error(format!("content: {e}"), None)
         })?;
         Ok(CallToolResult {

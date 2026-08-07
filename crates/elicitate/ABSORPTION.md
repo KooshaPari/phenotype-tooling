@@ -719,3 +719,49 @@ Cargo.toml patch:
 - Build: `cargo build -p elicitate` clean
 - Tests: `cargo test -p elicitate --no-fail-fast` → green (both default and `--features mcp`)
 - Pushed: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod`
+
+## v0.13.0 — `elicitate_reply` MCP tool (agent→user context message)
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `elicitate_reply` MCP tool (`router.rs`) | Non-blocking. Agent sends a `request_id` + `message`; the reply is written to `<inbox-dir>/<request_id>.reply.json` so the form view can render it as a note when the operator opens the elicit. Returns `{"status":"ok"}` immediately. |
+| `write_reply(root, request_id, message)` (`inbox/mod.rs`) | Underlying helper. Verifies `<request_id>.json` exists in the pending dir before writing; on miss returns `ElicitError::RendererFailed` with the missing id in the message. |
+| `ReplyParams { request_id, message }` | Tool input shape. `JsonSchema`-derived so rmcp can build the MCP input schema. |
+
+### New tests (4 in `inbox::tests`)
+
+| Test | What it checks |
+|---|---|
+| `reply_writes_file_for_existing_pending_request` | Happy path: the `.reply.json` sibling file appears after `write_reply`. |
+| `reply_returns_renderer_failed_for_missing_pending_request` | Error path: missing-id case returns `RendererFailed` with both the id and the word "not found" in the message. |
+| `reply_does_not_modify_pending_request_json` | Side-effect check: the original pending JSON is byte-identical before and after the reply write (reply is a sibling file, never mutates the request). |
+| `reply_payload_contains_request_id_and_message` | Content check: the `.reply.json` body parses as JSON with `request_id` and `message` fields set correctly. |
+
+### Schema ripple (JsonSchema derives)
+
+`Parameters<T>` from rmcp requires `T: JsonSchema`, so the schemars derive had to
+propagate to every type reachable from `ReplyParams`'s sibling types that are
+serialized into the MCP tool surface:
+
+| Type | Location | Why |
+|---|---|---|
+| `RequestState` | `inbox/mod.rs` | Embedded in `PendingRequest.state` |
+| `NotificationKind` | `inbox/mod.rs` | Embedded in `PendingRequest.notified_via` |
+| `RequestOrigin` | `inbox/mod.rs` | Embedded in `PendingRequest.origin` |
+| `SecretEnvelope` | `inbox/crypto.rs` | Embedded in `PendingRequest.encrypted_values` |
+| `Recipient` | `inbox/crypto.rs` | Embedded in `SecretEnvelope.recipients` |
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Reply file pollutes the inbox dir if the operator never opens it | Files are small (~80 bytes each) and live next to the pending request. They are cleaned up implicitly when the request is finalized (the entire pending dir entry is moved to `answered/`, reply and JSON together). |
+| Race between `write_reply` and `finalize` — finalize moves the request before the reply is read | `finalize` removes the entire pending entry (`.json` + `.reply.json` together) via `std::fs::remove_file` + `rename`. The reply is a sibling file in the same dir, so it is included in the move. If the reply is being written at the exact moment of finalize, the worst case is the reply is lost — which is the same as the operator never opening the elicit. |
+
+### Sign-off
+- Version: 0.12.0 → 0.13.0
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 185/185 green (132 lib + 13 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs)
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

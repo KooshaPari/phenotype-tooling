@@ -5,6 +5,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.13.0] — 2026-08-06
+
+### Added
+
+- **`elicitate_reply` MCP tool** — non-blocking agent→user context message. The agent
+  calls this with a `request_id` + `message` to attach a contextual note that surfaces
+  on the form page when the operator opens the elicit. The call returns immediately
+  (no popup) — it is purely a write to `<inbox-dir>/<request_id>.reply.json`.
+- **`pub fn write_reply(root, request_id, message) -> Result<(), ElicitError>`** —
+  underlying inbox helper. Validates that `<request_id>.json` exists in the pending
+  dir before writing; returns `ElicitError::RendererFailed` with the missing id in
+  the message if not.
+- **`pub struct ReplyParams { request_id, message }`** with `JsonSchema` derive —
+  the MCP tool input shape. Embedded in `PendingRequest` and other inbox types so
+  the schemars-derived MCP tool schema is complete.
+- **4 regression tests**:
+  - `reply_writes_file_for_existing_pending_request` — happy path creates the
+    `.reply.json` sibling file.
+  - `reply_returns_renderer_failed_for_missing_pending_request` — error path
+    surfaces a clear message naming the missing id.
+  - `reply_does_not_modify_pending_request_json` — side-effect check: the original
+    pending JSON is byte-identical before and after the reply write.
+  - `reply_payload_contains_request_id_and_message` — content check: the
+    `.reply.json` body has the expected `{request_id, message}` shape.
+
+### Changed
+
+- `NotificationKind`, `RequestOrigin`, `RequestState`, `SecretEnvelope`,
+  `Recipient` now derive `schemars::JsonSchema` so the reply tool's input schema
+  can be generated end-to-end (rmcp's `Parameters<T>` requires it).
+- Version bumped to 0.13.0.
+
 ## [0.12.0] — 2026-08-05
 
 ### Added

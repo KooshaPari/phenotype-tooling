@@ -72,7 +72,7 @@ pub const ARGON2_DEFAULT_PARALLELISM: u32 = 1;
 /// unwrapped. The field is `BTreeMap`-indexed inside the envelope so future
 /// schemes (age-style X25519, hardware tokens) can add their own recipient
 /// kinds without breaking the wire format.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Recipient {
     pub id: String,
     pub wrapped_key: String,
@@ -90,7 +90,7 @@ fn default_kdf_iters() -> u32 {
 /// Self-describing ciphertext envelope. Designed so the daemon can decrypt
 /// with nothing but this struct plus the configured passphrase set — no
 /// version negotiation needed (the `v` field is a forward-compat slot).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct SecretEnvelope {
     pub v: u32,
     pub kdf: String,
