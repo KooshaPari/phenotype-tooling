@@ -53,8 +53,16 @@ struct Cli {
     renderer: Option<RendererArg>,
 
     /// Override the inbox data directory (also used for `install`).
+    /// Takes precedence over `--inbox-id` when both are set.
     #[arg(long, global = true, env = "ELICITATE_INBOX_DIR")]
     inbox_dir: Option<PathBuf>,
+
+    /// Inbox namespace id. Maps to `~/.elicitate/inboxes/<id>/` when set;
+    /// `"default"` (or absent) maps to the legacy single-inbox location.
+    /// Ignored when `--inbox-dir` is also set. Names must be 1..=64 chars
+    /// of `[A-Za-z0-9_-]`. Invalid ids fall back to the legacy default.
+    #[arg(long, global = true)]
+    inbox_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
@@ -343,7 +351,13 @@ fn main() -> ExitCode {
     init_tracing(cli.verbose);
 
     let renderer = cli.renderer.map(std::convert::Into::into);
-    let inbox_dir = cli.inbox_dir.clone().unwrap_or_else(elicitate::inbox::default_inbox_root);
+    // Resolution precedence: --inbox-dir (explicit path) > --inbox-id (named
+    // namespace) > ELICITATE_INBOX_DIR (env, already folded into inbox_dir) >
+    // default_inbox_root() (legacy single-inbox).
+    let inbox_dir = cli
+        .inbox_dir
+        .clone()
+        .unwrap_or_else(|| elicitate::inbox::resolve_inbox_root(cli.inbox_id.as_deref()));
 
     let result = match cli.cmd {
         Cmd::Ask(args) => cmd_ask(args, renderer, &inbox_dir),
@@ -1175,6 +1189,86 @@ mod tests {
         if let Cmd::Answer(a) = cli.cmd {
             assert_eq!(a.boolean, Some(true));
         } else { panic!("expected Answer"); }
+    }
+
+    #[test]
+    fn parse_global_inbox_id_flag() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "elicitate", "--inbox-id", "proj-x", "inbox", "--list",
+        ]).unwrap();
+        assert_eq!(cli.inbox_id.as_deref(), Some("proj-x"));
+    }
+
+    #[test]
+    fn parse_inbox_dir_and_inbox_id_together() {
+        use clap::Parser;
+        // Both flags are accepted at parse time; precedence is resolved later in main().
+        let cli = Cli::try_parse_from([
+            "elicitate",
+            "--inbox-dir", "/tmp/explicit",
+            "--inbox-id", "proj-x",
+            "inbox", "--list",
+        ]).unwrap();
+        assert_eq!(cli.inbox_dir, Some(PathBuf::from("/tmp/explicit")));
+        assert_eq!(cli.inbox_id.as_deref(), Some("proj-x"));
+    }
+
+    #[test]
+    fn resolve_inbox_dir_with_inbox_id_points_to_namespaced_subdir() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "elicitate", "--inbox-id", "team-alpha", "version",
+        ]).unwrap();
+        let resolved = cli
+            .inbox_dir
+            .clone()
+            .unwrap_or_else(|| elicitate::inbox::resolve_inbox_root(cli.inbox_id.as_deref()));
+        let legacy = elicitate::inbox::default_inbox_root();
+        let parent = legacy.parent().expect("legacy must have a parent");
+        assert_eq!(resolved, parent.join("inboxes").join("team-alpha"));
+    }
+
+    #[test]
+    fn inbox_dir_flag_wins_over_inbox_id() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "elicitate",
+            "--inbox-dir", "/tmp/explicit",
+            "--inbox-id", "ignored",
+            "version",
+        ]).unwrap();
+        let resolved = cli
+            .inbox_dir
+            .clone()
+            .unwrap_or_else(|| elicitate::inbox::resolve_inbox_root(cli.inbox_id.as_deref()));
+        assert_eq!(resolved, PathBuf::from("/tmp/explicit"));
+    }
+
+    #[test]
+    fn resolve_inbox_dir_with_default_id_falls_back_to_legacy() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "elicitate", "--inbox-id", "default", "version",
+        ]).unwrap();
+        let resolved = cli
+            .inbox_dir
+            .clone()
+            .unwrap_or_else(|| elicitate::inbox::resolve_inbox_root(cli.inbox_id.as_deref()));
+        assert_eq!(resolved, elicitate::inbox::default_inbox_root());
+    }
+
+    #[test]
+    fn resolve_inbox_dir_with_hostile_id_falls_back_safely() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "elicitate", "--inbox-id", "../etc", "version",
+        ]).unwrap();
+        let resolved = cli
+            .inbox_dir
+            .clone()
+            .unwrap_or_else(|| elicitate::inbox::resolve_inbox_root(cli.inbox_id.as_deref()));
+        assert_eq!(resolved, elicitate::inbox::default_inbox_root());
     }
 
     #[test]

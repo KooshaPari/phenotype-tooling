@@ -5,6 +5,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.15.0] — 2026-08-06
+
+### Added
+
+- **CLI `--inbox-id` flag** — every `elicitate` subcommand now accepts the
+  namespace id. Resolution precedence (highest first):
+    1. `--inbox-dir <path>` (or `ELICITATE_INBOX_DIR` env) — explicit path,
+       always wins.
+    2. `--inbox-id <id>` — namespace, resolved via [`resolve_inbox_root`].
+    3. `default_inbox_root()` — legacy single-inbox (backward compat).
+- **Per-namespace daemons** — `elicitate daemon --inbox-id proj-a` boots a
+  daemon that serves only `<data_root>/inboxes/proj-a/`. Multiple daemons
+  on disjoint namespaces can run simultaneously on different ports (one
+  per namespace) and never see each other's traffic.
+- **`raw_http_get` test helper** in `inbox::daemon::tests` for issuing
+  loopback HTTP/1.1 requests in daemon isolation tests.
+
+### Tests (7 new, all green)
+
+CLI parsing + resolution (in `bin_elicitate::tests`):
+- `parse_global_inbox_id_flag` — `--inbox-id` is accepted globally.
+- `parse_inbox_dir_and_inbox_id_together` — both flags accepted; resolution
+  happens at runtime.
+- `resolve_inbox_dir_with_inbox_id_points_to_namespaced_subdir` — confirms
+  the layout: `<parent_of_default>/inboxes/<id>`.
+- `inbox_dir_flag_wins_over_inbox_id` — explicit `--inbox-dir` wins.
+- `resolve_inbox_dir_with_default_id_falls_back_to_legacy` — `--inbox-id
+  default` is backward compatible.
+- `resolve_inbox_dir_with_hostile_id_falls_back_safely` — `--inbox-id
+  ../etc` never escapes the data root.
+
+Daemon isolation (in `inbox::daemon::tests`):
+- `two_daemons_on_different_namespaces_are_isolated` — boots two daemons
+  on disjoint inbox roots, enqueues a request in one, confirms only that
+  daemon's HTTP index mentions it, and that each daemon writes its own
+  `daemon.lock`.
+
+### Notes
+
+- The CLI `--inbox-id` flag is **global** (above the subcommand), so it
+  applies uniformly to `ask`, `inbox`, `wait`, `answer`, and `daemon`.
+- The installer (`elicitate install`) registers the legacy default
+  daemon. To register a per-namespace daemon, run
+  `elicitate install` once, then manually wire up
+  `elicitate daemon --inbox-id <id>` via launchd / systemd.
+- HTTP form routing within a single daemon continues to serve only its
+  own `inbox_root`. Cross-namespace browsing requires separate daemons
+  on separate ports.
+
+### Changed
+
+- Version bumped to 0.15.0.
+
 ## [0.14.0] — 2026-08-06
 
 ### Added

@@ -825,3 +825,62 @@ When `ELICITATE_INBOX_DIR` is set, the data root is the parent of that env var.
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 192/192 green (139 lib + 13 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs)
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## v0.15.0 — Multi-inbox CLI + per-namespace daemons
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `--inbox-id <id>` global CLI flag | Every `elicitate` subcommand accepts it. Resolution precedence: `--inbox-dir` > `--inbox-id` > `default_inbox_root()`. |
+| `elicitate daemon --inbox-id proj-a` | Boots a daemon bound to `<data_root>/inboxes/proj-a/`. Multiple daemons can coexist on disjoint namespaces + different ports. |
+| `inbox_dir` resolution in `main()` | New logic at `bin_elicitate.rs` resolves via `resolve_inbox_root(cli.inbox_id.as_deref())` when `--inbox-dir` is absent. |
+
+### Resolution chain
+
+```
+--inbox-dir <path>             → <path>                  (explicit path, always wins)
+--inbox-id <valid_id>          → <parent>/inboxes/<id>   (named namespace)
+--inbox-id "default" or absent → <default_inbox_root()>  (legacy single-inbox)
+--inbox-id <invalid>           → <default_inbox_root()>  (safe fallback)
+ELICITATE_INBOX_DIR env        → <env_value>             (when --inbox-dir flag not set)
+```
+
+### Tests (7 new, all green)
+
+**CLI (`bin_elicitate::tests`, +6):**
+
+| Test | What it checks |
+|---|---|
+| `parse_global_inbox_id_flag` | `--inbox-id` is accepted globally (above the subcommand). |
+| `parse_inbox_dir_and_inbox_id_together` | Both flags accepted at parse time; runtime resolves precedence. |
+| `resolve_inbox_dir_with_inbox_id_points_to_namespaced_subdir` | Confirms `<parent_of_default>/inboxes/<id>` layout. |
+| `inbox_dir_flag_wins_over_inbox_id` | Explicit `--inbox-dir` always wins. |
+| `resolve_inbox_dir_with_default_id_falls_back_to_legacy` | `--inbox-id default` → legacy default path. |
+| `resolve_inbox_dir_with_hostile_id_falls_back_safely` | `--inbox-id ../etc` → legacy default (no escape). |
+
+**Daemon (`inbox::daemon::tests`, +1):**
+
+| Test | What it checks |
+|---|---|
+| `two_daemons_on_different_namespaces_are_isolated` | Boots two daemons on disjoint roots. Enqueues request in A. Confirms A's HTTP index mentions it, B's does not, and each writes its own `daemon.lock`. |
+
+### Out of scope for v0.15.0 (deferred)
+
+- **Installer** still registers the legacy default daemon. Per-namespace daemons must be wired up manually via launchd / systemd.
+- **HTTP cross-namespace** is not possible within a single daemon (it serves only its own inbox_root). Cross-namespace requires separate daemons on separate ports.
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Agent passes `--inbox-id` that resolves to a non-existent parent dir | `enqueue` calls `std::fs::create_dir_all(&dir)`; safe. |
+| Agent passes a path-traversal id (e.g. `../etc`) | `is_valid_inbox_id` strict validator; invalid ids fall back to legacy default. |
+| Two daemons try to bind the same (port, inbox_root) | `start_daemon` checks the lockfile; if another daemon is already serving the same (port, root), the second invocation is a no-op. |
+| Two daemons serve disjoint roots on different ports | Each writes its own `daemon.lock` in its own root; no collision. |
+
+### Sign-off
+- Version: 0.14.0 → 0.15.0
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 199/199 green (140 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). The `mcp_handshake_initialize_and_list_tools` test in `agents_smoke` has a pre-existing parallel-execution flake (passes 12/12 in isolation, occasionally fails 1/12 when run alongside other suites); it is unrelated to this work and was documented as a known issue at v0.13.0.
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

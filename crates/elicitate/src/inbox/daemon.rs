@@ -1270,6 +1270,101 @@ mod tests {
         thread::sleep(Duration::from_millis(200));
     }
 
+    // ---- v0.15.0: multi-inbox daemon ----
+
+    #[test]
+    fn two_daemons_on_different_namespaces_are_isolated() {
+        // Two daemons on disjoint inbox roots (proxy for two namespaces) must
+        // not see each other's lockfiles and must each serve their own root.
+        let dir_a = tempfile::tempdir().unwrap();
+        let dir_b = tempfile::tempdir().unwrap();
+        let port_a = portpicker::pick_unused_port().expect("port a");
+        let port_b = portpicker::pick_unused_port().expect("port b");
+        thread::sleep(Duration::from_millis(50));
+
+        let cfg_a = DaemonConfig {
+            inbox_root: dir_a.path().to_path_buf(),
+            port: port_a,
+            bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            notify: NotifyChannels::default(),
+            enable_tray: false,
+        };
+        let cfg_b = DaemonConfig {
+            inbox_root: dir_b.path().to_path_buf(),
+            port: port_b,
+            bind: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            notify: NotifyChannels::default(),
+            enable_tray: false,
+        };
+
+        let handle_a = start_daemon(cfg_a).expect("daemon a");
+        let handle_b = start_daemon(cfg_b).expect("daemon b");
+
+        // Enqueue a request in namespace A's pending dir. The daemon A should
+        // see it; daemon B (different inbox_root) must NOT.
+        let req_a = PendingRequest {
+            request_id: "ns-a-1".into(),
+            queued_at_ms: 0,
+            expires_at_ms: 0,
+            origin: RequestOrigin {
+                hostname: "host".into(),
+                process: "p".into(),
+                pid: 1,
+                callback: None,
+            },
+            spec: crate::spec::PromptSpec {
+                title: "A".into(),
+                question: "?".into(),
+                field: crate::spec::FieldSpec::Boolean {
+                    label: "?".into(),
+                    default: None,
+                },
+                notes: None,
+                buttons: None,
+                urgency: crate::spec::Urgency::Info,
+                timeout_secs: 60,
+                request_id: Some("ns-a-1".into()),
+            },
+            response: None,
+            state: crate::inbox::RequestState::Pending,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+            encrypted_values: BTreeMap::new(),
+        };
+        crate::inbox::enqueue(dir_a.path(), &req_a).unwrap();
+
+        // Daemon A's index page should contain "ns-a-1"; daemon B's should not.
+        let resp_a = raw_http_get(IpAddr::V4(Ipv4Addr::LOCALHOST), port_a, "/");
+        let resp_b = raw_http_get(IpAddr::V4(Ipv4Addr::LOCALHOST), port_b, "/");
+        assert!(resp_a.contains("ns-a-1"), "daemon A must see its namespace's request");
+        assert!(!resp_b.contains("ns-a-1"), "daemon B must NOT see namespace A's request");
+
+        // Daemon A's lockfile lives in namespace A; daemon B's in B. They
+        // must not collide.
+        assert!(dir_a.path().join("daemon.lock").exists());
+        assert!(dir_b.path().join("daemon.lock").exists());
+
+        handle_a.stop().unwrap();
+        handle_b.stop().unwrap();
+        thread::sleep(Duration::from_millis(200));
+    }
+
+    /// Minimal HTTP/1.1 GET helper for tests — reads until the server closes
+    /// the connection (loopback, single-shot) and returns the full body.
+    fn raw_http_get(bind: IpAddr, port: u16, path: &str) -> String {
+        use std::io::{Read, Write};
+        use std::net::TcpStream;
+        let mut s = TcpStream::connect((bind, port)).expect("connect");
+        s.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let req = format!(
+            "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+        );
+        s.write_all(req.as_bytes()).unwrap();
+        let mut buf = String::new();
+        s.read_to_string(&mut buf).unwrap();
+        buf
+    }
+
     // ---- v0.5.1: tray-open regressions ----
 
     #[test]
