@@ -157,6 +157,10 @@ fn mcp_server_lists_tools() {
         "tools list should include elicitate_reply, got {names:?}"
     );
     assert!(
+        names.contains(&"elicitate_cancel"),
+        "tools list should include elicitate_cancel, got {names:?}"
+    );
+    assert!(
         names.contains(&"inbox_status"),
         "tools list should include inbox_status, got {names:?}"
     );

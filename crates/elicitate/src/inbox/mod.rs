@@ -101,6 +101,23 @@ pub struct InboxStatusParams {
     pub inbox_id: Option<String>,
 }
 
+/// Parameters for the `elicitate_cancel` MCP tool — cancel a pending elicit.
+///
+/// The matching `PendingRequest` is moved from the pending dir to the answered
+/// dir with state `Cancelled` and no response value. Idempotent: cancelling
+/// an already-cancelled request returns success without rewriting.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct CancelParams {
+    /// ID of the pending request to cancel.
+    pub request_id: String,
+    /// Optional notes explaining why the agent cancelled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    /// Optional inbox namespace id. See [`resolve_inbox_root`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
+}
+
 /// One queued request — the on-disk artifact.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PendingRequest {
@@ -354,6 +371,36 @@ pub fn write_reply(root: &Path, request_id: &str, message: &str) -> Result<(), E
     std::fs::write(&reply_path, serde_json::to_string_pretty(&reply).unwrap())
         .map_err(|e| ElicitError::RendererFailed(format!("failed to write reply: {e}")))?;
     Ok(())
+}
+
+/// Cancel a pending request by id. The matching file is moved from the
+/// pending dir to the answered dir with state `Cancelled` and an optional
+/// `Cancelled { notes }` response.
+///
+/// Idempotent:
+/// - Pending → Cancelled (writes the answered file, removes pending)
+/// - Already Cancelled / Answered / TimedOut / Failed → no-op, returns
+///   the existing terminal state
+/// - Missing → returns `ElicitError::RendererFailed`
+pub fn cancel_pending(
+    root: &Path,
+    request_id: &str,
+    notes: Option<&str>,
+) -> Result<RequestState, ElicitError> {
+    let mut req = load(root, request_id).map_err(|e| {
+        ElicitError::RendererFailed(format!(
+            "pending request '{request_id}' not found — cannot cancel: {e}"
+        ))
+    })?;
+    if req.is_terminal() {
+        return Ok(req.state);
+    }
+    req.response = Some(ElicitResponse::Cancelled {
+        notes: notes.map(str::to_owned),
+    });
+    req.state = RequestState::Cancelled;
+    finalize(root, &req)?;
+    Ok(RequestState::Cancelled)
 }
 
 /// Load a single pending or answered request by ID.
@@ -1050,5 +1097,84 @@ mod tests {
         // so check there.
         let pending = inbox_pending_dir(&nested);
         assert!(pending.join(format!("{}.json", req.request_id)).exists());
+    }
+
+    // ---- v0.17.0: elicit_mcp_cancel (cancel pending request) ----
+
+    #[test]
+    fn cancel_pending_moves_to_answered_dir_with_cancelled_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp.path(), "c-1", "C1", crate::spec::Urgency::Info);
+
+        let state = cancel_pending(tmp.path(), "c-1", Some("no longer needed")).unwrap();
+        assert_eq!(state, RequestState::Cancelled);
+
+        // pending file gone, answered file present
+        assert!(!inbox_pending_dir(tmp.path()).join("c-1.json").exists());
+        assert!(crate::inbox::answered_dir(tmp.path()).join("c-1.json").exists());
+
+        // loaded state is Cancelled with notes preserved
+        let loaded = load(tmp.path(), "c-1").unwrap();
+        assert_eq!(loaded.state, RequestState::Cancelled);
+        match loaded.response {
+            Some(ElicitResponse::Cancelled { notes }) => {
+                assert_eq!(notes.as_deref(), Some("no longer needed"));
+            }
+            other => panic!("expected Cancelled response, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_pending_missing_returns_renderer_failed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let err = cancel_pending(tmp.path(), "ghost", None).unwrap_err();
+        match err {
+            ElicitError::RendererFailed(msg) => {
+                assert!(msg.contains("ghost"), "error must name the id: {msg}");
+                assert!(msg.contains("not found"), "error must explain: {msg}");
+            }
+            other => panic!("expected RendererFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_pending_already_cancelled_is_idempotent() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp.path(), "id-1", "ID1", crate::spec::Urgency::Info);
+
+        let first = cancel_pending(tmp.path(), "id-1", Some("first")).unwrap();
+        assert_eq!(first, RequestState::Cancelled);
+
+        // Second cancel: should return Cancelled without rewriting
+        let second = cancel_pending(tmp.path(), "id-1", Some("second")).unwrap();
+        assert_eq!(second, RequestState::Cancelled);
+
+        // The first notes win (idempotent — no rewrite)
+        let loaded = load(tmp.path(), "id-1").unwrap();
+        match loaded.response {
+            Some(ElicitResponse::Cancelled { notes }) => {
+                assert_eq!(notes.as_deref(), Some("first"));
+            }
+            other => panic!("expected Cancelled response, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_pending_in_namespace_does_not_leak() {
+        let tmp_default = tempfile::tempdir().unwrap();
+        let tmp_named = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp_default.path(), "shared", "Default", crate::spec::Urgency::Info);
+        write_pending_with_urgency(tmp_named.path(),   "shared", "Named",   crate::spec::Urgency::Info);
+
+        // Cancel in the named namespace; default must be untouched.
+        cancel_pending(tmp_named.path(), "shared", None).unwrap();
+
+        // Named: cancelled
+        let loaded_named = load(tmp_named.path(), "shared").unwrap();
+        assert_eq!(loaded_named.state, RequestState::Cancelled);
+
+        // Default: still Pending
+        let loaded_default = load(tmp_default.path(), "shared").unwrap();
+        assert_eq!(loaded_default.state, RequestState::Pending);
     }
 }

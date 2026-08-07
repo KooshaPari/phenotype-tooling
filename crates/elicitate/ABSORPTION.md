@@ -946,3 +946,54 @@ After v0.16.0:
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 207/207 green (148 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). Same pre-existing parallel-execution flake in `agents_smoke::mcp_handshake_initialize_and_list_tools` (passes 12/12 in isolation).
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## v0.17.0 — `elicitate_cancel` MCP tool (complete async inbox lifecycle)
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `elicitate_cancel` MCP tool (`router.rs`) | Non-blocking cancel of a pending elicit. Moves the request from pending → answered with state `Cancelled` and optional notes. Idempotent. |
+| `pub fn cancel_pending(root, request_id, notes) -> Result<RequestState, ElicitError>` | Underlying helper. Loads the request, short-circuits if already terminal (Cancelled / Answered / TimedOut / Failed), otherwise sets state=Cancelled + Cancelled { notes } and finalizes. |
+| `CancelParams { request_id, notes?, inbox_id? }` | JsonSchema-derived params. `notes` and `inbox_id` are skipped when `None`. |
+
+### Async inbox lifecycle (now complete)
+
+```
+elicitate_enqueue   →  enqueue a prompt, get request_id back
+elicitate_reply     →  attach decision context BEFORE the operator sees it
+inbox_status        →  poll for counts (pending, answered, timed_out, failed)
+elicitate_cancel    →  cancel a still-pending request (NEW in v0.17.0)
+```
+
+Combined with `elicitate_mcp` (synchronous popup), agents have full CRUD
+over pending requests via MCP — no shell-out required.
+
+### Tests (4 new, all green)
+
+`inbox::tests`:
+| Test | What it checks |
+|---|---|
+| `cancel_pending_moves_to_answered_dir_with_cancelled_state` | Happy path: pending file removed, answered file written, state is Cancelled, notes preserved. |
+| `cancel_pending_missing_returns_renderer_failed` | Error path: missing id returns `RendererFailed` with both the id and "not found" in the message. |
+| `cancel_pending_already_cancelled_is_idempotent` | Second cancel returns the same state without rewriting; first notes win. |
+| `cancel_pending_in_namespace_does_not_leak` | Cancelling in namespace A must not affect namespace B even when request IDs collide. |
+
+`tests/mcp_stdio::mcp_server_lists_tools` (extended):
+- Now asserts all 5 MCP tools register:
+  `elicitate_mcp`, `elicitate_enqueue`, `elicitate_reply`,
+  `elicitate_cancel`, `inbox_status`.
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Operator's browser was already open to the form when cancel fires | The pending file is removed, the form route returns 404 next refresh, and the answered dir has the Cancelled record for audit. |
+| Race between cancel and the operator submitting an answer | `cancel_pending` loads + finalizes atomically (write-then-rename). If the operator's submit lands first, the cancel sees `Answered` state and short-circuits as no-op. |
+| Agent passes a hostile `inbox_id` | `resolve_inbox_root` falls back to `default_inbox_root()` for invalid ids. |
+
+### Sign-off
+- Version: 0.16.0 → 0.17.0
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 211/211 green (152 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). Same pre-existing parallel-execution flake in `agents_smoke::mcp_handshake_initialize_and_list_tools` (passes 12/12 in isolation).
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

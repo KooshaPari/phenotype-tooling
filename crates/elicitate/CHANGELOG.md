@@ -5,6 +5,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.17.0] — 2026-08-07
+
+### Added
+
+- **`elicitate_cancel` MCP tool** — non-blocking cancellation of a pending
+  elicit. The matching request is moved from the pending dir to the
+  answered dir with state `Cancelled` and an optional `Cancelled { notes }`
+  response. Completes the async inbox lifecycle alongside `elicitate_enqueue`,
+  `elicitate_reply`, and `inbox_status`.
+- **`pub fn cancel_pending(root, request_id, notes) -> Result<RequestState, ElicitError>`**
+  in `inbox/mod.rs`. The underlying helper. Idempotent: cancelling an
+  already-terminal request (Cancelled / Answered / TimedOut / Failed) is a
+  no-op that returns the existing state.
+- **`pub struct CancelParams { request_id, notes?, inbox_id? }`** —
+  JsonSchema-derived params struct for the MCP tool.
+
+### Tests (4 new, all green)
+
+`inbox::tests`:
+- `cancel_pending_moves_to_answered_dir_with_cancelled_state` — happy path:
+  pending file removed, answered file written, state is Cancelled, notes
+  preserved.
+- `cancel_pending_missing_returns_renderer_failed` — error path: missing id
+  returns `RendererFailed` with both the id and "not found" in the message.
+- `cancel_pending_already_cancelled_is_idempotent` — second cancel returns
+  the same state without rewriting (first notes win).
+- `cancel_pending_in_namespace_does_not_leak` — cancelling in namespace A
+  must not affect namespace B even when request IDs collide.
+
+`tests/mcp_stdio::mcp_server_lists_tools` (extended):
+- Now also asserts `elicitate_cancel` is registered (5 tools total).
+
+### Notes
+
+- The cancel tool complements the existing CLI subcommand `elicitate answer
+  --cancel --request-id <id> --notes <n>` (which writes a cancel directly).
+  The MCP tool uses the same underlying helper, so behavior is identical.
+- Cancelling a pending request **does not** delete the request — it moves
+  it to the answered dir with state Cancelled, preserving audit history.
+  Use `elicitate_enqueue` (with a new spec) if the agent wants to replace
+  a stale request.
+
+### Changed
+
+- Version bumped to 0.17.0.
+
 ## [0.16.0] — 2026-08-07
 
 ### Added

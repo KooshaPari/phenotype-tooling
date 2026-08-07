@@ -292,6 +292,40 @@ impl ElicitateMcp {
             is_error: None,
         })
     }
+
+    /// Cancel a pending elicit. The matching request is moved from pending
+    /// to answered with state `Cancelled`. Idempotent: cancelling an
+    /// already-cancelled (or already-answered) request returns success
+    /// without rewriting. Pass `inbox_id` to cancel in a non-default
+    /// namespace.
+    #[tool(
+        name = "elicitate_cancel",
+        description = "Cancel a pending elicit previously enqueued via elicit_mcp_enqueue. The request moves from the pending dir to the answered dir with state Cancelled. Idempotent — cancelling an already-terminal request is a no-op success. Pass `inbox_id` to cancel in a non-default namespace."
+    )]
+    async fn cancel(
+        &self,
+        Parameters(params): Parameters<crate::inbox::CancelParams>,
+    ) -> Result<CallToolResult, rmcp::Error> {
+        use crate::inbox::{cancel_pending, RequestState};
+        let inbox_dir = crate::inbox::resolve_inbox_root(params.inbox_id.as_deref());
+        let cancelled = cancel_pending(&inbox_dir, &params.request_id, params.notes.as_deref())
+            .map_err(|e| rmcp::Error::internal_error(format!("cancel: {e}"), None))?;
+        let state_str = match cancelled {
+            RequestState::Cancelled => "cancelled",
+            RequestState::Answered => "already_answered",
+            RequestState::Expired | RequestState::Pending => "noop",
+            _ => "noop",
+        };
+        let content = Content::json(serde_json::json!({
+            "status": state_str,
+            "request_id": params.request_id,
+        }))
+        .map_err(|e| rmcp::Error::internal_error(format!("content: {e}",), None))?;
+        Ok(CallToolResult {
+            content: vec![content],
+            is_error: None,
+        })
+    }
 }
 
 #[tool_handler]
