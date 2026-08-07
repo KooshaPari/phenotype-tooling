@@ -148,6 +148,18 @@ fn mcp_server_lists_tools() {
         names.contains(&"elicitate_mcp"),
         "tools list should include elicitate_mcp, got {names:?}"
     );
+    assert!(
+        names.contains(&"elicitate_enqueue"),
+        "tools list should include elicitate_enqueue, got {names:?}"
+    );
+    assert!(
+        names.contains(&"elicitate_reply"),
+        "tools list should include elicitate_reply, got {names:?}"
+    );
+    assert!(
+        names.contains(&"inbox_status"),
+        "tools list should include inbox_status, got {names:?}"
+    );
     h.shutdown();
 }
 

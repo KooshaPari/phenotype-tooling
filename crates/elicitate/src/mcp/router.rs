@@ -67,6 +67,57 @@ impl From<ElicitateParams> for PromptSpec {
     }
 }
 
+/// Parameters for the `elicitate_enqueue` MCP tool — non-blocking inbox enqueue.
+///
+/// Same shape as [`ElicitateParams`] (it's the same [`PromptSpec`]) plus an
+/// optional [`inbox_id`](Self::inbox_id) for routing to a named namespace.
+/// Unlike `elicitate_mcp`, this tool never opens a popup: it writes the
+/// request to disk and returns the new `request_id` immediately.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ElicitEnqueueParams {
+    /// One-line title.
+    pub title: String,
+    /// Multi-line body explaining context.
+    #[serde(default)]
+    pub question: String,
+    /// The input field configuration.
+    pub field: crate::spec::FieldSpec,
+    /// Optional notes box.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<crate::spec::NotesSpec>,
+    /// Custom button labels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buttons: Option<crate::spec::ButtonSpec>,
+    /// Urgency hint.
+    #[serde(default)]
+    pub urgency: crate::spec::Urgency,
+    /// Timeout in seconds.
+    #[serde(default = "default_timeout")]
+    pub timeout_secs: u32,
+    /// Optional request ID for correlation. When absent, a UUIDv4 is generated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    /// Optional inbox namespace id. See
+    /// [`crate::inbox::resolve_inbox_root`] for resolution rules.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
+}
+
+impl From<ElicitEnqueueParams> for PromptSpec {
+    fn from(p: ElicitEnqueueParams) -> Self {
+        PromptSpec {
+            title: p.title,
+            question: p.question,
+            field: p.field,
+            notes: p.notes,
+            buttons: p.buttons,
+            urgency: p.urgency,
+            timeout_secs: p.timeout_secs,
+            request_id: p.request_id,
+        }
+    }
+}
+
 /// The MCP server. Single tool, multiple concurrent requests.
 #[derive(Debug, Clone, Default)]
 pub struct ElicitateMcp {
@@ -189,6 +240,58 @@ impl ElicitateMcp {
             is_error: None,
         })
     }
+
+    /// Non-blocking inbox enqueue. Writes the request to disk and returns
+    /// the new `request_id` immediately — never opens a popup. Pair with
+    /// `elicitate_reply` to attach context, and `inbox_status` to poll.
+    /// Pass `inbox_id` to route to a non-default namespace.
+    #[tool(
+        name = "elicitate_enqueue",
+        description = "Queue a prompt in the inbox and return immediately with the new request_id. Does NOT open a popup, does NOT block on the operator. Use this whenever an autonomous agent needs to enqueue a decision without waiting for the operator to be present right now. The operator will see the request via the inbox UI or daemon, and can answer it later. Pair with `inbox_status` to poll and `elicitate_reply` to attach decision context BEFORE the operator opens the form."
+    )]
+    async fn enqueue(
+        &self,
+        Parameters(params): Parameters<ElicitEnqueueParams>,
+    ) -> Result<CallToolResult, rmcp::Error> {
+        let inbox_id = params.inbox_id.clone();
+        let spec: PromptSpec = params.into();
+
+        // Validate upfront — a bad spec should fail loudly before we write a file.
+        if let Err(msg) = spec.validate() {
+            return Ok(CallToolResult::error(vec![Content::text(format!(
+                "invalid PromptSpec: {msg}"
+            ))]));
+        }
+
+        let inbox_dir = crate::inbox::resolve_inbox_root(inbox_id.as_deref());
+        let origin = crate::inbox::RequestOrigin {
+            hostname: std::env::var("HOSTNAME")
+                .or_else(|_| std::env::var("COMPUTERNAME"))
+                .unwrap_or_else(|_| "unknown".into()),
+            process: std::env::current_exe()
+                .ok()
+                .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+                .unwrap_or_else(|| "elicitate-mcp".into()),
+            pid: std::process::id(),
+            callback: None,
+        };
+        let req = crate::inbox::PendingRequest::new(spec, origin);
+        let request_id = req.request_id.clone();
+        let path = crate::inbox::enqueue(&inbox_dir, &req).map_err(|e| {
+            rmcp::Error::internal_error(format!("enqueue: {e}"), None)
+        })?;
+
+        let content = Content::json(serde_json::json!({
+            "status": "queued",
+            "request_id": request_id,
+            "path": path.display().to_string(),
+        }))
+        .map_err(|e| rmcp::Error::internal_error(format!("content: {e}"), None))?;
+        Ok(CallToolResult {
+            content: vec![content],
+            is_error: None,
+        })
+    }
 }
 
 #[tool_handler]
@@ -233,5 +336,73 @@ mod tests {
         };
         let s: PromptSpec = p.into();
         assert_eq!(s.timeout_secs, 600);
+    }
+
+    #[test]
+    fn enqueue_params_into_prompt_spec_preserves_fields() {
+        let p = ElicitEnqueueParams {
+            title: "T".into(),
+            question: "Q".into(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "?".into(),
+                default: Some(true),
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::Warning,
+            timeout_secs: 30,
+            request_id: Some("agent-7".into()),
+            inbox_id: Some("proj-a".into()),
+        };
+        let s: PromptSpec = p.into();
+        assert_eq!(s.title, "T");
+        assert_eq!(s.question, "Q");
+        assert_eq!(s.timeout_secs, 30);
+        assert_eq!(s.request_id, Some("agent-7".into()));
+        assert_eq!(s.urgency, crate::spec::Urgency::Warning);
+    }
+
+    #[test]
+    fn enqueue_params_inbox_id_omitted_when_none() {
+        let p = ElicitEnqueueParams {
+            title: "T".into(),
+            question: String::new(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "?".into(),
+                default: None,
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::default(),
+            timeout_secs: 600,
+            request_id: None,
+            inbox_id: None,
+        };
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(
+            !json.contains("inbox_id"),
+            "inbox_id must be skipped when None: {json}"
+        );
+    }
+
+    #[test]
+    fn enqueue_params_inbox_id_round_trips() {
+        let p = ElicitEnqueueParams {
+            title: "T".into(),
+            question: String::new(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "?".into(),
+                default: None,
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::default(),
+            timeout_secs: 600,
+            request_id: None,
+            inbox_id: Some("team-alpha".into()),
+        };
+        let json = serde_json::to_string(&p).unwrap();
+        let back: ElicitEnqueueParams = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.inbox_id.as_deref(), Some("team-alpha"));
     }
 }

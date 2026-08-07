@@ -884,3 +884,65 @@ ELICITATE_INBOX_DIR env        → <env_value>             (when --inbox-dir fla
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 199/199 green (140 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). The `mcp_handshake_initialize_and_list_tools` test in `agents_smoke` has a pre-existing parallel-execution flake (passes 12/12 in isolation, occasionally fails 1/12 when run alongside other suites); it is unrelated to this work and was documented as a known issue at v0.13.0.
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## v0.16.0 — `elicitate_enqueue` MCP tool (async inbox from MCP)
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `elicitate_enqueue` MCP tool (`router.rs`) | Non-blocking counterpart to `elicitate_mcp`. Takes a `PromptSpec` + optional `inbox_id`, writes a `PendingRequest` to the resolved inbox, returns `{status: "queued", request_id, path}` immediately. Never opens a popup. |
+| `ElicitEnqueueParams` | JsonSchema-derived params. Same shape as `ElicitateParams` plus `inbox_id: Option<String>` (skipped when `None`). |
+| `tests/mcp_stdio::mcp_server_lists_tools` | Extended to assert all 4 MCP tools register correctly. |
+
+### Why this matters
+
+Before v0.16.0:
+- Agents could only `elicitate_mcp` (synchronous popup) — block until the
+  operator answers, OR they had to shell out to the CLI's `ask --async`
+  to enqueue, breaking the single-MCP-endpoint invariant.
+
+After v0.16.0:
+- Agents pick the right tool for the moment:
+    - `elicitate_mcp` — when the agent can afford to block and wants a
+      popup answer right now.
+    - `elicitate_enqueue` — when the agent wants to fire-and-forget: enqueue
+      now, poll `inbox_status` later, optionally `elicitate_reply` with
+      context before the operator sees it.
+
+### Tests (7 new, all green)
+
+`mcp::router::tests` (+3):
+| Test | What it checks |
+|---|---|
+| `enqueue_params_into_prompt_spec_preserves_fields` | All fields round-trip through `From<ElicitEnqueueParams> for PromptSpec`. |
+| `enqueue_params_inbox_id_omitted_when_none` | `inbox_id` is skipped in serialized JSON when absent (backward-compatible wire format). |
+| `enqueue_params_inbox_id_round_trips` | Explicit `inbox_id` survives serde round-trip. |
+
+`inbox::tests` (+4):
+| Test | What it checks |
+|---|---|
+| `enqueue_writes_pending_json_with_generated_request_id` | Happy path: file exists, JSON parses, request_id matches. |
+| `enqueue_honours_explicit_request_id` | `spec.request_id` is preserved in the path. |
+| `enqueue_atomic_no_tmp_left_behind` | No `.tmp` files left after enqueue (atomic rename verified). |
+| `enqueue_in_namespace_does_not_leak_into_default` | Two namespaces share a request_id without cross-contamination. |
+| `enqueue_creates_parent_dir_if_missing` | `create_dir_all` chain creates nested pending dirs. |
+
+`tests/mcp_stdio.rs` (extended):
+- `mcp_server_lists_tools` now requires all 4 tools to be registered
+  (`elicitate_mcp`, `elicitate_enqueue`, `elicitate_reply`, `inbox_status`).
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Agent enqueues with a malformed spec | `spec.validate()` is called up-front; bad specs return `CallToolResult::error` with the validation message. |
+| Agent enqueues to a non-existent parent dir | `enqueue` calls `std::fs::create_dir_all` on `inbox_pending_dir(root)`. |
+| Agent enqueues to an invalid `inbox_id` | `resolve_inbox_root` falls back to `default_inbox_root()` for hostile ids. |
+| Operator never sees the enqueued request | Existing tray-icon / iMessage / email / webhook notifiers fire on `enqueue` via `InboxChangeBus::notify`. |
+
+### Sign-off
+- Version: 0.15.0 → 0.16.0
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 207/207 green (148 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). Same pre-existing parallel-execution flake in `agents_smoke::mcp_handshake_initialize_and_list_tools` (passes 12/12 in isolation).
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

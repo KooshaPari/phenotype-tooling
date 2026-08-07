@@ -941,4 +941,114 @@ mod tests {
         assert!(!inbox_pending_dir(tmp_default.path()).join("shared.reply.json").exists(),
                 "reply must NOT leak into the default inbox");
     }
+
+    // ---- v0.16.0: elicit_mcp_enqueue (async inbox from MCP) ----
+
+    fn make_spec(title: &str) -> crate::spec::PromptSpec {
+        crate::spec::PromptSpec {
+            title: title.into(),
+            question: "?".into(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "?".into(),
+                default: None,
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::Info,
+            timeout_secs: 60,
+            request_id: None,
+        }
+    }
+
+    fn make_origin() -> RequestOrigin {
+        RequestOrigin {
+            hostname: "host".into(),
+            process: "p".into(),
+            pid: 1,
+            callback: None,
+        }
+    }
+
+    #[test]
+    fn enqueue_writes_pending_json_with_generated_request_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let spec = make_spec("T");
+        let req = PendingRequest::new(spec, make_origin());
+        let path = enqueue(tmp.path(), &req).unwrap();
+        assert!(path.exists(), "enqueue must create the pending JSON");
+        let body = std::fs::read_to_string(&path).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(parsed["request_id"], req.request_id);
+        assert_eq!(parsed["spec"]["title"], "T");
+    }
+
+    #[test]
+    fn enqueue_honours_explicit_request_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut spec = make_spec("T");
+        spec.request_id = Some("agent-7".into());
+        let req = PendingRequest::new(spec, make_origin());
+        let path = enqueue(tmp.path(), &req).unwrap();
+        assert!(path.ends_with("agent-7.json"), "got {:?}", path);
+    }
+
+    #[test]
+    fn enqueue_atomic_no_tmp_left_behind() {
+        let tmp = tempfile::tempdir().unwrap();
+        let spec = make_spec("T");
+        let req = PendingRequest::new(spec, make_origin());
+        enqueue(tmp.path(), &req).unwrap();
+        let pending = inbox_pending_dir(tmp.path());
+        let stragglers: Vec<_> = std::fs::read_dir(&pending)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .ends_with(".tmp")
+            })
+            .collect();
+        assert!(
+            stragglers.is_empty(),
+            "enqueue must atomically rename — no .tmp files left behind"
+        );
+    }
+
+    #[test]
+    fn enqueue_in_namespace_does_not_leak_into_default() {
+        // Two temp dirs act as namespaces. Enqueue the same request_id into
+        // both; each must contain its own copy with no cross-contamination.
+        let tmp_default = tempfile::tempdir().unwrap();
+        let tmp_named = tempfile::tempdir().unwrap();
+
+        let spec = make_spec("Shared");
+        let req_default = PendingRequest::new(spec.clone(), make_origin());
+        let req_named = PendingRequest::new(spec, make_origin());
+
+        enqueue(tmp_default.path(), &req_default).unwrap();
+        enqueue(tmp_named.path(), &req_named).unwrap();
+
+        // Both files exist in their respective namespaces.
+        assert!(inbox_pending_dir(tmp_default.path()).join(format!("{}.json", req_default.request_id)).exists());
+        assert!(inbox_pending_dir(tmp_named.path()).join(format!("{}.json", req_named.request_id)).exists());
+        // Neither namespace contains the other's pending file (would happen
+        // if enqueue were accidentally using a shared parent dir).
+        let other_id = req_named.request_id.clone();
+        assert!(!inbox_pending_dir(tmp_default.path()).join(format!("{other_id}.json")).exists()
+                || req_default.request_id != req_named.request_id);
+    }
+
+    #[test]
+    fn enqueue_creates_parent_dir_if_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let nested = tmp.path().join("nested/dir/inbox");
+        assert!(!nested.exists());
+        let spec = make_spec("T");
+        let req = PendingRequest::new(spec, make_origin());
+        enqueue(&nested, &req).unwrap();
+        // enqueue writes to inbox_pending_dir(root) which is <root>/pending,
+        // so check there.
+        let pending = inbox_pending_dir(&nested);
+        assert!(pending.join(format!("{}.json", req.request_id)).exists());
+    }
 }

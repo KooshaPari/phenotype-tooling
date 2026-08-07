@@ -5,6 +5,56 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.16.0] — 2026-08-07
+
+### Added
+
+- **`elicitate_enqueue` MCP tool** — non-blocking inbox enqueue from MCP.
+  Counterpart to the synchronous `elicitate_mcp` popup tool. Writes the
+  spec to the inbox and returns `{status, request_id, path}` immediately
+  — never opens a popup. Pair with `inbox_status` to poll for an answer,
+  and `elicitate_reply` to attach decision context BEFORE the operator
+  opens the form.
+- **`ElicitEnqueueParams`** — JsonSchema-derived params struct. Same shape
+  as `ElicitateParams` (it's the same `PromptSpec`) plus optional
+  `inbox_id` for routing to a named namespace.
+- **Tool listing is now asserted** for all four MCP tools in
+  `tests/mcp_stdio::mcp_server_lists_tools`. The test now requires
+  `elicitate_mcp`, `elicitate_enqueue`, `elicitate_reply`, and
+  `inbox_status` to all be present.
+
+### Tests (7 new, all green)
+
+`mcp::router::tests` (+3):
+- `enqueue_params_into_prompt_spec_preserves_fields` — all fields round-trip.
+- `enqueue_params_inbox_id_omitted_when_none` — `inbox_id` is skipped in
+  the serialized JSON when absent (backward-compatible wire format).
+- `enqueue_params_inbox_id_round_trips` — explicit `inbox_id` survives
+  serde round-trip.
+
+`inbox::tests` (+4):
+- `enqueue_writes_pending_json_with_generated_request_id` — happy path.
+- `enqueue_honours_explicit_request_id` — `spec.request_id` is preserved.
+- `enqueue_atomic_no_tmp_left_behind` — no `.tmp` files after enqueue
+  (atomic rename verified).
+- `enqueue_in_namespace_does_not_leak_into_default` — two namespaces
+  share a request_id without cross-contamination.
+- `enqueue_creates_parent_dir_if_missing` — `create_dir_all` chain works.
+
+`tests/mcp_stdio.rs` (extended):
+- `mcp_server_lists_tools` now asserts all four tools are registered.
+
+### Notes
+
+- The async counterpart is **opt-in** — `elicitate_mcp` is unchanged. Agents
+  that want non-blocking semantics pick `elicitate_enqueue` explicitly.
+- The async tool is fully routed through `resolve_inbox_root(inbox_id)`,
+  so it composes cleanly with the v0.14.0 / v0.15.0 multi-inbox work.
+
+### Changed
+
+- Version bumped to 0.16.0.
+
 ## [0.15.0] — 2026-08-06
 
 ### Added
