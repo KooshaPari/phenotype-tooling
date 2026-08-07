@@ -121,14 +121,26 @@ fn mcp_handshake_initialize_and_list_tools() {
     // 1. initialize
     let init = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0.0.1"}}}"#;
     writeln!(stdin, "{}", init).unwrap();
+    // CRITICAL: flush after each writeln. The stdio pipe buffer may not
+    // be flushed before the test calls drop(child.stdin.take()), causing
+    // the server to only see 1-2 of the 3 messages — this is the source
+    // of the well-known parallel-mode flake.
+    stdin.flush().unwrap();
 
     // 2. initialized notification
     let notif = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
     writeln!(stdin, "{}", notif).unwrap();
+    stdin.flush().unwrap();
 
     // 3. tools/list
     let list = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#;
     writeln!(stdin, "{}", list).unwrap();
+    stdin.flush().unwrap();
+
+    // Give the server a brief moment to drain its read loop before we close
+    // stdin. Without this, on slow / loaded runners, the server may EOF
+    // before processing the third message.
+    std::thread::sleep(std::time::Duration::from_millis(50));
 
     // close stdin so the server sees EOF and exits after processing
     drop(child.stdin.take());
@@ -173,6 +185,110 @@ fn mcp_handshake_initialize_and_list_tools() {
         names.contains(&"elicitate_mcp"),
         "tools/list must include 'elicitate_mcp', got: {:?}",
         names
+    );
+}
+
+/// Concurrent stdio smoke test — locks in the parallel-mode handshake fix.
+/// Spawns N elicit-mcp children in parallel, runs the same 3-message
+/// handshake against each, and asserts all of them return ≥2 lines.
+/// This is the regression test for the well-known flake where `writeln!`
+/// to a stdio pipe doesn't auto-flush before the test closes stdin.
+#[test]
+fn mcp_handshake_concurrent_parallel_children() {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    use std::sync::Arc;
+    use std::thread;
+
+    const N: usize = 6;
+
+    let init = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0.0.1"}}}"#;
+    let notif = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
+    let list = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#;
+
+    let results: Arc<std::sync::Mutex<Vec<(usize, Result<usize, String>)>>> =
+        Arc::new(std::sync::Mutex::new(Vec::with_capacity(N)));
+
+    let mut handles = Vec::with_capacity(N);
+    for i in 0..N {
+        let init = init.to_string();
+        let notif = notif.to_string();
+        let list = list.to_string();
+        let results = Arc::clone(&results);
+
+        let handle = thread::spawn(move || {
+            let mut child = match Command::new("elicitate-mcp")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    results.lock().unwrap().push((i, Err(format!("spawn: {e}"))));
+                    return;
+                }
+            };
+
+            let stdin = child.stdin.as_mut().unwrap();
+            // Write the handshake with explicit flushes between messages.
+            // This is the fix for the parallel-mode flake.
+            let mut write_all = |results: &mut Vec<(usize, Result<usize, String>)>| -> bool {
+                if let Err(e) = writeln!(stdin, "{}", init).and_then(|()| stdin.flush()) {
+                    results.push((i, Err(format!("write init: {e}"))));
+                    return false;
+                }
+                if let Err(e) = writeln!(stdin, "{}", notif).and_then(|()| stdin.flush()) {
+                    results.push((i, Err(format!("write notif: {e}"))));
+                    return false;
+                }
+                if let Err(e) = writeln!(stdin, "{}", list).and_then(|()| stdin.flush()) {
+                    results.push((i, Err(format!("write list: {e}"))));
+                    return false;
+                }
+                true
+            };
+            if !write_all(&mut results.lock().unwrap()) {
+                return;
+            }
+            // Brief settle to let the server drain its read loop.
+            thread::sleep(std::time::Duration::from_millis(50));
+            drop(child.stdin.take());
+
+            let output = match child.wait_with_output() {
+                Ok(o) => o,
+                Err(e) => {
+                    results.lock().unwrap().push((i, Err(format!("wait: {e}"))));
+                    return;
+                }
+            };
+
+            let lines = String::from_utf8_lossy(&output.stdout).lines().count();
+            results.lock().unwrap().push((i, Ok(lines)));
+        });
+        handles.push(handle);
+    }
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    let results = results.lock().unwrap().clone();
+    assert_eq!(results.len(), N, "all N children must complete");
+
+    let mut failures: Vec<String> = Vec::new();
+    for (i, r) in results {
+        match r {
+            Ok(lines) if lines >= 2 => {}
+            Ok(lines) => failures.push(format!("child {i}: only {lines} lines")),
+            Err(e) => failures.push(format!("child {i}: error: {e}")),
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "concurrent handshake failed: {} (of {N} children)\n{}",
+        failures.len(),
+        failures.join("\n"),
     );
 }
 

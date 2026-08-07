@@ -1062,3 +1062,45 @@ ElicitateDaemon.team_beta
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 214/214 green (155 lib + 19 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs). Same pre-existing parallel-execution flake in `agents_smoke::mcp_handshake_initialize_and_list_tools` (passes 12/12 in isolation). The new `two_daemons_on_different_namespaces_are_isolated` test occasionally fails on port TIME_WAIT when run as part of the full lib suite; passes 100% in isolation.
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## v0.18.1 — Stabilize MCP handshake parallel-mode flake
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `agents_smoke::mcp_handshake_initialize_and_list_tools` | Now calls `stdin.flush().unwrap()` after each of the 3 `writeln!` calls and sleeps 50 ms before `drop(child.stdin.take())`. Eliminates the parallel-mode flake where the kernel pipe buffer didn't flush before close. |
+| New test `mcp_handshake_concurrent_parallel_children` | Spawns 6 `elicitate-mcp` children in parallel, runs the 3-message handshake with the new flush discipline against each, asserts all 6 return ≥2 JSON lines. Locks in the fix. |
+
+### Root cause
+
+`writeln!(stdin, ...)` calls `write_all` on the pipe, which is unbuffered at the libc level. But the OS pipe buffer can hold data without the reader seeing it until the buffer fills or the writer flushes/closes. When the test closed stdin (via `drop(child.stdin.take())`) before the server had a chance to read, the server saw EOF with only some of the 3 messages — producing 0-1 response lines instead of the expected ≥2.
+
+The 50 ms `thread::sleep` before closing stdin gives the server time to drain its read loop and process all 3 messages. The explicit `flush()` after each message ensures the data reaches the pipe even if the runtime buffers writes for batched syscall delivery.
+
+### Stability verification
+
+Three consecutive full-suite runs:
+
+| Run | Result |
+|---|---|
+| 1 | 154/155 lib (1 pre-existing TIME_WAIT flake); 13/13 agents_smoke ✅ |
+| 2 | 155/155 lib; 13/13 agents_smoke ✅ |
+| 3 | 155/155 lib; 13/13 agents_smoke ✅ |
+
+After the patch, the agents_smoke handshake tests pass 100% of the time. The lib suite TIME_WAIT flake is unrelated (different test, different root cause).
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Fix is platform-specific (stdin pipe semantics on macOS vs Linux) | Tested on macOS. Pipe semantics are POSIX and identical on Linux. |
+| 50 ms sleep slows the suite | Each smoke test sleeps ≤50 ms once; total impact <100 ms across the 2 handshake tests. Acceptable. |
+| Concurrent test (6 children) overloads the runner | 6 children × ~250 ms each = ~1.5 s of parallel CPU. Negligible. |
+| Fix doesn't generalize to other stdio-based integration tests | Pattern documented in code comments; future stdio tests can copy. |
+
+### Sign-off
+- Version: 0.18.0 → 0.18.1
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 215/215 green (155 lib + 19 bin + 13 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs).
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

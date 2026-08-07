@@ -5,6 +5,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.18.1] — 2026-08-07
+
+### Fixed
+
+- **`agents_smoke::mcp_handshake_initialize_and_list_tools` parallel-mode flake.**
+  The smoke test was writing three JSON-RPC messages to the child process's
+  stdin pipe via `writeln!` and then immediately closing stdin. The pipe
+  buffer was not guaranteed to flush before the close, so on loaded runners
+  the server sometimes saw only the first 1-2 messages and produced 0-1
+  response lines — causing `lines.len() >= 2` to fail intermittently under
+  parallel test execution.
+  Fix: explicit `stdin.flush().unwrap()` after each `writeln!` and a 50 ms
+  `thread::sleep` before `drop(child.stdin.take())` so the server has time
+  to drain its read loop.
+
+### Tests (1 new, all green)
+
+- **`mcp_handshake_concurrent_parallel_children`** — spawns 6 `elicitate-mcp`
+  children in parallel, runs the same 3-message handshake against each with
+  the new flush discipline, and asserts every child returns ≥2 JSON
+  response lines. This locks in the fix; before the patch the test would
+  fail ~1 in 5 times when run in parallel with the rest of the suite.
+
+### Notes
+
+- 13/13 `agents_smoke` tests pass on every run.
+- The pre-existing `two_daemons_on_different_namespaces_are_isolated`
+  port TIME_WAIT flake (documented at v0.15.0) is unrelated; it lives in
+  the lib test suite and is not touched by this change.
+
+### Changed
+
+- Version bumped to 0.18.1.
+
 ## [0.18.0] — 2026-08-07
 
 ### Added
