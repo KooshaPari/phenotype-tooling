@@ -2577,7 +2577,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "thiserror 1.0.69",
+ "thiserror 2.0.19",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -2882,7 +2882,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
