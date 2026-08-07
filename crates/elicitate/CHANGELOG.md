@@ -5,6 +5,63 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.14.0] — 2026-08-06
+
+### Added
+
+- **Multi-inbox namespaces** — agents can now isolate pending elicit traffic per
+  project, team, or any other logical boundary. The single legacy
+  `~/.elicitate/inbox` location is preserved as the `"default"` namespace for
+  full backward compatibility.
+- **`pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf`** —
+  centralized resolution:
+    - `None` or `Some("default")` → legacy `default_inbox_root()` path
+    - `Some(id)` (valid) → `<data_root>/inboxes/<id>/`
+    - `Some(_)` (invalid) → falls back to default (defense against hostile JSON)
+- **`pub fn is_valid_inbox_id(id: &str) -> bool`** — accepts `[A-Za-z0-9_-]{1,64}`.
+  Anything else (path separators, dots, whitespace, control chars, too long)
+  is rejected, preventing path-traversal attacks from untrusted MCP input.
+- **`inbox_status` and `elicitate_reply` MCP tools** now accept an optional
+  `inbox_id` parameter (was: hardcoded to the legacy default). The
+  `elicitate_mcp` popup tool is unchanged — popups are synchronous and don't
+  touch the inbox.
+- **`InboxStatusParams { inbox_id: Option<String> }`** — JsonSchema-derived
+  params struct for the `inbox_status` tool.
+
+### Tests (7 new, all green)
+
+- `is_valid_inbox_id_accepts_alphanumeric_dashes_underscores` — happy-path
+  validation (default, proj-1, team_alpha, ABC123, 64-char id).
+- `is_valid_inbox_id_rejects_path_traversal_and_empty` — adversarial
+  inputs (empty, `../etc`, slashes, backslashes, dots, spaces, semicolons,
+  > 64 chars).
+- `resolve_inbox_root_none_and_default_point_to_legacy` — `None` and
+  `Some("default")` both resolve to the same path.
+- `resolve_inbox_root_invalid_falls_back_to_legacy_safely` — every hostile
+  id produces the legacy default path (never crashes, never escapes).
+- `resolve_inbox_root_named_namespace_is_parent_inboxes_id` — verifies the
+  layout: `<parent_of_default>/inboxes/<id>`.
+- `compute_inbox_status_isolates_two_namespaces` — two temp dirs, each
+  gets its own counts, never cross-contaminates.
+- `write_reply_in_namespace_does_not_leak_into_default` — reply written
+  to namespace A must not appear in namespace B even when request IDs
+  collide.
+
+### Notes
+
+- The `elicitate_mcp` popup tool is intentionally left unchanged for v0.14.0.
+  The popup is a synchronous, blocking decision tool — it doesn't enqueue
+  anywhere. Asynchronous inbox routing for `elicitate_mcp` is reserved for a
+  future version that adds an async/defer mode.
+- Installer, CLI (`bin_elicitate`), daemon, and tray code continue to use
+  `default_inbox_root()` for the legacy single-inbox experience. Multi-inbox
+  support is exposed only through the MCP `inbox_status` and `elicitate_reply`
+  tools for v0.14.0.
+
+### Changed
+
+- Version bumped to 0.14.0.
+
 ## [0.13.0] — 2026-08-06
 
 ### Added

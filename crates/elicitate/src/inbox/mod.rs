@@ -79,15 +79,29 @@ pub enum NotificationKind {
     Webhook,
 }
 
-/// One queued request — the on-disk artifact.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ReplyParams {
     /// ID of the pending request to attach the reply to.
     pub request_id: String,
     /// The reply message text the user will see on the form page.
     pub message: String,
+    /// Optional inbox namespace id. When absent or `"default"`, falls back to
+    /// the legacy single-inbox location. See [`resolve_inbox_root`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
 }
 
+/// Parameters for the `inbox_status` MCP tool — a read-only projection of the
+/// inbox's current state. Optional [`inbox_id`](Self::inbox_id) selects a
+/// namespace; absent or `"default"` falls back to the legacy single-inbox.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct InboxStatusParams {
+    /// Optional inbox namespace id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
+}
+
+/// One queued request — the on-disk artifact.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PendingRequest {
     /// Stable identifier; mirrors [`PromptSpec::request_id`].
@@ -228,6 +242,39 @@ pub fn default_inbox_root() -> PathBuf {
     }
     // last-resort fallback (CI without $HOME): a per-process temp dir.
     std::env::temp_dir().join("elicitate-inbox")
+}
+
+/// Validate an inbox namespace id. Allowed: alphanumeric, '-', '_'.
+/// Length 1..=64. Used to prevent path traversal in [`resolve_inbox_root`].
+#[must_use]
+pub fn is_valid_inbox_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Resolve the on-disk path for an inbox namespace.
+///
+/// Resolution rules:
+/// - `None` or `Some("default")` → [`default_inbox_root`] (legacy single-inbox).
+/// - `Some(id)` where `id` passes [`is_valid_inbox_id`] →
+///   `<parent_of_default>/inboxes/<id>`.
+/// - Anything else (empty, invalid chars, too long) → [`default_inbox_root`]
+///   so the caller never crashes on a hostile id from untrusted JSON.
+#[must_use]
+pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf {
+    match inbox_id {
+        None | Some("default") => default_inbox_root(),
+        Some(id) if is_valid_inbox_id(id) => {
+            // parent of the default inbox is the elicitate data root
+            let parent = default_inbox_root()
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from("."));
+            parent.join("inboxes").join(id)
+        }
+        Some(_) => default_inbox_root(),
+    }
 }
 
 /// Subdirectory for pending entries.
@@ -807,5 +854,91 @@ mod tests {
             serde_json::from_slice(&std::fs::read(&reply_path).unwrap()).unwrap();
         assert_eq!(body["request_id"], "rq-7");
         assert_eq!(body["message"], "operator should pick option B");
+    }
+
+    // ---- multi-inbox (Phase 4 — v0.14.0) ----
+
+    #[test]
+    fn is_valid_inbox_id_accepts_alphanumeric_dashes_underscores() {
+        assert!(is_valid_inbox_id("default"));
+        assert!(is_valid_inbox_id("proj-1"));
+        assert!(is_valid_inbox_id("team_alpha"));
+        assert!(is_valid_inbox_id("ABC123"));
+        assert!(is_valid_inbox_id(&"a".repeat(64)));
+    }
+
+    #[test]
+    fn is_valid_inbox_id_rejects_path_traversal_and_empty() {
+        assert!(!is_valid_inbox_id(""));
+        assert!(!is_valid_inbox_id("../etc"));
+        assert!(!is_valid_inbox_id("a/b"));
+        assert!(!is_valid_inbox_id("a\\b"));
+        assert!(!is_valid_inbox_id("a.b"));
+        assert!(!is_valid_inbox_id("a b"));
+        assert!(!is_valid_inbox_id("a;b"));
+        assert!(!is_valid_inbox_id(&"a".repeat(65)));
+    }
+
+    #[test]
+    fn resolve_inbox_root_none_and_default_point_to_legacy() {
+        let legacy = default_inbox_root();
+        assert_eq!(resolve_inbox_root(None), legacy);
+        assert_eq!(resolve_inbox_root(Some("default")), legacy);
+    }
+
+    #[test]
+    fn resolve_inbox_root_invalid_falls_back_to_legacy_safely() {
+        let legacy = default_inbox_root();
+        // Hostile / malformed ids must NEVER produce a path outside the data root.
+        for bad in ["", "../etc", "a/b", "a\\b", ".", "..", "a b"] {
+            assert_eq!(
+                resolve_inbox_root(Some(bad)),
+                legacy,
+                "bad id {bad:?} should fall back to default"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_inbox_root_named_namespace_is_parent_inboxes_id() {
+        let legacy = default_inbox_root();
+        let parent = legacy.parent().expect("legacy must have a parent");
+        let named = resolve_inbox_root(Some("proj-x"));
+        assert_eq!(named, parent.join("inboxes").join("proj-x"));
+    }
+
+    #[test]
+    fn compute_inbox_status_isolates_two_namespaces() {
+        // Two temp dirs stand in for two inbox namespaces. Enqueue one pending
+        // request into each; verify compute_inbox_status sees only its own.
+        let tmp_a = tempfile::tempdir().unwrap();
+        let tmp_b = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp_a.path(), "a-1", "A1", crate::spec::Urgency::Info);
+        write_pending_with_urgency(tmp_b.path(), "b-1", "B1", crate::spec::Urgency::Info);
+        write_pending_with_urgency(tmp_b.path(), "b-2", "B2", crate::spec::Urgency::Info);
+
+        let status_a = compute_inbox_status(tmp_a.path()).unwrap();
+        let status_b = compute_inbox_status(tmp_b.path()).unwrap();
+
+        assert_eq!(status_a.total, 1);
+        assert_eq!(status_a.pending, 1);
+        assert_eq!(status_b.total, 2);
+        assert_eq!(status_b.pending, 2);
+    }
+
+    #[test]
+    fn write_reply_in_namespace_does_not_leak_into_default() {
+        // write_reply into a custom dir must NOT create a .reply.json in any
+        // other dir, even if a request with the same id lives there.
+        let tmp_default = tempfile::tempdir().unwrap();
+        let tmp_named = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp_default.path(), "shared", "Default", crate::spec::Urgency::Info);
+        write_pending_with_urgency(tmp_named.path(),   "shared", "Named",   crate::spec::Urgency::Info);
+
+        write_reply(tmp_named.path(), "shared", "scoped reply").unwrap();
+
+        assert!(inbox_pending_dir(tmp_named.path()).join("shared.reply.json").exists());
+        assert!(!inbox_pending_dir(tmp_default.path()).join("shared.reply.json").exists(),
+                "reply must NOT leak into the default inbox");
     }
 }

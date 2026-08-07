@@ -765,3 +765,63 @@ serialized into the MCP tool surface:
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 185/185 green (132 lib + 13 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs)
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## v0.14.0 — Multi-inbox (per-project namespace isolation)
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf` (`inbox/mod.rs`) | Centralized inbox path resolution. `None`/`Some("default")` → legacy `default_inbox_root()`. `Some(valid_id)` → `<data_root>/inboxes/<id>`. Anything else → fallback to default (hostile JSON never escapes). |
+| `pub fn is_valid_inbox_id(id: &str) -> bool` | Validates `[A-Za-z0-9_-]{1,64}`. Defense against path traversal. |
+| `inbox_status(inbox_id?)` MCP tool | Now accepts `inbox_id` (was hardcoded to default). Returns counts for that namespace. |
+| `elicitate_reply(request_id, message, inbox_id?)` MCP tool | Now accepts `inbox_id` (was hardcoded to default). Reply written to that namespace's pending dir. |
+| `InboxStatusParams { inbox_id: Option<String> }` | New JsonSchema-derived params struct for `inbox_status`. |
+| `ReplyParams` extended | Added `inbox_id: Option<String>` (skips serialization when `None`). |
+
+### Storage layout
+
+```
+~/.elicitate/                          ← data root (parent of default inbox)
+├── inbox/                             ← "default" namespace (legacy path)
+└── inboxes/                           ← new namespace root
+    ├── proj-a/<request_id>.json
+    ├── proj-a/<request_id>.reply.json
+    ├── team-alpha/<request_id>.json
+    └── …
+```
+
+When `ELICITATE_INBOX_DIR` is set, the data root is the parent of that env var.
+
+### Tests (7 new, all green)
+
+| Test | What it checks |
+|---|---|
+| `is_valid_inbox_id_accepts_alphanumeric_dashes_underscores` | Happy-path: `default`, `proj-1`, `team_alpha`, `ABC123`, 64-char id all pass. |
+| `is_valid_inbox_id_rejects_path_traversal_and_empty` | Adversarial: empty, `../etc`, slashes, backslashes, dots, spaces, semicolons, > 64 chars all rejected. |
+| `resolve_inbox_root_none_and_default_point_to_legacy` | `None` and `Some("default")` resolve to the same path (backward compat). |
+| `resolve_inbox_root_invalid_falls_back_to_legacy_safely` | Every hostile id produces the legacy default path. Never escapes the data root. |
+| `resolve_inbox_root_named_namespace_is_parent_inboxes_id` | Verifies `<parent_of_default>/inboxes/<id>` layout. |
+| `compute_inbox_status_isolates_two_namespaces` | Two temp dirs, each gets independent counts; no cross-contamination. |
+| `write_reply_in_namespace_does_not_leak_into_default` | Reply in namespace A must NOT appear in namespace B even when request IDs collide. |
+
+### Out of scope for v0.14.0
+
+| Surface | Why deferred |
+|---|---|
+| `elicitate_mcp` popup tool | Popup is synchronous — it doesn't enqueue anywhere. There's no inbox to scope. Async/defer mode is a future feature. |
+| Installer / CLI / daemon / tray | Continue to use `default_inbox_root()` for the legacy single-inbox experience. Multi-inbox is exposed through the MCP `inbox_status` and `elicitate_reply` tools only for v0.14.0. |
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Hostile `inbox_id` could escape the data root | `is_valid_inbox_id` is strict (`[A-Za-z0-9_-]{1,64}`); invalid ids fall back to default; layout `<parent>/inboxes/<id>` keeps everything under the data root. |
+| Concurrent writes to the same namespace from two agents | Each file write goes through `enqueue`'s atomic `tmp → rename` pattern, so no partial JSON ever appears. `InboxChangeBus::notify` wakes subscribers per-namespace (the bus is global but per-request_id, so no false wake-ups). |
+| Daemon watching only the default inbox while a namespace is active | Documented: daemon only watches the legacy default inbox for v0.14.0. Per-namespace daemon is a v0.15.0 feature. |
+
+### Sign-off
+- Version: 0.13.0 → 0.14.0
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 192/192 green (139 lib + 13 bin + 12 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs)
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

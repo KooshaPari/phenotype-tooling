@@ -141,12 +141,13 @@ impl ElicitateMcp {
     /// Does NOT open a popup. Returns immediately with typed JSON counts.
     #[tool(
         name = "inbox_status",
-        description = "Returns the current inbox state (pending, answered, timed_out, failed counts) without blocking. Use this to check whether pending elicits await the operator before deciding to create new ones."
+        description = "Returns the current inbox state (pending, answered, timed_out, failed counts) without blocking. Use this to check whether pending elicits await the operator before deciding to create new ones. Pass `inbox_id` to query a non-default namespace."
     )]
     async fn inbox_status(
         &self,
+        Parameters(params): Parameters<crate::inbox::InboxStatusParams>,
     ) -> Result<CallToolResult, rmcp::Error> {
-        let inbox_dir = crate::inbox::default_inbox_root();
+        let inbox_dir = crate::inbox::resolve_inbox_root(params.inbox_id.as_deref());
         let status = crate::inbox::compute_inbox_status(&inbox_dir).map_err(|e| {
             rmcp::Error::internal_error(format!("compute inbox status: {e}"), None)
         })?;
@@ -166,15 +167,16 @@ impl ElicitateMcp {
     /// as a note on the form page when the operator opens it. Does NOT block.
     #[tool(
         name = "elicitate_reply",
-        description = "Attach a context message to a pending elicit. The message appears as a note when the operator opens the form. Does NOT block or pop up a dialog — use this to provide decision context BEFORE the operator answers."
+        description = "Attach a context message to a pending elicit. The message appears as a note when the operator opens the form. Does NOT block or pop up a dialog — use this to provide decision context BEFORE the operator answers. Pass `inbox_id` to reply to a non-default namespace."
     )]
     async fn reply(
         &self,
         Parameters(params): Parameters<crate::inbox::ReplyParams>,
     ) -> Result<CallToolResult, rmcp::Error> {
         use crate::inbox::write_reply;
+        let inbox_dir = crate::inbox::resolve_inbox_root(params.inbox_id.as_deref());
         write_reply(
-            &crate::inbox::default_inbox_root(),
+            &inbox_dir,
             &params.request_id,
             &params.message,
         )
