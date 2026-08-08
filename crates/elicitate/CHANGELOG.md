@@ -5,6 +5,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.19.0] — 2026-08-07
+
+### Added
+
+- **`elicitate namespace` subcommand** for inspecting and managing inbox
+  namespaces at runtime. Three subcommands:
+  - **`elicitate namespace list [--json]`** — table of every namespace
+    registered on this machine: inbox_id, port, daemon live status,
+    autostart unit presence, pending/answered/expired counts, last
+    activity timestamp. Default namespace always appears first.
+  - **`elicitate namespace show [inbox_id] [--json]`** — detail view for
+    one namespace.
+  - **`elicitate namespace clean [--gc-age-secs N] [--inbox-id X] [--dry-run]`** —
+    sweep terminal (Answered/Cancelled/Expired) entries older than N
+    seconds across all registered namespaces. Defaults to 7 days.
+    Designed for cron / scheduled task automation.
+- **Cross-platform autostart discovery** in `enumerate_namespaces`:
+  scans `~/Library/LaunchAgents` (macOS), `~/.config/systemd/user/`
+  (Linux), and `schtasks /Query` (Windows) for previously-installed
+  namespace units. Hostile / non-conforming unit names are skipped.
+- **`pub fn is_daemon_live(port) -> bool`** — cheap 50 ms loopback probe
+  used by the list/show commands. Replaces the heavier
+  `elicitate::inbox::daemon::is_port_live` for read-only display.
+
+### Tests (6 new, all green)
+
+`bin_elicitate::tests`:
+- `enumerate_namespaces_default_only_when_no_units` — default row is
+  always present, even with no per-namespace units registered.
+- `truncate_short_string_unchanged` / `truncate_long_string_appended_with_ellipsis`
+  — table formatter correctness.
+- `is_daemon_live_returns_false_for_unused_port` — smoke check.
+- `gc_namespace_removes_old_terminal_entries` — only old Answered
+  entries are removed; Pending and fresh entries are preserved.
+- `gc_namespace_dry_run_keeps_files` — `--dry-run` reports what would be
+  removed without touching disk.
+
+### Notes
+
+- `elicitate namespace list` is a noop cost on a clean install: it scans
+  the autostart dir once and reads each inbox's pending/answered counts.
+  For 10 namespaces on a slow disk, expect <50 ms total.
+- `elicitate namespace clean` is idempotent: re-running it after the
+  cleanup is a noop.
+- Hostile inbox ids (e.g., `../etc`) that somehow ended up in a unit
+  filename are filtered out by `is_valid_inbox_id`.
+
+### Changed
+
+- Version bumped to 0.19.0.
+
 ## [0.18.2] — 2026-08-07
 
 ### Fixed

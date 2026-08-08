@@ -1152,3 +1152,91 @@ The two reads happened on the same path but at different times. The notifier loo
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 215/215 green. 20/20 lib-suite runs + 10/10 full-suite runs after the patch.
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## Governance traceability (v0.12.0 → v0.18.2)
+
+Per `phenotype-tooling/CLAUDE.md` governance, every phase that ships
+should have a corresponding AgilePlus backlog entry. The nine phases
+below were implemented across the `wip/2026-07-22-phenotype-tooling-absorbed-go-mod`
+branch and predate the AgilePlus integration for this repo. To close the
+governance gap, an entry should be filed in `AgilePlus/kitty-specs/` for
+each (one retroactive ticket per phase):
+
+| Phase | Version | Suggested slug | Commit | What shipped |
+|---|---|---|---|---|
+| 1 | v0.13.0 | `elicitate-reply-mcp-tool` | `ea30f0259` | `elicitate_reply` MCP tool + `pub fn write_reply` |
+| 2 | v0.14.0 | `elicitate-multi-inbox-mcp` | `41fc884f1` | `inbox_id` field on ReplyParams/InboxStatusParams + `resolve_inbox_root` |
+| 3 | v0.15.0 | `elicitate-multi-inbox-cli` | `b075f3f1e` | `--inbox-id` global CLI flag + daemon isolation tests |
+| 4 | v0.16.0 | `elicitate-enqueue-mcp-tool` | `65caeca0f` | `elicitate_enqueue` MCP tool (non-blocking counterpart) |
+| 5 | v0.17.0 | `elicitate-cancel-mcp-tool` | `68e46d328` | `elicitate_cancel` MCP tool + `pub fn cancel_pending` |
+| 6 | v0.18.0 | `elicitate-per-namespace-installer` | `b8cb3e122` | `--register-namespace` CLI flag + `namespace_port` + uninstall sweep |
+| 7 | v0.18.1 | `elicitate-handshake-flake-fix` | `c29be4fa3` | stdio pipe flush + concurrent stress test |
+| 8 | v0.18.2 | `elicitate-notifier-flake-fix` | `ddc2dd640` | `expires_at_ms: u64::MAX` in two-daemon test |
+
+**Action item**: file the 8 retro tickets via:
+
+```
+agileplus specify --repo phenotype-tooling --feature <slug> --from-file <spec.md>
+```
+
+For each phase, the `spec.md` should be the corresponding section above
+(this ABSORPTION entry serves as the spec body). This is a 30-minute
+follow-up; the engineering work is done and verified.
+
+The `_test_deterministic_verifier.py` script in `repos/` and the
+`worklog.md` in `AgilePlus/.work-audit/` are the canonical artifact
+registries for cross-repo governance tracking.
+
+## v0.19.0 — `elicitate namespace` command
+
+### What ships
+
+| Subcommand | What it does |
+|---|---|
+| `elicitate namespace list [--json]` | Table of every registered namespace: inbox_id, port, daemon_live, autostart_present, pending/answered/expired counts, last_activity_ms |
+| `elicitate namespace show [inbox_id] [--json]` | Detail block for one namespace |
+| `elicitate namespace clean [--gc-age-secs N] [--inbox-id X] [--dry-run]` | Sweep terminal entries across all (or one) namespace(s). Idempotent. |
+
+### How it works
+
+The installer (v0.18.0) writes one autostart unit per namespace at install
+time. `enumerate_namespaces` discovers them by scanning the platform's
+autostart directory for files matching `elicitate*` /
+`com.phenotype.elicitate*`. Each found id is cross-checked with
+`is_valid_inbox_id`; hostile names are silently skipped.
+
+For each namespace, the command reports:
+- `inbox_root` — derived from `resolve_inbox_root(inbox_id)` (or the
+  default inbox for the `(default)` row)
+- `port` — `namespace_port(id)` (deterministic, idempotent)
+- `daemon_live` — 50 ms `TcpStream::connect_timeout` probe
+- `autostart_present` — does the launchd plist / systemd unit / schtask
+  exist on disk?
+- `pending` / `answered` / `expired` counts
+- `last_activity_ms` — most recent mtime across pending + answered JSON
+
+### Tests (6 new, all green)
+
+| Test | What it checks |
+|---|---|
+| `enumerate_namespaces_default_only_when_no_units` | Default row is always present, even with no per-namespace units |
+| `truncate_short_string_unchanged` | Short strings pass through |
+| `truncate_long_string_appended_with_ellipsis` | Long strings are truncated to `max` chars with `…` |
+| `is_daemon_live_returns_false_for_unused_port` | Smoke check |
+| `gc_namespace_removes_old_terminal_entries` | Only old Answered/Cancelled/Expired entries are removed; Pending and fresh entries preserved |
+| `gc_namespace_dry_run_keeps_files` | `--dry-run` reports what would be removed without touching disk |
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Slow filesystem on `read_dir` for the answered dir | Skipping non-JSON entries + lazy JSON parse keeps it bounded. |
+| Concurrent enqueue + gc | Atomic renames in `enqueue` mean a gc can't delete a file mid-enqueue. |
+| `TcpStream::connect_timeout` blocks | 50 ms timeout; worst-case 50 ms × N namespaces. For 10 namespaces, <500 ms total. |
+| Windows `schtasks` is slow | `/Query` is once-per-call; cached across subcommands in a single invocation. |
+
+### Sign-off
+- Version: 0.18.2 → 0.19.0
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 221/221 green (155 lib + 25 bin + 13 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs).
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)

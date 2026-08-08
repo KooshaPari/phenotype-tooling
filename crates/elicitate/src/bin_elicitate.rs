@@ -106,6 +106,8 @@ enum Cmd {
     Daemon(DaemonArgs),
     /// Inspect the inbox: list pending, show one in detail, or open the UI.
     Inbox(InboxArgs),
+    /// Inspect and manage inbox namespaces (default + per-namespace).
+    Namespace(NamespaceArgs),
     /// Open the inbox in the default browser. Shorthand for
     /// `elicitate inbox --open`. Pass `--latest` to deep-link to the most
     /// recent pending form instead of the index page.
@@ -350,6 +352,54 @@ struct AnswerArgs {
     cancel: bool,
 }
 
+// ---- namespace ------------------------------------------------------
+
+/// Inspect and manage inbox namespaces. v0.18.x ships a per-namespace
+/// installer (--register-namespace) and CLI flag (--inbox-id), but the
+/// runtime needs a way to see what's running, where each inbox lives, and
+/// how to clean up expired entries across many namespaces at once.
+#[derive(Debug, Subcommand)]
+enum NamespaceCmd {
+    /// List every namespace currently registered for this user (default
+    /// + any per-namespace autostart units). Reports the inbox root path,
+    /// the deterministic daemon port, and the live state (pending count +
+    /// last activity).
+    List {
+        /// Print as JSON instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show details for a single namespace: inbox root, port, autostart
+    /// unit presence, pending/answered/expired counts.
+    Show {
+        /// The namespace id (omit to inspect the default namespace).
+        inbox_id: Option<String>,
+        /// Print as JSON instead of a key/value block.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Garbage-collect terminal (Answered/Cancelled/Expired) entries older
+    /// than the given age in seconds across all registered namespaces.
+    /// Useful as a cron job or scheduled task.
+    Clean {
+        /// Drop terminal entries older than this many seconds. Default: 7d.
+        #[arg(long, default_value_t = 7 * 24 * 60 * 60)]
+        gc_age_secs: u64,
+        /// Only gc the named namespace (omit to gc every registered namespace).
+        #[arg(long)]
+        inbox_id: Option<String>,
+        /// Print what would be deleted without touching disk.
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Debug, Args)]
+struct NamespaceArgs {
+    #[command(subcommand)]
+    cmd: NamespaceCmd,
+}
+
 // ---- main -------------------------------------------------------------
 
 fn main() -> ExitCode {
@@ -374,6 +424,7 @@ fn main() -> ExitCode {
         Cmd::Uninstall(args) => cmd_uninstall(args, &inbox_dir),
         Cmd::Daemon(args) => cmd_daemon(args, &inbox_dir),
         Cmd::Inbox(args) => cmd_inbox(args, &inbox_dir),
+        Cmd::Namespace(args) => cmd_namespace(args, &inbox_dir),
         Cmd::Open(args) => cmd_open(args, &inbox_dir),
         Cmd::Wait(args) => cmd_wait(args, &inbox_dir),
         Cmd::Answer(args) => cmd_answer(args, &inbox_dir),
@@ -1315,6 +1366,113 @@ mod tests {
         assert_eq!(cfg.webhook_url.as_deref(), Some("https://ntfy.sh/x"));
     }
 
+    // ---- namespace command ----
+
+    #[test]
+    fn enumerate_namespaces_default_only_when_no_units() {
+        // With no autostart units registered, enumerate_namespaces must
+        // produce exactly one row: the default namespace.
+        let rows = enumerate_namespaces(std::path::Path::new("/tmp/no-such-inbox"));
+        assert_eq!(rows.len(), 1, "default row must always be present");
+        assert_eq!(rows[0].inbox_id, "(default)");
+        assert_eq!(rows[0].port, elicitate::inbox::daemon::DEFAULT_PORT);
+    }
+
+    #[test]
+    fn truncate_short_string_unchanged() {
+        assert_eq!(truncate("abc", 5), "abc");
+        assert_eq!(truncate("abc", 3), "abc");
+    }
+
+    #[test]
+    fn truncate_long_string_appended_with_ellipsis() {
+        let out = truncate("abcdefghij", 5);
+        // 4 chars + ellipsis = 5 total chars (max)
+        assert_eq!(out.chars().count(), 5);
+        assert!(out.ends_with('…'));
+    }
+
+    #[test]
+    fn is_daemon_live_returns_false_for_unused_port() {
+        // Pick an unused port, confirm is_daemon_live returns false.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        assert!(!is_daemon_live(port));
+    }
+
+    #[test]
+    fn gc_namespace_removes_old_terminal_entries() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let answered = elicitate::inbox::answered_dir(root);
+        std::fs::create_dir_all(&answered).unwrap();
+
+        // Write one old Answered, one fresh Answered, one Pending (must
+        // never be deleted by gc), and one corrupt JSON (must be skipped).
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let old_ms = now_ms.saturating_sub(10 * 24 * 60 * 60 * 1000); // 10d old
+        let fresh_ms = now_ms.saturating_sub(60 * 1000); // 60s old
+
+        let old = serde_json::json!({
+            "request_id": "old",
+            "queued_at_ms": old_ms,
+            "state": "Answered",
+        });
+        let fresh = serde_json::json!({
+            "request_id": "fresh",
+            "queued_at_ms": fresh_ms,
+            "state": "Answered",
+        });
+        std::fs::write(answered.join("old.json"), serde_json::to_string(&old).unwrap()).unwrap();
+        std::fs::write(answered.join("fresh.json"), serde_json::to_string(&fresh).unwrap()).unwrap();
+
+        let pending = elicitate::inbox::inbox_pending_dir(root);
+        std::fs::create_dir_all(&pending).unwrap();
+        let pending_req = serde_json::json!({
+            "request_id": "pend",
+            "queued_at_ms": old_ms,
+            "state": "Pending",
+        });
+        std::fs::write(pending.join("pend.json"), serde_json::to_string(&pending_req).unwrap()).unwrap();
+
+        // Run gc with a 7d cutoff (604800 seconds).
+        let removed = gc_namespace(&root.display().to_string(), now_ms.saturating_sub(7 * 24 * 60 * 60 * 1000), false).unwrap();
+        assert_eq!(removed, 1, "only the old Answered entry must be removed");
+
+        // Old is gone, fresh + pending remain.
+        assert!(!answered.join("old.json").exists());
+        assert!(answered.join("fresh.json").exists());
+        assert!(pending.join("pend.json").exists());
+    }
+
+    #[test]
+    fn gc_namespace_dry_run_keeps_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let answered = elicitate::inbox::answered_dir(root);
+        std::fs::create_dir_all(&answered).unwrap();
+
+        let old_ms = 1u64; // ancient
+        let v = serde_json::json!({
+            "request_id": "r",
+            "queued_at_ms": old_ms,
+            "state": "Answered",
+        });
+        std::fs::write(answered.join("r.json"), serde_json::to_string(&v).unwrap()).unwrap();
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let removed = gc_namespace(&root.display().to_string(), now_ms, true).unwrap();
+        assert_eq!(removed, 1, "dry-run reports what would be removed");
+        assert!(answered.join("r.json").exists(), "dry-run must not touch disk");
+    }
+
     #[test]
     fn parse_notify_cfg_empty() {
         let cfg = parse_notify_cfg(None);
@@ -1326,4 +1484,361 @@ mod tests {
 /// Used by `cmd_daemon --auto-open-browser` and the JSON status line.
 fn open_url_from_handle(h: &elicitate::inbox::daemon::DaemonHandle) -> String {
     format!("http://{}:{}/inbox", h.bind_addr, h.port)
+}
+
+// ---- namespace command ----------------------------------------------
+
+/// One row in the `elicitate namespace list` table.
+#[derive(Debug, Clone, serde::Serialize)]
+struct NamespaceRow {
+    inbox_id: String,
+    inbox_root: String,
+    port: u16,
+    autostart_present: bool,
+    live: bool,
+    pending: usize,
+    answered: usize,
+    expired: usize,
+    last_activity_ms: Option<u64>,
+}
+
+/// Inventory the namespaces the user has registered. v0.18.x's installer
+/// writes per-namespace plists / systemd units on registration, so we can
+/// discover them by scanning the system autostart directories for any
+/// `elicitate*` / `com.phenotype.elicitate*` unit. The default namespace
+/// is always included.
+fn enumerate_namespaces(default_inbox_root: &std::path::Path) -> Vec<NamespaceRow> {
+    let mut rows: Vec<NamespaceRow> = Vec::new();
+    let default_port = elicitate::inbox::daemon::DEFAULT_PORT;
+    rows.push(build_namespace_row(None, default_inbox_root.to_path_buf(), default_port));
+
+    // Discover per-namespace units.
+    let candidates = discover_namespace_ids();
+    for id in candidates {
+        if !elicitate::inbox::is_valid_inbox_id(&id) {
+            continue;
+        }
+        let port = elicitate::installer::namespace_port(&id);
+        let root = elicitate::inbox::resolve_inbox_root(Some(&id));
+        rows.push(build_namespace_row(Some(id), root, port));
+    }
+    rows
+}
+
+fn build_namespace_row(
+    inbox_id: Option<String>,
+    inbox_root: PathBuf,
+    port: u16,
+) -> NamespaceRow {
+    let pending = std::fs::read_dir(elicitate::inbox::inbox_pending_dir(&inbox_root))
+        .map(|d| d.filter_map(|e| e.ok()).count())
+        .unwrap_or(0);
+    let answered = std::fs::read_dir(elicitate::inbox::answered_dir(&inbox_root))
+        .map(|d| d.filter_map(|e| e.ok()).count())
+        .unwrap_or(0);
+
+    // Naive scan for expired: count any terminal JSON whose state field is
+    // Expired. Cheap because answered dir is small in steady state.
+    let mut expired = 0usize;
+    if let Ok(entries) = std::fs::read_dir(elicitate::inbox::answered_dir(&inbox_root)) {
+        for e in entries.flatten() {
+            let path = e.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
+            if let Ok(text) = std::fs::read_to_string(&path) {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if v.get("state").and_then(|s| s.as_str()) == Some("Expired") {
+                        expired += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // Most-recently-modified JSON across pending + answered.
+    let mut last_ms: Option<u64> = None;
+    for dir in [
+        elicitate::inbox::inbox_pending_dir(&inbox_root),
+        elicitate::inbox::answered_dir(&inbox_root),
+    ] {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for e in entries.flatten() {
+                if let Ok(meta) = e.metadata() {
+                    if let Ok(modified) = meta.modified() {
+                        if let Ok(dur) = modified.duration_since(std::time::UNIX_EPOCH) {
+                            let ms = dur.as_millis() as u64;
+                            last_ms = Some(last_ms.map_or(ms, |m| m.max(ms)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let autostart_present = autostart_unit_present(inbox_id.as_deref());
+    let live = is_daemon_live(port);
+
+    NamespaceRow {
+        inbox_id: inbox_id.unwrap_or_else(|| "(default)".into()),
+        inbox_root: inbox_root.display().to_string(),
+        port,
+        autostart_present,
+        live,
+        pending,
+        answered,
+        expired,
+        last_activity_ms: last_ms,
+    }
+}
+
+/// Returns the inbox_id of every per-namespace autostart unit the user
+/// has installed, by scanning the platform's autostart directories.
+fn discover_namespace_ids() -> Vec<String> {
+    let mut ids = Vec::new();
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = home_dir() {
+            let agents = home.join("Library").join("LaunchAgents");
+            if let Ok(entries) = std::fs::read_dir(&agents) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if let Some(rest) = name.strip_prefix("com.phenotype.elicitate.") {
+                        if let Some(id) = rest.strip_suffix(".plist") {
+                            if id != "default" {
+                                ids.push(id.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // schtasks /Query /FO LIST /NH prints lines like:
+        //   "ElicitateDaemon.proj_a". Split on the first '.' to get the id.
+        if let Ok(out) = std::process::Command::new("schtasks")
+            .args(["/Query", "/FO", "LIST", "/NH"])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            for line in text.lines() {
+                let line = line.trim();
+                if let Some(rest) = line.strip_prefix("ElicitateDaemon.") {
+                    if !rest.is_empty() {
+                        ids.push(rest.replace('_', "-"));
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if let Some(home) = home_dir() {
+            let dir = home.join(".config").join("systemd").join("user");
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if let Some(rest) = name.strip_prefix("elicitate.") {
+                        if let Some(id) = rest.strip_suffix(".service") {
+                            if !id.is_empty() && id != "default" {
+                                ids.push(id.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", unix))]
+fn home_dir() -> Option<std::path::PathBuf> {
+    // ELICITATE_INSTALL_DIR-style override? No — use HOME / USERPROFILE.
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("USERPROFILE").map(std::path::PathBuf::from)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::env::var_os("HOME").map(std::path::PathBuf::from)
+    }
+}
+
+fn autostart_unit_present(inbox_id: Option<&str>) -> bool {
+    let home = match home_dir() {
+        Some(h) => h,
+        None => return false,
+    };
+    #[cfg(target_os = "macos")]
+    {
+        let plist_name = match inbox_id {
+            Some(id) => format!("com.phenotype.elicitate.{id}.plist"),
+            None => "com.phenotype.elicitate.plist".to_string(),
+        };
+        home.join("Library").join("LaunchAgents").join(plist_name).exists()
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let task = match inbox_id {
+            Some(id) => format!("ElicitateDaemon.{}", id.replace('-', "_")),
+            None => "ElicitateDaemon".to_string(),
+        };
+        std::process::Command::new("schtasks")
+            .args(["/Query", "/TN", &task])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let unit_name = match inbox_id {
+            Some(id) => format!("elicitate.{id}.service"),
+            None => "elicitate.service".to_string(),
+        };
+        home.join(".config").join("systemd").join("user").join(unit_name).exists()
+    }
+}
+
+fn cmd_namespace(args: NamespaceArgs, default_inbox_root: &std::path::Path) -> Result<(), String> {
+    match args.cmd {
+        NamespaceCmd::List { json } => {
+            let rows = enumerate_namespaces(default_inbox_root);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&rows).unwrap_or_default());
+            } else {
+                println!(
+                    "{:<14} {:>5} {:<6} {:<10} {:>5} {:>5} {:>5} {:>14}",
+                    "INBOX_ID", "PORT", "LIVE", "AUTOSTART", "PEND", "ANSW", "EXPD", "LAST_ACTIVITY_MS"
+                );
+                for row in &rows {
+                    println!(
+                        "{:<14} {:>5} {:<6} {:<10} {:>5} {:>5} {:>5} {:>14}",
+                        truncate(&row.inbox_id, 14),
+                        row.port,
+                        if row.live { "yes" } else { "no" },
+                        if row.autostart_present { "installed" } else { "absent" },
+                        row.pending,
+                        row.answered,
+                        row.expired,
+                        row.last_activity_ms
+                            .map(|m| m.to_string())
+                            .unwrap_or_else(|| "-".into()),
+                    );
+                }
+            }
+            Ok(())
+        }
+        NamespaceCmd::Show { inbox_id, json } => {
+            let rows = enumerate_namespaces(default_inbox_root);
+            let target_id = inbox_id.unwrap_or_else(|| "(default)".into());
+            let row = rows
+                .into_iter()
+                .find(|r| r.inbox_id == target_id)
+                .ok_or_else(|| format!("namespace '{target_id}' is not registered"))?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&row).unwrap_or_default());
+            } else {
+                println!("inbox_id         : {}", row.inbox_id);
+                println!("inbox_root       : {}", row.inbox_root);
+                println!("port             : {}", row.port);
+                println!("daemon_live      : {}", if row.live { "yes" } else { "no" });
+                println!("autostart_present: {}", if row.autostart_present { "yes" } else { "no" });
+                println!("pending          : {}", row.pending);
+                println!("answered         : {}", row.answered);
+                println!("expired          : {}", row.expired);
+                println!("last_activity_ms : {}",
+                    row.last_activity_ms.map(|m| m.to_string()).unwrap_or_else(|| "-".into()));
+            }
+            Ok(())
+        }
+        NamespaceCmd::Clean { gc_age_secs, inbox_id, dry_run } => {
+            let rows = enumerate_namespaces(default_inbox_root);
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            let cutoff_ms = now_ms.saturating_sub(gc_age_secs.saturating_mul(1000));
+            let mut total_removed = 0usize;
+            for row in &rows {
+                if let Some(target) = &inbox_id {
+                    if &row.inbox_id != target {
+                        continue;
+                    }
+                }
+                let removed = gc_namespace(&row.inbox_root, cutoff_ms, dry_run)?;
+                println!(
+                    "{}: removed {} terminal entr{} ({})",
+                    row.inbox_id,
+                    removed,
+                    if removed == 1 { "y" } else { "ies" },
+                    if dry_run { "dry-run" } else { "live" },
+                );
+                total_removed += removed;
+            }
+            println!("total: {total_removed} entries {}", if dry_run { "would be removed" } else { "removed" });
+            Ok(())
+        }
+    }
+}
+
+fn gc_namespace(inbox_root: &str, cutoff_ms: u64, dry_run: bool) -> Result<usize, String> {
+    let root = std::path::PathBuf::from(inbox_root);
+    let answered = elicitate::inbox::answered_dir(&root);
+    if !answered.exists() {
+        return Ok(0);
+    }
+    let entries: Vec<_> = std::fs::read_dir(&answered)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .collect();
+    let mut removed = 0usize;
+    for entry in entries {
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        // Only delete terminal entries (Answered/Cancelled/Expired).
+        let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let v: serde_json::Value = match serde_json::from_str(&text) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let state = v.get("state").and_then(|s| s.as_str()).unwrap_or("");
+        let is_terminal = matches!(state, "Answered" | "Cancelled" | "Expired");
+        if !is_terminal {
+            continue;
+        }
+        let queued_at = v.get("queued_at_ms").and_then(|s| s.as_u64()).unwrap_or(0);
+        if queued_at >= cutoff_ms {
+            continue;
+        }
+        if !dry_run {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+        removed += 1;
+    }
+    Ok(removed)
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let mut t: String = s.chars().take(max.saturating_sub(1)).collect();
+        t.push('…');
+        t
+    }
+}
+
+/// Cheap loopback port probe — used by `elicitate namespace list` to
+/// decide whether each namespace's daemon is currently running.
+fn is_daemon_live(port: u16) -> bool {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
+    TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(50)).is_ok()
 }
