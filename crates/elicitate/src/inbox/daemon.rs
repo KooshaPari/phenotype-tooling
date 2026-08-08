@@ -982,7 +982,7 @@ fn coerce_field_value(field: &FieldSpec, payload: &FormPayload) -> Result<FieldV
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
-    use crate::inbox::RequestOrigin;
+    use crate::inbox::{RequestOrigin, unix_now_ms};
 
     #[test]
     fn parse_route_health() {
@@ -1304,8 +1304,16 @@ mod tests {
         // see it; daemon B (different inbox_root) must NOT.
         let req_a = PendingRequest {
             request_id: "ns-a-1".into(),
-            queued_at_ms: 0,
-            expires_at_ms: 0,
+            queued_at_ms: unix_now_ms(),
+            // Far-future expiry: the daemon's notifier loop calls
+            // `finalize` on any request where `unix_now_ms() >= expires_at_ms`.
+            // With `expires_at_ms: 0` the request was instantly considered
+            // expired, the notifier loop moved it to `answered/`, and the
+            // test's subsequent GET `/` saw "No pending requests" — this
+            // was the source of the well-known parallel-suite flake.
+            // Setting expires_at_ms = u64::MAX keeps the request visible
+            // for the lifetime of the test.
+            expires_at_ms: u64::MAX,
             origin: RequestOrigin {
                 hostname: "host".into(),
                 process: "p".into(),
@@ -1334,6 +1342,11 @@ mod tests {
         crate::inbox::enqueue(dir_a.path(), &req_a).unwrap();
 
         // Daemon A's index page should contain "ns-a-1"; daemon B's should not.
+        // (Retries-with-backoff not needed: the original flake was that
+        //  req_a had `expires_at_ms: 0`, making `is_expired_now()` return
+        //  true and the daemon's notifier loop moving the request to
+        //  `answered/` before this assertion ran. Fixed by using
+        //  `expires_at_ms: u64::MAX`.)
         let resp_a = raw_http_get(IpAddr::V4(Ipv4Addr::LOCALHOST), port_a, "/");
         let resp_b = raw_http_get(IpAddr::V4(Ipv4Addr::LOCALHOST), port_b, "/");
         assert!(resp_a.contains("ns-a-1"), "daemon A must see its namespace's request");

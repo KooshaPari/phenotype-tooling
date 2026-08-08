@@ -5,6 +5,58 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.18.2] — 2026-08-07
+
+### Fixed
+
+- **`inbox::daemon::tests::two_daemons_on_different_namespaces_are_isolated` flake.**
+  The test enqueued a `PendingRequest` with `expires_at_ms: 0`. Because
+  `is_expired_now()` is `unix_now_ms() >= self.expires_at_ms`, every such
+  request was instantly expired. The daemon's notifier loop then called
+  `finalize` on it — moving the file from `pending/` to `answered/`
+  within a few milliseconds of `enqueue` returning. By the time the test
+  issued its HTTP GET to the daemon's index page, the file was gone and
+  the page rendered "No pending requests" — the test then panicked on
+  `assert!(resp_a.contains("ns-a-1"), …)`.
+  Fix: the test now sets `expires_at_ms: u64::MAX`, so the request stays
+  in the pending directory for the lifetime of the test.
+
+### Stability verification
+
+20 consecutive `cargo test -p elicitate --lib` runs after the patch:
+**20/20 green** (previously ~1/5 failed). 10 consecutive full-suite runs
+(`--features mcp`): **10/10 green**.
+
+### Root cause timeline
+
+1. Test enqueues `req_a` to `dir_a/inbox/ns-a-1.json`.
+2. Daemon A's notifier loop wakes (POLL_INTERVAL = ~1 s), reads
+   `dir_a/inbox/`, sees `ns-a-1.json`.
+3. For each request, the loop checks `is_expired_now()`. With
+   `expires_at_ms: 0` and `unix_now_ms() ≈ 1.7e12`, the check is **true**.
+4. Loop calls `finalize(inbox_root, &req)` which atomically renames the
+   pending JSON to `answered/{request_id}.json` and updates internal state.
+5. Test's HTTP GET `/` arrives. The handler calls `list_pending(root)`,
+   finds zero entries, and renders `<main class=empty><p>No pending
+   requests</p>…`.
+6. Assertion `resp_a.contains("ns-a-1")` fails.
+
+This was the only flake left in the lib suite. All three lib-suite time-
+based flakes (handshake parallel-mode, TIME_WAIT, notifier expiry race)
+are now resolved.
+
+### Notes
+
+- No production code changed — this is a test-only fix. The flake was
+  in the test fixture's request shape, not in the daemon or HTTP layer.
+- `expires_at_ms: u64::MAX` is safe because the test never waits long
+  enough for wall-clock overflow to matter; the test fixture is short-
+  lived.
+
+### Changed
+
+- Version bumped to 0.18.2.
+
 ## [0.18.1] — 2026-08-07
 
 ### Fixed

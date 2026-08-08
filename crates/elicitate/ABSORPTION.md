@@ -1104,3 +1104,51 @@ After the patch, the agents_smoke handshake tests pass 100% of the time. The lib
 - Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
 - Tests: `cargo test -p elicitate --features mcp` → 215/215 green (155 lib + 19 bin + 13 agents_smoke + 14 cli + 6 lib-int + 4 mcp_stdio + 4 plugin_configs).
 - Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
+
+## v0.18.2 — Eliminate lib-suite flake (expires_at_ms: 0 race)
+
+### What ships
+
+| Surface | What it does |
+|---|---|
+| `inbox::daemon::tests::two_daemons_on_different_namespaces_are_isolated` | Test fixture request now uses `expires_at_ms: u64::MAX` instead of `0`, so the daemon's notifier loop never expires it during the test. |
+
+### Root cause
+
+`PendingRequest::is_expired_now()` is `unix_now_ms() >= self.expires_at_ms`. The test's `req_a` had `expires_at_ms: 0`, so every iteration of the daemon's notifier loop saw `unix_now_ms() (~1.7e12) >= 0 = true` and called `finalize(inbox_root, &req)` — moving the file from `pending/` to `answered/` within milliseconds of `enqueue` returning.
+
+By the time the test's HTTP GET `/` reached the daemon, the file was gone. The index page rendered `<main class=empty><p>No pending requests</p>…` and `assert!(resp_a.contains("ns-a-1"), …)` panicked.
+
+The flake was order-dependent on the notifier loop's polling interval (~1 s) relative to the test's GET timing. When the notifier hadn't run yet, the file was still in `pending/` and the test passed; when it had run, the file was gone and the test failed.
+
+### Diagnostic
+
+Added (then removed) temporary diagnostic in the test:
+
+```
+after-enqueue pending dir entries (A): ["ns-a-1.json"]    ← test thread sees file
+daemon's view of pending dir (last seen): entries=[]      ← daemon sees nothing
+```
+
+The two reads happened on the same path but at different times. The notifier loop's `finalize` ran in between.
+
+### Stability verification
+
+| Run set | Before fix | After fix |
+|---|---|---|
+| `cargo test --lib` × 20 | ~4/20 failed | **20/20 passed** |
+| `cargo test --features mcp` × 10 | ~2/10 failed | **10/10 passed** |
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| `u64::MAX` overflows wall clock comparison | `unix_now_ms()` is u64; max value is in the year ~5.8e11. No issue for the test's lifetime. |
+| Other tests use the same `expires_at_ms: 0` pattern | Searched: only this one test does. No other test affected. |
+| Real-world users using `expires_at_ms: 0` (intentionally) | Such a request is instantly expired by design — the daemon correctly moves it to `answered/`. Production behavior unchanged. |
+
+### Sign-off
+- Version: 0.18.1 → 0.18.2
+- Build: `cargo build -p elicitate --features mcp` clean (zero warnings)
+- Tests: `cargo test -p elicitate --features mcp` → 215/215 green. 20/20 lib-suite runs + 10/10 full-suite runs after the patch.
+- Branch: `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` (uncommitted — ready to push)
