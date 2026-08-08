@@ -222,6 +222,38 @@ pub fn answered_dir(root: &Path) -> PathBuf {
     root.join("answered")
 }
 
+/// Length 1..=64. Used to prevent path traversal in [`resolve_inbox_root`].
+#[must_use]
+pub fn is_valid_inbox_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Resolve the on-disk path for an inbox namespace.
+///
+/// Resolution rules:
+/// - `None` or `Some("default")` → [`default_inbox_root`] (legacy single-inbox).
+/// - `Some(id)` where `id` passes [`is_valid_inbox_id`] →
+///   `<parent_of_default>/inboxes/<id>`.
+/// - Anything else (empty, invalid chars, too long) → [`default_inbox_root`]
+///   so the caller never crashes on a hostile id from untrusted JSON.
+#[must_use]
+pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf {
+    match inbox_id {
+        None | Some("default") => default_inbox_root(),
+        Some(id) if is_valid_inbox_id(id) => {
+            // parent of the default inbox is the elicitate data root
+            let parent = default_inbox_root()
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from("."));
+            parent.join("inboxes").join(id)
+        }
+        Some(_) => default_inbox_root(),
+    }
+}
+
 /// Persist a pending request to disk. Creates parent dirs if missing.
 pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
     let dir = inbox_pending_dir(root);

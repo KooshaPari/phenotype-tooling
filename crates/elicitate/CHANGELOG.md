@@ -5,6 +5,85 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.3.0] — 2026-08-08
+
+### Added
+
+- **`elicitate install --register-namespace <id>`** — register a daemon
+  for a named inbox namespace at install time (repeatable). Each
+  namespace gets its own LaunchAgent / systemd unit / scheduled task
+  with a deterministic port.
+- **`pub fn namespace_port(inbox_id: &str) -> u16`** — FNV-1a hash →
+  `DEFAULT_PORT + offset`, range `7118..=8116`. Same id always maps to
+  the same port.
+- **`pub struct NamespaceAutostart { inbox_id, port, target }`** —
+  surfaced in `InstallReport::namespace_autostarts` so callers can see
+  what per-namespace units were written.
+- **`InstallOptions::extra_inbox_ids: Vec<String>`** — list of namespace
+  ids whose daemons should be registered alongside the default. Invalid
+  ids become warnings, not failures.
+- **`pub fn is_valid_inbox_id(id: &str) -> bool`** — validates namespace
+  id shape (`[A-Za-z0-9_-]{1,64}`). Used by the installer to filter
+  hostile ids.
+- **`pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf`** —
+  maps `None`/`Some("default")` to legacy root, valid ids to
+  `<parent>/inboxes/<id>`, hostile ids back to legacy root.
+- **`elicitate namespace list [--json]`** — table of every registered
+  namespace (inbox_id, port, daemon_live, autostart_present, pending /
+  answered / expired counts, last_activity_ms).
+- **`elicitate namespace show [inbox_id] [--json]`** — detail block for
+  one namespace.
+- **`elicitate namespace clean [--gc-age-secs N] [--inbox-id X] [--dry-run]`** —
+  sweep terminal (Answered/Cancelled/Expired) entries across namespaces.
+  Defaults to 7 days. Designed for cron / scheduled task automation.
+- **`pub fn install_autostart_for(cli_path, inbox_id, port)`** — internal
+  helper that registers a launchd plist / systemd unit / schtask for
+  either the default daemon or a per-namespace daemon.
+
+### Tests (12 new, all green)
+
+- `parse_install_with_register_namespace` — `--register-namespace` accepts
+  repeated values
+- `parse_namespace_list` / `parse_namespace_show` / `parse_namespace_clean_default_age` /
+  `parse_namespace_clean_with_age_and_dry_run` — CLI subcommand surface
+- `namespace_port_distinct_and_deterministic` — same id → same port;
+  different ids → distinct ports; never collides with `DEFAULT_PORT`
+- `namespace_port_falls_in_expected_range` — every namespace port falls in
+  `DEFAULT_PORT+1..=DEFAULT_PORT+999`
+- `truncate_short_and_long` — table formatter correctness
+- `enumerate_namespaces_default_only_when_no_units` — default row always
+  present
+- `is_daemon_live_returns_false_for_unused_port` — smoke check
+- `gc_namespace_dry_run_keeps_files` — `--dry-run` reports without
+  touching disk
+- `is_valid_inbox_id_accepts_alphanumeric_dashes_underscores` — id shape
+  validator
+- `resolve_inbox_root_default_and_namespace` — None / "default" / valid /
+  hostile all behave correctly
+
+### Notes
+
+- This is a **port-forward** of the v0.18.0 + v0.19.0 work from the
+  `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` branch against the
+  current main (which has had rmcp 0.2 → 1.4, dirs 5 → 6, schemars 0.8 →
+  1.2, thiserror 1.0 → 2.0 since the wip branch was created). The
+  rmcp-coupled MCP router changes were dropped — they require a separate
+  rmcp 1.4 API rewrite that's out of scope for this port.
+- The MCP-coupled features from v0.13.0–v0.17.0 (elicitate_reply,
+  elicitate_enqueue, elicitate_cancel, multi-inbox MCP routing) are not
+  included in this port. They depend on rmcp 0.2 APIs and will need a
+  follow-up port once the rmcp 1.4 rewrite lands.
+- Version bumped 0.2.0 → 0.3.0 (minor: new features, backward-compatible
+  on the CLI surface).
+- Build is clean with `--no-default-features`. With `--features mcp` the
+  lib fails to compile due to rmcp 1.4 API breaks in the existing
+  `crates/elicitate/src/mcp/router.rs` — pre-existing, not introduced by
+  this port.
+
+### Changed
+
+- Version bumped to 0.3.0.
+
 ## [0.9.0] — 2026-07-23
 
 ### Added

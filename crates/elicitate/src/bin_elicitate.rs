@@ -15,7 +15,7 @@
 //! | `serve`       | (redirect) — real MCP stdio server is `elicitate-mcp`     |
 //! | `version`     | Print version + license                                    |
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -98,6 +98,8 @@ enum Cmd {
     Daemon(DaemonArgs),
     /// Inspect the inbox: list pending, show one in detail, or open the UI.
     Inbox(InboxArgs),
+    /// Inspect and manage inbox namespaces (default + per-namespace).
+    Namespace(NamespaceArgs),
     /// Block until a queued `--async` request has been answered (or times out).
     Wait(WaitArgs),
     /// Submit an answer to a queued inbox request via the CLI (no UI).
@@ -179,6 +181,54 @@ struct SmokeArgs {
 
 // ---- install / uninstall ----------------------------------------------
 
+/// Inspect and manage inbox namespaces. v0.18.x ships a per-namespace
+/// installer (--register-namespace) and CLI flag (--inbox-id), but the
+/// runtime needs a way to see what's running, where each inbox lives, and
+/// how to clean up expired entries across many namespaces at once.
+#[derive(Debug, Subcommand)]
+enum NamespaceCmd {
+    /// List every namespace currently registered for this user.
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show details for a single namespace.
+    Show {
+        inbox_id: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Garbage-collect terminal entries across namespaces.
+    Clean {
+        #[arg(long, default_value_t = 7 * 24 * 60 * 60)]
+        gc_age_secs: u64,
+        #[arg(long)]
+        inbox_id: Option<String>,
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Debug, Args)]
+struct NamespaceArgs {
+    #[command(subcommand)]
+    cmd: NamespaceCmd,
+}
+
+fn cmd_namespace(args: NamespaceArgs, default_inbox_root: &Path) -> Result<(), String> {
+    match args.cmd {
+        NamespaceCmd::List { json } => cmd_namespace_list(json, default_inbox_root),
+        NamespaceCmd::Show { inbox_id, json } => {
+            cmd_namespace_show(inbox_id, json, default_inbox_root)
+        }
+        NamespaceCmd::Clean {
+            gc_age_secs,
+            inbox_id,
+            dry_run,
+        } => cmd_namespace_clean(gc_age_secs, inbox_id, dry_run, default_inbox_root),
+    }
+}
+
 #[derive(Debug, Args, Default)]
 struct InstallArgs {
     /// Install into this directory instead of ~/.local/bin.
@@ -195,6 +245,12 @@ struct InstallArgs {
     /// Print what would happen without writing anything.
     #[arg(long)]
     dry_run: bool,
+    /// Register a daemon for each named inbox namespace in addition to the
+    /// default. Each namespace gets its own LaunchAgent / systemd unit /
+    /// scheduled task on a deterministic port. May be passed multiple times.
+    /// Example: `elicitate install --register-namespace proj-a --register-namespace team-beta`.
+    #[arg(long = "register-namespace", value_name = "ID")]
+    register_namespace: Vec<String>,
 }
 
 #[derive(Debug, Args, Default)]
@@ -308,6 +364,7 @@ fn main() -> ExitCode {
         Cmd::Uninstall(args) => cmd_uninstall(args, &inbox_dir),
         Cmd::Daemon(args) => cmd_daemon(args, &inbox_dir),
         Cmd::Inbox(args) => cmd_inbox(args, &inbox_dir),
+        Cmd::Namespace(args) => cmd_namespace(args, &inbox_dir),
         Cmd::Wait(args) => cmd_wait(args, &inbox_dir),
         Cmd::Answer(args) => cmd_answer(args, &inbox_dir),
         Cmd::Serve => {
@@ -575,6 +632,7 @@ fn cmd_install(args: InstallArgs, inbox_dir: &PathBuf) -> Result<(), String> {
         register_launch_agent: !args.no_launch_agent,
         dry_run: args.dry_run,
         update_shell_rc: args.with_shell_rc,
+        extra_inbox_ids: args.register_namespace.clone(),
     })
     .map(|report| {
         println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
@@ -959,6 +1017,203 @@ mod tests {
     }
 
     #[test]
+    fn parse_install_with_register_namespace() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "elicitate",
+            "install",
+            "--register-namespace",
+            "proj-a",
+            "--register-namespace",
+            "team-beta",
+            "--dry-run",
+        ])
+        .unwrap();
+        if let Cmd::Install(a) = cli.cmd {
+            assert_eq!(a.register_namespace, vec!["proj-a", "team-beta"]);
+        } else {
+            panic!("expected Install");
+        }
+    }
+
+    #[test]
+    fn parse_namespace_list() {
+        use clap::Parser;
+        let cli =
+            Cli::try_parse_from(["elicitate", "namespace", "list", "--json"]).unwrap();
+        if let Cmd::Namespace(NamespaceArgs {
+            cmd: NamespaceCmd::List { json },
+        }) = cli.cmd
+        {
+            assert!(json);
+        } else {
+            panic!("expected Namespace List");
+        }
+    }
+
+    #[test]
+    fn parse_namespace_show() {
+        use clap::Parser;
+        let cli =
+            Cli::try_parse_from(["elicitate", "namespace", "show", "proj-a"]).unwrap();
+        if let Cmd::Namespace(NamespaceArgs {
+            cmd: NamespaceCmd::Show { inbox_id, json: _ },
+        }) = cli.cmd
+        {
+            assert_eq!(inbox_id.as_deref(), Some("proj-a"));
+        } else {
+            panic!("expected Namespace Show");
+        }
+    }
+
+    #[test]
+    fn parse_namespace_clean_default_age() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from(["elicitate", "namespace", "clean"]).unwrap();
+        if let Cmd::Namespace(NamespaceArgs {
+            cmd:
+                NamespaceCmd::Clean {
+                    gc_age_secs,
+                    inbox_id,
+                    dry_run,
+                },
+        }) = cli.cmd
+        {
+            assert_eq!(gc_age_secs, 7 * 24 * 60 * 60);
+            assert_eq!(inbox_id, None);
+            assert!(!dry_run);
+        } else {
+            panic!("expected Namespace Clean");
+        }
+    }
+
+    #[test]
+    fn parse_namespace_clean_with_age_and_dry_run() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "elicitate",
+            "namespace",
+            "clean",
+            "--gc-age-secs",
+            "3600",
+            "--dry-run",
+        ])
+        .unwrap();
+        if let Cmd::Namespace(NamespaceArgs {
+            cmd: NamespaceCmd::Clean { gc_age_secs, dry_run, .. },
+        }) = cli.cmd
+        {
+            assert_eq!(gc_age_secs, 3600);
+            assert!(dry_run);
+        } else {
+            panic!("expected Namespace Clean");
+        }
+    }
+
+    #[test]
+    fn namespace_port_distinct_and_deterministic() {
+        assert_eq!(
+            elicitate::installer::namespace_port("proj-a"),
+            elicitate::installer::namespace_port("proj-a")
+        );
+        assert_ne!(
+            elicitate::installer::namespace_port("proj-a"),
+            elicitate::installer::namespace_port("proj-b")
+        );
+        assert_ne!(
+            elicitate::installer::namespace_port("proj-a"),
+            elicitate::inbox::daemon::DEFAULT_PORT
+        );
+    }
+
+    #[test]
+    fn namespace_port_falls_in_expected_range() {
+        for id in &["a", "b", "c", "default", "x-y-z", "team_alpha", "01234567"] {
+            let p = elicitate::installer::namespace_port(id);
+            assert!(p > elicitate::inbox::daemon::DEFAULT_PORT);
+            assert!(p <= elicitate::inbox::daemon::DEFAULT_PORT + 999);
+        }
+    }
+
+    #[test]
+    fn truncate_short_and_long() {
+        assert_eq!(truncate("abc", 5), "abc");
+        let out = truncate("abcdefghij", 5);
+        assert_eq!(out.chars().count(), 5);
+        assert!(out.ends_with('…'));
+    }
+
+    #[test]
+    fn enumerate_namespaces_default_only_when_no_units() {
+        let rows = enumerate_namespaces(Path::new("/tmp/no-such-inbox"));
+        assert_eq!(rows.len(), 1, "default row must always be present");
+        assert_eq!(rows[0].inbox_id, "(default)");
+        assert_eq!(rows[0].port, elicitate::inbox::daemon::DEFAULT_PORT);
+    }
+
+    #[test]
+    fn is_daemon_live_returns_false_for_unused_port() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        assert!(!is_daemon_live(port));
+    }
+
+    #[test]
+    fn gc_namespace_dry_run_keeps_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let answered = elicitate::inbox::answered_dir(root);
+        std::fs::create_dir_all(&answered).unwrap();
+        let v = serde_json::json!({
+            "request_id": "r",
+            "queued_at_ms": 1u64,
+            "state": "Answered",
+        });
+        std::fs::write(answered.join("r.json"), serde_json::to_string(&v).unwrap()).unwrap();
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let removed = gc_namespace(&root.display().to_string(), now_ms, true).unwrap();
+        assert_eq!(removed, 1);
+        assert!(answered.join("r.json").exists());
+    }
+
+    #[test]
+    fn is_valid_inbox_id_accepts_alphanumeric_dashes_underscores() {
+        assert!(elicitate::inbox::is_valid_inbox_id("default"));
+        assert!(elicitate::inbox::is_valid_inbox_id("proj-1"));
+        assert!(elicitate::inbox::is_valid_inbox_id("team_alpha"));
+        assert!(!elicitate::inbox::is_valid_inbox_id(""));
+        assert!(!elicitate::inbox::is_valid_inbox_id("../etc"));
+        assert!(!elicitate::inbox::is_valid_inbox_id("a/b"));
+        assert!(!elicitate::inbox::is_valid_inbox_id("with space"));
+    }
+
+    #[test]
+    fn resolve_inbox_root_default_and_namespace() {
+        // None / Some("default") → legacy root.
+        assert_eq!(
+            elicitate::inbox::resolve_inbox_root(None),
+            elicitate::inbox::default_inbox_root()
+        );
+        assert_eq!(
+            elicitate::inbox::resolve_inbox_root(Some("default")),
+            elicitate::inbox::default_inbox_root()
+        );
+        // Valid id → parent/inboxes/<id>.
+        let root = elicitate::inbox::resolve_inbox_root(Some("proj-a"));
+        assert!(root.ends_with("inboxes/proj-a"));
+        // Hostile id → fallback to default.
+        assert_eq!(
+            elicitate::inbox::resolve_inbox_root(Some("../etc")),
+            elicitate::inbox::default_inbox_root()
+        );
+    }
+
+    #[test]
     fn parse_wait() {
         use clap::Parser;
         let cli = Cli::try_parse_from(["elicitate", "wait", "--request-id", "abc"]).unwrap();
@@ -1020,4 +1275,381 @@ mod tests {
         let cfg = parse_notify_cfg(None);
         assert!(!cfg.native);
     }
+}
+
+// ---- namespace command (v0.19.0 port) --------------------------------
+
+/// One row in the `elicitate namespace list` table.
+#[derive(Debug, Clone, serde::Serialize)]
+struct NamespaceRow {
+    inbox_id: String,
+    inbox_root: String,
+    port: u16,
+    autostart_present: bool,
+    live: bool,
+    pending: usize,
+    answered: usize,
+    expired: usize,
+    last_activity_ms: Option<u64>,
+}
+
+fn build_namespace_row(
+    inbox_id: Option<String>,
+    inbox_root: PathBuf,
+    port: u16,
+) -> NamespaceRow {
+    let pending = std::fs::read_dir(elicitate::inbox::inbox_pending_dir(&inbox_root))
+        .map(|d| d.filter_map(|e| e.ok()).count())
+        .unwrap_or(0);
+    let answered = std::fs::read_dir(elicitate::inbox::answered_dir(&inbox_root))
+        .map(|d| d.filter_map(|e| e.ok()).count())
+        .unwrap_or(0);
+
+    let mut expired = 0usize;
+    if let Ok(entries) = std::fs::read_dir(elicitate::inbox::answered_dir(&inbox_root)) {
+        for e in entries.flatten() {
+            let path = e.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
+            if let Ok(text) = std::fs::read_to_string(&path) {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if v.get("state").and_then(|s| s.as_str()) == Some("Expired") {
+                        expired += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let mut last_ms: Option<u64> = None;
+    for dir in [
+        elicitate::inbox::inbox_pending_dir(&inbox_root),
+        elicitate::inbox::answered_dir(&inbox_root),
+    ] {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for e in entries.flatten() {
+                if let Ok(meta) = e.metadata() {
+                    if let Ok(modified) = meta.modified() {
+                        if let Ok(dur) = modified.duration_since(std::time::UNIX_EPOCH) {
+                            let ms = dur.as_millis() as u64;
+                            last_ms = Some(last_ms.map_or(ms, |m| m.max(ms)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let autostart_present = autostart_unit_present(inbox_id.as_deref());
+    let live = is_daemon_live(port);
+
+    NamespaceRow {
+        inbox_id: inbox_id.unwrap_or_else(|| "(default)".into()),
+        inbox_root: inbox_root.display().to_string(),
+        port,
+        autostart_present,
+        live,
+        pending,
+        answered,
+        expired,
+        last_activity_ms: last_ms,
+    }
+}
+
+fn enumerate_namespaces(default_inbox_root: &Path) -> Vec<NamespaceRow> {
+    let mut rows: Vec<NamespaceRow> = Vec::new();
+    let default_port = elicitate::inbox::daemon::DEFAULT_PORT;
+    rows.push(build_namespace_row(
+        None,
+        default_inbox_root.to_path_buf(),
+        default_port,
+    ));
+    for id in discover_namespace_ids() {
+        if !elicitate::inbox::is_valid_inbox_id(&id) {
+            continue;
+        }
+        let port = elicitate::installer::namespace_port(&id);
+        let root = elicitate::inbox::resolve_inbox_root(Some(&id));
+        rows.push(build_namespace_row(Some(id), root, port));
+    }
+    rows
+}
+
+fn discover_namespace_ids() -> Vec<String> {
+    let mut ids = Vec::new();
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = home_dir() {
+            let agents = home.join("Library").join("LaunchAgents");
+            if let Ok(entries) = std::fs::read_dir(&agents) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if let Some(rest) = name.strip_prefix("com.phenotype.elicitate.") {
+                        if let Some(id) = rest.strip_suffix(".plist") {
+                            if id != "default" {
+                                ids.push(id.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(out) = std::process::Command::new("schtasks")
+            .args(["/Query", "/FO", "LIST", "/NH"])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            for line in text.lines() {
+                let line = line.trim();
+                if let Some(rest) = line.strip_prefix("ElicitateDaemon.") {
+                    if !rest.is_empty() {
+                        ids.push(rest.replace('_', "-"));
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if let Some(home) = home_dir() {
+            let dir = home.join(".config").join("systemd").join("user");
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if let Some(rest) = name.strip_prefix("elicitate.") {
+                        if let Some(id) = rest.strip_suffix(".service") {
+                            if !id.is_empty() && id != "default" {
+                                ids.push(id.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", unix))]
+fn home_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("USERPROFILE").map(PathBuf::from)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::env::var_os("HOME").map(PathBuf::from)
+    }
+}
+
+fn autostart_unit_present(inbox_id: Option<&str>) -> bool {
+    let home = match home_dir() {
+        Some(h) => h,
+        None => return false,
+    };
+    #[cfg(target_os = "macos")]
+    {
+        let plist_name = match inbox_id {
+            Some(id) => format!("com.phenotype.elicitate.{id}.plist"),
+            None => "com.phenotype.elicitate.plist".to_string(),
+        };
+        home.join("Library").join("LaunchAgents").join(plist_name).exists()
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let task = match inbox_id {
+            Some(id) => format!("ElicitateDaemon.{}", id.replace('-', "_")),
+            None => "ElicitateDaemon".to_string(),
+        };
+        std::process::Command::new("schtasks")
+            .args(["/Query", "/TN", &task])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let unit_name = match inbox_id {
+            Some(id) => format!("elicitate.{id}.service"),
+            None => "elicitate.service".to_string(),
+        };
+        home.join(".config")
+            .join("systemd")
+            .join("user")
+            .join(unit_name)
+            .exists()
+    }
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let mut t: String = s.chars().take(max.saturating_sub(1)).collect();
+        t.push('…');
+        t
+    }
+}
+
+fn is_daemon_live(port: u16) -> bool {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
+    TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(50)).is_ok()
+}
+
+fn cmd_namespace_list(json: bool, default_inbox_root: &Path) -> Result<(), String> {
+    let rows = enumerate_namespaces(default_inbox_root);
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&rows).unwrap_or_default()
+        );
+    } else {
+        println!(
+            "{:<14} {:>5} {:<6} {:<10} {:>5} {:>5} {:>5} {:>14}",
+            "INBOX_ID", "PORT", "LIVE", "AUTOSTART", "PEND", "ANSW", "EXPD", "LAST_ACTIVITY_MS"
+        );
+        for row in &rows {
+            println!(
+                "{:<14} {:>5} {:<6} {:<10} {:>5} {:>5} {:>5} {:>14}",
+                truncate(&row.inbox_id, 14),
+                row.port,
+                if row.live { "yes" } else { "no" },
+                if row.autostart_present {
+                    "installed"
+                } else {
+                    "absent"
+                },
+                row.pending,
+                row.answered,
+                row.expired,
+                row.last_activity_ms
+                    .map(|m| m.to_string())
+                    .unwrap_or_else(|| "-".into()),
+            );
+        }
+    }
+    Ok(())
+}
+
+fn cmd_namespace_show(
+    inbox_id: Option<String>,
+    json: bool,
+    default_inbox_root: &Path,
+) -> Result<(), String> {
+    let rows = enumerate_namespaces(default_inbox_root);
+    let target_id = inbox_id.unwrap_or_else(|| "(default)".into());
+    let row = rows
+        .into_iter()
+        .find(|r| r.inbox_id == target_id)
+        .ok_or_else(|| format!("namespace '{target_id}' is not registered"))?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&row).unwrap_or_default()
+        );
+    } else {
+        println!("inbox_id         : {}", row.inbox_id);
+        println!("inbox_root       : {}", row.inbox_root);
+        println!("port             : {}", row.port);
+        println!("daemon_live      : {}", if row.live { "yes" } else { "no" });
+        println!(
+            "autostart_present: {}",
+            if row.autostart_present { "yes" } else { "no" }
+        );
+        println!("pending          : {}", row.pending);
+        println!("answered         : {}", row.answered);
+        println!("expired          : {}", row.expired);
+        println!(
+            "last_activity_ms : {}",
+            row.last_activity_ms
+                .map(|m| m.to_string())
+                .unwrap_or_else(|| "-".into())
+        );
+    }
+    Ok(())
+}
+
+fn cmd_namespace_clean(
+    gc_age_secs: u64,
+    inbox_id: Option<String>,
+    dry_run: bool,
+    default_inbox_root: &Path,
+) -> Result<(), String> {
+    let rows = enumerate_namespaces(default_inbox_root);
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let cutoff_ms = now_ms.saturating_sub(gc_age_secs.saturating_mul(1000));
+    let mut total_removed = 0usize;
+    for row in &rows {
+        if let Some(target) = &inbox_id {
+            if &row.inbox_id != target {
+                continue;
+            }
+        }
+        let removed = gc_namespace(&row.inbox_root, cutoff_ms, dry_run)?;
+        println!(
+            "{}: removed {} terminal entr{} ({})",
+            row.inbox_id,
+            removed,
+            if removed == 1 { "y" } else { "ies" },
+            if dry_run { "dry-run" } else { "live" },
+        );
+        total_removed += removed;
+    }
+    println!(
+        "total: {total_removed} entries {}",
+        if dry_run {
+            "would be removed"
+        } else {
+            "removed"
+        }
+    );
+    Ok(())
+}
+
+fn gc_namespace(inbox_root: &str, cutoff_ms: u64, dry_run: bool) -> Result<usize, String> {
+    let root = PathBuf::from(inbox_root);
+    let answered = elicitate::inbox::answered_dir(&root);
+    if !answered.exists() {
+        return Ok(0);
+    }
+    let entries: Vec<_> = std::fs::read_dir(&answered)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .collect();
+    let mut removed = 0usize;
+    for entry in entries {
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let v: serde_json::Value = match serde_json::from_str(&text) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let state = v.get("state").and_then(|s| s.as_str()).unwrap_or("");
+        let is_terminal = matches!(state, "Answered" | "Cancelled" | "Expired");
+        if !is_terminal {
+            continue;
+        }
+        let queued_at = v.get("queued_at_ms").and_then(|s| s.as_u64()).unwrap_or(0);
+        if queued_at >= cutoff_ms {
+            continue;
+        }
+        if !dry_run {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+        removed += 1;
+    }
+    Ok(removed)
 }
