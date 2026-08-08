@@ -1,17 +1,22 @@
 //! MCP server router.
 //!
-//! Exposes a single tool — `elicitate_mcp` — to MCP clients (Forge,
-//! Codex, Cursor, Claude Code, etc.). Each tool call is dispatched to
-//! `elicitate::elicit()` and the response is returned as MCP tool output.
+//! Exposes a single tool, `elicitate_mcp`, to MCP clients (Forge, Codex,
+//! Cursor, Claude Code, etc.). Each tool call dispatches to
+//! `elicitate::elicit_with()` and returns the result as MCP tool output.
+//!
+//! Built against `rmcp` 1.4.x. The `Parameters<T>` wrapper lives at
+//! `rmcp::handler::server::wrapper::Parameters` in this version, and
+//! `ServerInfo` is a type alias for `InitializeResult` whose `server_info`
+//! field is `#[non_exhaustive]`, so we use the `ServerInfo::new(...).with_
+//! server_info(Implementation::new(...))` builder.
 
-use std::future::Future;
-
-use rmcp::handler::server::tool::Parameters;
 use rmcp::handler::server::tool::ToolRouter;
-use rmcp::model::*;
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::{
+    CallToolResult, Content, Implementation, ServerCapabilities, ServerInfo,
+};
 use rmcp::schemars::JsonSchema;
-use rmcp::ServerHandler;
-use rmcp::{tool, tool_handler, tool_router};
+use rmcp::{tool, tool_handler, tool_router, ServerHandler};
 use serde::{Deserialize, Serialize};
 
 use crate::spec::{ElicitResponse, PromptSpec};
@@ -19,9 +24,9 @@ use crate::ElicitOptions;
 
 /// Parameters for the `elicitate_mcp` tool.
 ///
-/// We accept the full [`PromptSpec`] inline rather than wrapping it in
-/// a `spec` object so existing MCP clients can pipe the same JSON they
-/// would send to the CLI without renaming.
+/// We accept the full [`PromptSpec`] inline rather than wrapping it in a
+/// `spec` object so existing MCP clients can pipe the same JSON they would
+/// send to the CLI without renaming.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ElicitateParams {
     /// One-line title.
@@ -86,12 +91,14 @@ impl ElicitateMcp {
     /// The single tool: render a native popup and block until the user responds.
     #[tool(
         name = "elicitate_mcp",
-        description = "Render a native OS popup and block until the human operator responds (or the prompt times out). Use this whenever an autonomous agent needs a single, structured decision from a human: a confirmation, a multi-choice selection, a secret, a disambiguation. Returns a typed JSON ElicitResponse."
+        description = "Render a native OS popup and block until the human operator responds (or the prompt times out). Use this whenever an autonomous agent needs a single, structured decision from a human: a confirmation, a multi-choice selection, a secret, a disambiguation. Returns a typed JSON ElicitResponse.",
+        input_schema = rmcp::handler::server::tool::schema_for_type::<ElicitateParams>(),
+        output_schema = rmcp::handler::server::tool::schema_for_type::<crate::spec::ElicitResponse>()
     )]
     async fn elicit(
         &self,
         Parameters(params): Parameters<ElicitateParams>,
-    ) -> Result<CallToolResult, rmcp::Error> {
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
         let spec: PromptSpec = params.into();
 
         // Validate upfront — a bad spec should fail loudly before we open a window.
@@ -106,7 +113,7 @@ impl ElicitateMcp {
         let result = tokio::task::spawn_blocking(move || crate::elicit_with(&spec, &opts))
             .await
             .map_err(|e| {
-                rmcp::Error::internal_error(format!("popup task join failed: {e}"), None)
+                rmcp::ErrorData::internal_error(format!("popup task join failed: {e}"), None)
             })?;
 
         let response: ElicitResponse = match result {
@@ -118,22 +125,19 @@ impl ElicitateMcp {
             }
         };
 
-        let json = serde_json::to_value(&response).map_err(|e| {
-            rmcp::Error::internal_error(format!("serialize response: {e}"), None)
+        let content = Content::json(&response).map_err(|e| {
+            rmcp::ErrorData::internal_error(format!("content: {e}"), None)
         })?;
 
-        let content = Content::json(json.clone()).map_err(|e| {
-            rmcp::Error::internal_error(format!("content: {e}"), None)
-        })?;
-
-        let is_error = matches!(
+        let is_failure = matches!(
             &response,
             ElicitResponse::Failed { .. } | ElicitResponse::TimedOut { .. }
         );
 
-        Ok(CallToolResult {
-            content: vec![content],
-            is_error: if is_error { Some(true) } else { None },
+        Ok(if is_failure {
+            CallToolResult::error(vec![content])
+        } else {
+            CallToolResult::success(vec![content])
         })
     }
 }
@@ -141,21 +145,11 @@ impl ElicitateMcp {
 #[tool_handler]
 impl ServerHandler for ElicitateMcp {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::default(),
-            capabilities: ServerCapabilities::default(),
-            server_info: Implementation {
-                name: "elicitate".to_string(),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-            },
-            instructions: Some(
-                "elicitate_mcp renders a native OS popup and blocks until the human responds. \
-                 Use it whenever you need a single, structured decision from the operator: \
-                 confirmations, secrets, multi-choice selection, disambiguation. Returns typed \
-                 JSON: {status: answered|cancelled|timed_out|failed, value?, notes?}."
-                    .to_string(),
-            ),
-        }
+        ServerInfo::new(ServerCapabilities::default())
+            .with_server_info(Implementation::new(
+                "elicitate",
+                env!("CARGO_PKG_VERSION"),
+            ))
     }
 }
 
@@ -180,5 +174,26 @@ mod tests {
         };
         let s: PromptSpec = p.into();
         assert_eq!(s.timeout_secs, 600);
+    }
+
+    #[test]
+    fn params_roundtrip_via_spec() {
+        let p = ElicitateParams {
+            title: "Ship?".into(),
+            question: "Should we ship v1?".into(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "Ship?".into(),
+                default: Some(true),
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::Warning,
+            timeout_secs: 120,
+            request_id: Some("test-1".into()),
+        };
+        let s: PromptSpec = p.into();
+        assert_eq!(s.title, "Ship?");
+        assert_eq!(s.request_id.as_deref(), Some("test-1"));
+        assert_eq!(s.timeout_secs, 120);
     }
 }

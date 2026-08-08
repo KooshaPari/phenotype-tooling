@@ -5,6 +5,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This crate does **not** follow semver strictly until 1.0; minor versions may include breaking changes
 documented under "Changed".
 
+## [0.4.0] — 2026-08-08
+
+### Changed
+
+- **rmcp 0.2 → rmcp 1.4 API rewrite** of `crates/elicitate/src/mcp/router.rs`
+  and `crates/elicitate/src/bin_mcp.rs`. The old `rmcp::Error` → `rmcp::ErrorData`
+  rename, `Parameters` import path (`handler::server::wrapper::Parameters`),
+  `ServerInfo` builder pattern (`ServerInfo::new(...).with_server_info(
+  Implementation::new(...))`), `Content::json` returning `Result`, and the
+  explicit `input_schema` / `output_schema` macro attributes all required
+  attention. The `#[tool_router]`, `#[tool]`, `#[tool_handler]` macros are
+  the same shape, just backed by the new types.
+
+- **`schemars 0.8 → 1.0`** in `crates/elicitate/Cargo.toml`. Required
+  because `rmcp 1.4` depends on `schemars 1.0`. Without this bump the
+  `JsonSchema` derive expands against the 0.8 source while `rmcp::schemars`
+  resolves to 1.0, producing spurious "argument #5 missing" and
+  "no method `insert`" errors.
+
+### Tests (1 new, all green)
+
+- `params_roundtrip_via_spec` — verifies `ElicitateParams` → `PromptSpec`
+  conversion preserves `title`, `request_id`, `timeout_secs`.
+
+### Verification
+
+```
+$ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' | ./target/debug/elicitate-mcp
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{},"serverInfo":{"name":"elicitate","version":"0.4.0"}}}
+```
+
+The MCP handshake works end-to-end against the rebuilt binary.
+
+### Tests
+
+122/122 green with `--features mcp` (72 lib + 26 bin + 14 plugin + 6 lib-int
++ 4 mcp_stdio).
+
+### Notes
+
+- This unblocks porting the rmcp-coupled features from the
+  `wip/2026-07-22-phenotype-tooling-absorbed-go-mod` branch
+  (v0.13.0 `elicitate_reply`, v0.14.0 multi-inbox MCP, v0.16.0
+  `elicitate_enqueue`, v0.17.0 `elicitate_cancel`). Each of those
+  commits will need a similar rmcp 1.4 adapter as they're ported.
+
 ## [0.3.0] — 2026-08-08
 
 ### Added
