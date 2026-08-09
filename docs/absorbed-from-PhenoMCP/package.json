@@ -18,6 +18,6 @@
   },
   "dependencies": {
     "esbuild": "0.28.2",
-    "vite": "8.1.4"
+    "vite": "8.1.5"
   }
 }
