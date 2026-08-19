@@ -7,18 +7,18 @@ name: slo-backlog
 # Issues are deduped via the [fp=<12hex>] suffix in the title.
 #
 # Trigger:
-#   - schedule: every 10 min
 #   - workflow_dispatch: manual run with optional inputs
+# NOTE: schedule disabled 2026-08-19 — GitHub Actions runners cannot reach
+# Prometheus at 127.0.0.1:9090. Re-enable once a reachable endpoint is
+# configured in the deploy target.
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'
   workflow_dispatch:
     inputs:
       prometheus_url:
         description: 'Prometheus base URL'
         required: false
-        default: 'http://127.0.0.1:9090'
+        default: ''
       dry_run:
         description: 'Print planned issues without opening them'
         type: boolean
@@ -50,9 +50,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          PROMETHEUS_URL: ${{ inputs.prometheus_url || 'http://127.0.0.1:9090' }}
+          PROMETHEUS_URL: ${{ inputs.prometheus_url }}
         run: |
           set -euo pipefail
+          if [ -z "$PROMETHEUS_URL" ]; then
+            echo "slo-backlog: PROMETHEUS_URL is empty; skipping (configure via workflow_dispatch input)"
+            exit 0
+          fi
           args=(--prometheus-url "$PROMETHEUS_URL" --repo "$GITHUB_REPOSITORY" --token "$GITHUB_TOKEN")
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             args+=(--dry-run)
