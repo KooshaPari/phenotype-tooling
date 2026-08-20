@@ -1,2 +1,74 @@
-# Default owner for all files
+# Code Owners for phenotype-tooling
+# Scoped directory-level review paths
+# See: https://docs.github.com/en/repositories/creating-and-managing-repositories/about-code-owners
+
+# Default catch-all
 * @KooshaPari
+
+# Rust source & tests
+/src/ @KooshaPari
+/crates/ @KooshaPari
+/tests/ @KooshaPari
+/benches/ @KooshaPari
+
+# Tooling packages
+/packages/ @KooshaPari
+/tools/ @KooshaPari
+/scripts/ @KooshaPari
+/bin/ @Kooshapari
+/just/ @Kooshapari
+/justfile @Kooshapari
+
+# Build & module config
+/Cargo.toml @KooshaPari
+/Cargo.lock @KooshaPari
+/Taskfile.yml @KooshaPari
+/package.json @KooshaPari
+/clippy.toml @KooshaPari
+/deny.toml @KooshaPari
+/tarpaulin.toml @KooshaPari
+/rust-toolchain.toml @KooshaPari
+/rustfmt.toml @KooshaPari
+/coverage.toml @KooshaPari
+/ptx.ci.toml @KooshaPari
+
+# CI & Tooling
+/.github/ @KooshaPari
+/.trunk/ @KooshaPari
+/.circleci/ @KooshaPari
+/.docker/ @KooshaPari
+/.devcontainer/ @KooshaPari
+/Dockerfile @KooshaPari
+/docker-compose.yml @KooshaPari
+/.pre-commit-config.yaml @KooshaPari
+/.gitleaks.toml @KooshaPari
+/trufflehog.yml @KooshaPari
+/.mergify.yml @KooshaPari
+/lefthook.yml @KooshaPari
+/renovate.json @KooshaPari
+/renovate.json5 @KooshaPari
+/trunk.yaml @KooshaPari
+
+# Domain knowledge
+/absorption/ @KooshaPari
+/observability/ @KooshaPari
+/deploy/ @KooshaPari
+/llms.txt @KooshaPari
+/audit_scorecard.json @KooshaPari
+
+# Docs & governance
+/AGENTS.md @KooshaPari
+/CLAUDE.md @KooshaPari
+/DESIGN.md @KooshaPari
+/SECURITY.md @KooshaPari
+/CODEOWNERS @KooshaPari
+/CONTRIBUTING.md @KooshaPari
+/CHANGELOG.md @KooshaPari
+/LICENSE @KooshaPari
+/SPEC.md @KooshaPari
+/SOTA.md @KooshaPari
+/STATUS.md @KooshaPari
+/BENCHMARKS.md @KooshaPari
+/charter.md @KooshaPari
+/intent.md @KooshaPari
+/review.md @KooshaPari
