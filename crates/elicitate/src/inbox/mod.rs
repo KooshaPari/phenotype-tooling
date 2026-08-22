@@ -43,7 +43,7 @@ pub mod notify;
 pub use change::{InboxChangeBus, InboxWatcher};
 
 /// State of a request in the inbox.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RequestState {
     /// Spec is queued and waiting for the user.
@@ -61,7 +61,7 @@ pub enum RequestState {
 }
 
 /// Surface that surfaced this request to the user.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationKind {
     /// No external notification — the user will see it in the inbox UI.
@@ -77,8 +77,49 @@ pub enum NotificationKind {
     Webhook,
 }
 
+/// Parameters for the `elicitate_reply` MCP tool — lets an agent attach a
+/// contextual note to a pending elicit before the user opens it.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ReplyParams {
+    /// ID of the pending request to attach the reply to.
+    pub request_id: String,
+    /// The reply message text the user will see on the form page.
+    pub message: String,
+    /// Optional inbox namespace id. When absent or `"default"`, falls back to
+    /// the legacy single-inbox location. See [`resolve_inbox_root`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
+}
+
+/// Parameters for the `inbox_status` MCP tool — a read-only projection of the
+/// inbox's current state. Optional [`inbox_id`](Self::inbox_id) selects a
+/// namespace; absent or `"default"` falls back to the legacy single-inbox.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct InboxStatusParams {
+    /// Optional inbox namespace id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
+}
+
+/// Parameters for the `elicitate_cancel` MCP tool — cancel a pending elicit.
+///
+/// The matching `PendingRequest` is moved from the pending dir to the answered
+/// dir with state `Cancelled` and no response value. Idempotent: cancelling
+/// an already-cancelled request returns success without rewriting.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct CancelParams {
+    /// ID of the pending request to cancel.
+    pub request_id: String,
+    /// Optional notes explaining why the agent cancelled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    /// Optional inbox namespace id. See [`resolve_inbox_root`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
+}
+
 /// One queued request — the on-disk artifact.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PendingRequest {
     /// Stable identifier; mirrors [`PromptSpec::request_id`].
     pub request_id: String,
@@ -113,7 +154,7 @@ pub struct PendingRequest {
 }
 
 /// Information about the agent that enqueued the request.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RequestOrigin {
     pub hostname: String,
     pub process: String,
@@ -225,6 +266,38 @@ pub fn answered_dir(root: &Path) -> PathBuf {
     root.join("answered")
 }
 
+/// Length 1..=64. Used to prevent path traversal in [`resolve_inbox_root`].
+#[must_use]
+pub fn is_valid_inbox_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Resolve the on-disk path for an inbox namespace.
+///
+/// Resolution rules:
+/// - `None` or `Some("default")` → [`default_inbox_root`] (legacy single-inbox).
+/// - `Some(id)` where `id` passes [`is_valid_inbox_id`] →
+///   `<parent_of_default>/inboxes/<id>`.
+/// - Anything else (empty, invalid chars, too long) → [`default_inbox_root`]
+///   so the caller never crashes on a hostile id from untrusted JSON.
+#[must_use]
+pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf {
+    match inbox_id {
+        None | Some("default") => default_inbox_root(),
+        Some(id) if is_valid_inbox_id(id) => {
+            // parent of the default inbox is the elicitate data root
+            let parent = default_inbox_root()
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from("."));
+            parent.join("inboxes").join(id)
+        }
+        Some(_) => default_inbox_root(),
+    }
+}
+
 /// Persist a pending request to disk. Creates parent dirs if missing.
 ///
 /// After the atomic rename, pings the global `InboxChangeBus` so any TUI
@@ -270,6 +343,64 @@ pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitErro
     std::fs::remove_file(&pending).ok();
     InboxChangeBus::global().notify(&format!("finalize:{}", req.request_id));
     Ok(dst)
+}
+
+/// Write a reply message from an agent to a pending request.
+///
+/// Creates a `.reply.json` file next to the pending request's JSON file.
+/// The reply appears as a contextual note on the form page when the user
+/// opens it. Does NOT block or open a popup — the operator sees the note
+/// only when they open the pending request.
+///
+/// Errors with [`ElicitError::RendererFailed`] if no pending request with
+/// the given id exists.
+pub fn write_reply(root: &Path, request_id: &str, message: &str) -> Result<(), ElicitError> {
+    let pending_path = inbox_pending_dir(root).join(format!("{request_id}.json"));
+    if !pending_path.exists() {
+        return Err(ElicitError::RendererFailed(format!(
+            "pending request '{request_id}' not found — cannot attach reply"
+        )));
+    }
+    let reply = serde_json::json!({
+        "request_id": request_id,
+        "message": message,
+    });
+    let reply_path = pending_path.with_extension("reply.json");
+    std::fs::write(
+        &reply_path,
+        serde_json::to_string_pretty(&reply).map_err(ElicitError::Json)?,
+    )
+    .map_err(|e| ElicitError::RendererFailed(format!("failed to write reply: {e}")))?;
+    Ok(())
+}
+
+/// Cancel a pending request by id. The matching file is moved from the
+/// pending dir to the answered dir with state `Cancelled` and an optional
+/// `Cancelled { notes }` response.
+///
+/// Idempotent:
+/// - Pending → Cancelled (writes the answered file, removes pending)
+/// - Already Cancelled / Answered → no-op, returns the existing terminal state
+/// - Missing → returns `ElicitError::RendererFailed`
+pub fn cancel_pending(
+    root: &Path,
+    request_id: &str,
+    notes: Option<&str>,
+) -> Result<RequestState, ElicitError> {
+    let mut req = load(root, request_id).map_err(|e| {
+        ElicitError::RendererFailed(format!(
+            "pending request '{request_id}' not found — cannot cancel: {e}"
+        ))
+    })?;
+    if req.is_terminal() {
+        return Ok(req.state);
+    }
+    req.response = Some(ElicitResponse::Cancelled {
+        notes: notes.map(str::to_owned),
+    });
+    req.state = RequestState::Cancelled;
+    finalize(root, &req)?;
+    Ok(RequestState::Cancelled)
 }
 
 /// Load a single request by id from `dir` (pending OR answered).
@@ -486,5 +617,329 @@ mod tests {
         finalize(tmp.path(), &req).unwrap();
         let loaded = load(tmp.path(), "fn-1").unwrap();
         assert_eq!(loaded.state, RequestState::Answered);
+    }
+
+    // ---- write_reply (Phase 3 — v0.13.0) ----
+
+    /// Helper: build a minimal PendingRequest and enqueue it into the
+    /// pending dir so write_reply has something to attach to.
+    fn write_pending_with_urgency(dir: &Path, id: &str, title: &str, urgency: crate::spec::Urgency) {
+        let req = PendingRequest {
+            request_id: id.into(),
+            origin: sample_origin(),
+            spec: crate::spec::PromptSpec {
+                title: title.into(),
+                question: "?".into(),
+                field: crate::spec::FieldSpec::Boolean {
+                    label: "?".into(),
+                    default: None,
+                },
+                notes: None,
+                buttons: None,
+                urgency,
+                timeout_secs: 60,
+                request_id: Some(id.into()),
+            },
+            queued_at_ms: unix_now_ms(),
+            expires_at_ms: unix_now_ms() + 60_000,
+            state: RequestState::Pending,
+            response: None,
+            notified_via: vec![],
+            metadata: serde_json::Map::new(),
+        };
+        enqueue(dir, &req).unwrap();
+    }
+
+    #[test]
+    fn reply_writes_file_for_existing_pending_request() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_pending_with_urgency(dir, "r1", "R1", crate::spec::Urgency::Info);
+
+        write_reply(dir, "r1", "here is some context").unwrap();
+
+        let reply_path = inbox_pending_dir(dir).join("r1.reply.json");
+        assert!(reply_path.exists(), "reply.json must exist after write_reply");
+    }
+
+    #[test]
+    fn reply_returns_renderer_failed_for_missing_pending_request() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+
+        let err = write_reply(dir, "ghost", "no one home").unwrap_err();
+        match err {
+            ElicitError::RendererFailed(msg) => {
+                assert!(msg.contains("ghost"), "error should name the missing id: {msg}");
+                assert!(msg.contains("not found"), "error should explain the cause: {msg}");
+            }
+            other => panic!("expected RendererFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reply_does_not_modify_pending_request_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_pending_with_urgency(dir, "p1", "P1", crate::spec::Urgency::Info);
+
+        let pending_path = inbox_pending_dir(dir).join("p1.json");
+        let original_bytes = std::fs::read(&pending_path).unwrap();
+        let original: serde_json::Value = serde_json::from_slice(&original_bytes).unwrap();
+
+        write_reply(dir, "p1", "contextual note").unwrap();
+
+        let after_bytes = std::fs::read(&pending_path).unwrap();
+        let after: serde_json::Value = serde_json::from_slice(&after_bytes).unwrap();
+        assert_eq!(original, after, "pending JSON must not change when a reply is attached");
+    }
+
+    #[test]
+    fn reply_payload_contains_request_id_and_message() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_pending_with_urgency(dir, "rq-7", "Request Seven", crate::spec::Urgency::Warning);
+
+        write_reply(dir, "rq-7", "operator should pick option B").unwrap();
+
+        let reply_path = inbox_pending_dir(dir).join("rq-7.reply.json");
+        let body: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&reply_path).unwrap()).unwrap();
+        assert_eq!(body["request_id"], "rq-7");
+        assert_eq!(body["message"], "operator should pick option B");
+    }
+
+    // ---- multi-inbox (Phase 4 — v0.14.0 port) ----
+
+    #[test]
+    fn is_valid_inbox_id_accepts_alphanumeric_dashes_underscores() {
+        for ok in ["default", "proj-a", "team_alpha", "x", "abc-123_XYZ"] {
+            assert!(is_valid_inbox_id(ok), "{ok:?} should be valid");
+        }
+    }
+
+    #[test]
+    fn is_valid_inbox_id_rejects_path_traversal_and_empty() {
+        for bad in ["", "../etc", "foo/bar", "foo bar", "a".repeat(65).as_str()] {
+            assert!(
+                !is_valid_inbox_id(bad),
+                "{bad:?} should be rejected (length {}, chars: {:?})",
+                bad.len(),
+                bad.chars().count()
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_inbox_root_none_and_default_point_to_legacy() {
+        assert_eq!(resolve_inbox_root(None), default_inbox_root());
+        assert_eq!(
+            resolve_inbox_root(Some("default")),
+            default_inbox_root()
+        );
+    }
+
+    #[test]
+    fn resolve_inbox_root_invalid_falls_back_to_legacy_safely() {
+        assert_eq!(resolve_inbox_root(Some("")), default_inbox_root());
+        assert_eq!(resolve_inbox_root(Some("../escape")), default_inbox_root());
+        assert_eq!(resolve_inbox_root(Some("foo bar")), default_inbox_root());
+    }
+
+    #[test]
+    fn resolve_inbox_root_named_namespace_is_parent_inboxes_id() {
+        let root = resolve_inbox_root(Some("proj-a"));
+        let expected_parent = default_inbox_root();
+        let expected_parent = expected_parent.parent().unwrap();
+        assert_eq!(root, expected_parent.join("inboxes").join("proj-a"));
+    }
+
+    #[test]
+    fn compute_inbox_status_isolates_two_namespaces() {
+        let tmp = tempfile::tempdir().unwrap();
+        let data_root = tmp.path();
+
+        // Set up: an inbox in each of two namespaces
+        let ns1 = data_root.join("inboxes").join("alpha");
+        let ns2 = data_root.join("inboxes").join("beta");
+        std::fs::create_dir_all(&ns1).unwrap();
+        std::fs::create_dir_all(&ns2).unwrap();
+
+        // Seed alpha with 2 pending requests
+        write_pending_with_urgency(&ns1, "a1", "A1", crate::spec::Urgency::Info);
+        write_pending_with_urgency(&ns1, "a2", "A2", crate::spec::Urgency::Warning);
+
+        // Seed beta with 1 pending request
+        write_pending_with_urgency(&ns2, "b1", "B1", crate::spec::Urgency::Info);
+
+        let pending_alpha = list_pending(&ns1).unwrap();
+        let pending_beta = list_pending(&ns2).unwrap();
+
+        assert_eq!(pending_alpha.len(), 2);
+        assert_eq!(pending_beta.len(), 1);
+        assert!(pending_alpha.iter().all(|p| p.request_id.starts_with('a')));
+        assert!(pending_beta.iter().all(|p| p.request_id.starts_with('b')));
+    }
+
+    #[test]
+    fn write_reply_in_namespace_does_not_leak_into_default() {
+        let tmp = tempfile::tempdir().unwrap();
+        let data_root = tmp.path();
+        let default_inbox = default_inbox_root_for_test(data_root);
+        let ns_inbox = data_root.join("inboxes").join("isolated");
+        std::fs::create_dir_all(&default_inbox).unwrap();
+        std::fs::create_dir_all(&ns_inbox).unwrap();
+
+        // Same request id "ghost" in both namespaces.
+        // A reply to the namespace inbox should NOT write into default.
+        let err = write_reply(&ns_inbox, "ghost", "should not leak").unwrap_err();
+        match err {
+            ElicitError::RendererFailed(_) => {} // expected: no pending request in ns
+            other => panic!("expected RendererFailed for missing pending, got {other:?}"),
+        }
+
+        // No ghost.reply.json in default
+        let default_ghost = inbox_pending_dir(&default_inbox).join("ghost.reply.json");
+        assert!(!default_ghost.exists(), "no reply should leak to default inbox");
+    }
+
+    /// Helper: build a deterministic "default inbox root" inside the given temp dir
+    /// for the duration of one test. We can't override the env var here because
+    /// `default_inbox_root` reads it eagerly; instead we use the parent of the temp
+    /// and override the inbox subdir in the assertions.
+    fn default_inbox_root_for_test(_: &Path) -> PathBuf {
+        // Use a sibling tempdir to avoid pollution from real env vars.
+        let tmp = tempfile::tempdir().unwrap();
+        tmp.path().join("inbox")
+    }
+
+    // ---- cancel_pending (Phase 6 — v0.17.0) ----
+
+    #[test]
+    fn cancel_pending_moves_to_answered_dir_with_cancelled_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp.path(), "c-1", "C1", crate::spec::Urgency::Info);
+
+        let state = cancel_pending(tmp.path(), "c-1", Some("no longer needed")).unwrap();
+        assert_eq!(state, RequestState::Cancelled);
+
+        assert!(!inbox_pending_dir(tmp.path()).join("c-1.json").exists());
+        assert!(answered_dir(tmp.path()).join("c-1.json").exists());
+
+        let loaded = load(tmp.path(), "c-1").unwrap();
+        assert_eq!(loaded.state, RequestState::Cancelled);
+        match loaded.response {
+            Some(ElicitResponse::Cancelled { notes }) => {
+                assert_eq!(notes.as_deref(), Some("no longer needed"));
+            }
+            other => panic!("expected Cancelled response, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_pending_missing_returns_renderer_failed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let err = cancel_pending(tmp.path(), "ghost", None).unwrap_err();
+        match err {
+            ElicitError::RendererFailed(msg) => {
+                assert!(msg.contains("ghost"));
+            }
+            other => panic!("expected RendererFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_pending_already_cancelled_is_idempotent() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp.path(), "c-2", "C2", crate::spec::Urgency::Info);
+
+        // First cancel: Pending → Cancelled.
+        assert_eq!(
+            cancel_pending(tmp.path(), "c-2", Some("first")).unwrap(),
+            RequestState::Cancelled
+        );
+        // Second cancel: already Cancelled, no-op.
+        assert_eq!(
+            cancel_pending(tmp.path(), "c-2", Some("second")).unwrap(),
+            RequestState::Cancelled
+        );
+        // Original notes preserved (no rewrite).
+        let loaded = load(tmp.path(), "c-2").unwrap();
+        match loaded.response {
+            Some(ElicitResponse::Cancelled { notes }) => {
+                assert_eq!(notes.as_deref(), Some("first"));
+            }
+            other => panic!("expected Cancelled, got {other:?}"),
+        }
+    }
+
+    // ---- enqueue (Phase 5 — v0.16.0) ----
+
+    fn make_spec(title: &str) -> crate::spec::PromptSpec {
+        crate::spec::PromptSpec {
+            title: title.into(),
+            question: "?".into(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "?".into(),
+                default: None,
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::Info,
+            timeout_secs: 60,
+            request_id: None,
+        }
+    }
+
+    fn make_origin() -> RequestOrigin {
+        RequestOrigin {
+            hostname: "host".into(),
+            process: "p".into(),
+            pid: 1,
+            callback: None,
+        }
+    }
+
+    #[test]
+    fn enqueue_writes_pending_json_with_generated_request_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let req = PendingRequest::new(make_spec("T"), make_origin());
+        let path = enqueue(tmp.path(), &req).unwrap();
+        assert!(path.exists(), "enqueue must create the pending JSON");
+        let body = std::fs::read_to_string(&path).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(parsed["request_id"], req.request_id);
+        assert_eq!(parsed["spec"]["title"], "T");
+    }
+
+    #[test]
+    fn enqueue_honours_explicit_request_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut spec = make_spec("T");
+        spec.request_id = Some("agent-7".into());
+        let req = PendingRequest::new(spec, make_origin());
+        let path = enqueue(tmp.path(), &req).unwrap();
+        assert!(
+            path.ends_with("agent-7.json"),
+            "got {:?}",
+            path
+        );
+    }
+
+    #[test]
+    fn enqueue_atomic_no_tmp_left_behind() {
+        let tmp = tempfile::tempdir().unwrap();
+        let req = PendingRequest::new(make_spec("T"), make_origin());
+        enqueue(tmp.path(), &req).unwrap();
+        let pending = inbox_pending_dir(tmp.path());
+        let stragglers: Vec<_> = std::fs::read_dir(&pending)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(
+            stragglers.is_empty(),
+            "enqueue must atomically rename — no .tmp files left behind"
+        );
     }
 }
