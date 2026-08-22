@@ -28,8 +28,10 @@
 //! [`PendingRequest`] to disk. The native popup path is only used when the
 //! agent explicitly opts in.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{fs, io};
 
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +45,9 @@ pub mod notify;
 pub use change::{InboxChangeBus, InboxWatcher};
 
 /// State of a request in the inbox.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum RequestState {
     /// Spec is queued and waiting for the user.
@@ -271,7 +275,25 @@ pub fn answered_dir(root: &Path) -> PathBuf {
 pub fn is_valid_inbox_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 64
-        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Length 1..=64. Used to prevent path traversal in request IDs.
+#[must_use]
+pub fn is_valid_request_id(id: &str) -> bool {
+    is_valid_inbox_id(id)
+}
+
+fn validate_request_id(request_id: &str) -> Result<(), ElicitError> {
+    if is_valid_request_id(request_id) {
+        Ok(())
+    } else {
+        Err(ElicitError::InvalidSpec(format!(
+            "invalid request_id '{request_id}'"
+        )))
+    }
 }
 
 /// Resolve the on-disk path for an inbox namespace.
@@ -304,13 +326,14 @@ pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf {
 /// or daemon subscriber re-renders promptly (no 1 s polling latency).
 pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
     let dir = inbox_pending_dir(root);
-    std::fs::create_dir_all(&dir)?;
+    fs::create_dir_all(&dir)?;
+    validate_request_id(&req.request_id)?;
     let path = req.path_in(&dir);
     let json = serde_json::to_vec_pretty(req).map_err(ElicitError::Json)?;
     // Atomic write: stage in <id>.tmp, rename over final.
     let tmp = dir.join(format!("{}.tmp", req.request_id));
-    std::fs::write(&tmp, &json)?;
-    std::fs::rename(&tmp, &path)?;
+    fs::write(&tmp, &json)?;
+    fs::rename(&tmp, &path)?;
     InboxChangeBus::global().notify(&format!("enqueue:{}", req.request_id));
     Ok(path)
 }
@@ -326,21 +349,22 @@ pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError
 /// Pings the global `InboxChangeBus` after the final write so waiters
 /// unblock immediately (no `poll_interval` latency).
 pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
+    validate_request_id(&req.request_id)?;
     let pending = inbox_pending_dir(root).join(format!("{}.json", req.request_id));
     let answered_dir = answered_dir(root);
-    std::fs::create_dir_all(&answered_dir)?;
+    fs::create_dir_all(&answered_dir)?;
     let dst = answered_dir.join(format!("{}.json", req.request_id));
     if let Some(parent) = dst.parent() {
-        std::fs::create_dir_all(parent).ok();
+        fs::create_dir_all(parent).ok();
     }
     // 1. Write the *updated* req (new state/response) to the answered path.
     let json = serde_json::to_vec_pretty(req).map_err(ElicitError::Json)?;
     let tmp = answered_dir.join(format!("{}.tmp", req.request_id));
-    std::fs::write(&tmp, &json)?;
-    std::fs::rename(&tmp, &dst)?;
+    fs::write(&tmp, &json)?;
+    fs::rename(&tmp, &dst)?;
     // 2. Best-effort remove the original pending file (no-op if it was
     //    already removed by another worker).
-    std::fs::remove_file(&pending).ok();
+    fs::remove_file(&pending).ok();
     InboxChangeBus::global().notify(&format!("finalize:{}", req.request_id));
     Ok(dst)
 }
@@ -355,6 +379,7 @@ pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitErro
 /// Errors with [`ElicitError::RendererFailed`] if no pending request with
 /// the given id exists.
 pub fn write_reply(root: &Path, request_id: &str, message: &str) -> Result<(), ElicitError> {
+    validate_request_id(request_id)?;
     let pending_path = inbox_pending_dir(root).join(format!("{request_id}.json"));
     if !pending_path.exists() {
         return Err(ElicitError::RendererFailed(format!(
@@ -387,6 +412,8 @@ pub fn cancel_pending(
     request_id: &str,
     notes: Option<&str>,
 ) -> Result<RequestState, ElicitError> {
+    validate_request_id(request_id)?;
+    let _lock = RequestLock::acquire(root, request_id)?;
     let mut req = load(root, request_id).map_err(|e| {
         ElicitError::RendererFailed(format!(
             "pending request '{request_id}' not found — cannot cancel: {e}"
@@ -405,6 +432,7 @@ pub fn cancel_pending(
 
 /// Load a single request by id from `dir` (pending OR answered).
 pub fn load(root: &Path, request_id: &str) -> Result<PendingRequest, ElicitError> {
+    validate_request_id(request_id)?;
     let candidates = [
         inbox_pending_dir(root).join(format!("{request_id}.json")),
         answered_dir(root).join(format!("{request_id}.json")),
@@ -445,6 +473,106 @@ pub fn list_pending(root: &Path) -> Result<Vec<PendingRequest>, ElicitError> {
     Ok(out)
 }
 
+/// Aggregate the inbox state across pending and answered directories.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct InboxStatus {
+    pub pending_count: usize,
+    pub pending_ids: Vec<String>,
+    pub seen_count: usize,
+    pub answered_count: usize,
+    pub cancelled_count: usize,
+    pub expired_count: usize,
+    pub total_count: usize,
+}
+
+/// Compute a read-only summary of the inbox contents.
+pub fn status(root: &Path) -> Result<InboxStatus, ElicitError> {
+    let mut by_id: HashMap<String, PendingRequest> = HashMap::new();
+    for dir in [inbox_pending_dir(root), answered_dir(root)] {
+        if !dir.exists() {
+            continue;
+        }
+        for entry in fs::read_dir(&dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
+            let text = fs::read_to_string(&path)?;
+            let req: PendingRequest = match serde_json::from_str(&text) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            by_id.insert(req.request_id.clone(), req);
+        }
+    }
+
+    let mut out = InboxStatus::default();
+    out.total_count = by_id.len();
+    for req in by_id.into_values() {
+        match req.state {
+            RequestState::Pending => {
+                out.pending_count += 1;
+                out.pending_ids.push(req.request_id);
+            }
+            RequestState::Seen => out.seen_count += 1,
+            RequestState::Answered => out.answered_count += 1,
+            RequestState::Cancelled => out.cancelled_count += 1,
+            RequestState::Expired => out.expired_count += 1,
+        }
+    }
+    out.pending_ids.sort();
+    Ok(out)
+}
+
+struct RequestLock {
+    path: PathBuf,
+}
+
+impl RequestLock {
+    fn acquire(root: &Path, request_id: &str) -> Result<Self, ElicitError> {
+        validate_request_id(request_id)?;
+        let dir = inbox_pending_dir(root).join(".locks");
+        fs::create_dir_all(&dir)?;
+        let path = dir.join(format!("{request_id}.lock"));
+        let stale_after = Duration::from_secs(300);
+        loop {
+            match fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(mut file) => {
+                    let _ = std::io::Write::write_all(
+                        &mut file,
+                        format!("pid={}\n", std::process::id()).as_bytes(),
+                    );
+                    return Ok(Self { path });
+                }
+                Err(err) if err.kind() == io::ErrorKind::AlreadyExists => {
+                    let stale = fs::metadata(&path)
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|modified| modified.elapsed().ok())
+                        .is_some_and(|age| age > stale_after);
+                    if stale {
+                        let _ = fs::remove_file(&path);
+                        continue;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(err) => return Err(ElicitError::Io(err)),
+            }
+        }
+    }
+}
+
+impl Drop for RequestLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
 /// Wait until `req.request_id` reaches a terminal state or the wait times out.
 ///
 /// Subscribes to the global `InboxChangeBus` and wakes immediately when
@@ -471,8 +599,7 @@ pub fn wait_for_response(
         }
         if std::time::Instant::now() >= deadline {
             return Err(ElicitError::Timeout(
-                std::time::Instant::now()
-                    .saturating_duration_since(start),
+                std::time::Instant::now().saturating_duration_since(start),
             ));
         }
         // Sleep at most `poll_interval` or until the next bus wake, whichever
@@ -623,7 +750,12 @@ mod tests {
 
     /// Helper: build a minimal PendingRequest and enqueue it into the
     /// pending dir so write_reply has something to attach to.
-    fn write_pending_with_urgency(dir: &Path, id: &str, title: &str, urgency: crate::spec::Urgency) {
+    fn write_pending_with_urgency(
+        dir: &Path,
+        id: &str,
+        title: &str,
+        urgency: crate::spec::Urgency,
+    ) {
         let req = PendingRequest {
             request_id: id.into(),
             origin: sample_origin(),
@@ -659,7 +791,10 @@ mod tests {
         write_reply(dir, "r1", "here is some context").unwrap();
 
         let reply_path = inbox_pending_dir(dir).join("r1.reply.json");
-        assert!(reply_path.exists(), "reply.json must exist after write_reply");
+        assert!(
+            reply_path.exists(),
+            "reply.json must exist after write_reply"
+        );
     }
 
     #[test]
@@ -670,8 +805,14 @@ mod tests {
         let err = write_reply(dir, "ghost", "no one home").unwrap_err();
         match err {
             ElicitError::RendererFailed(msg) => {
-                assert!(msg.contains("ghost"), "error should name the missing id: {msg}");
-                assert!(msg.contains("not found"), "error should explain the cause: {msg}");
+                assert!(
+                    msg.contains("ghost"),
+                    "error should name the missing id: {msg}"
+                );
+                assert!(
+                    msg.contains("not found"),
+                    "error should explain the cause: {msg}"
+                );
             }
             other => panic!("expected RendererFailed, got {other:?}"),
         }
@@ -691,7 +832,10 @@ mod tests {
 
         let after_bytes = std::fs::read(&pending_path).unwrap();
         let after: serde_json::Value = serde_json::from_slice(&after_bytes).unwrap();
-        assert_eq!(original, after, "pending JSON must not change when a reply is attached");
+        assert_eq!(
+            original, after,
+            "pending JSON must not change when a reply is attached"
+        );
     }
 
     #[test]
@@ -733,10 +877,7 @@ mod tests {
     #[test]
     fn resolve_inbox_root_none_and_default_point_to_legacy() {
         assert_eq!(resolve_inbox_root(None), default_inbox_root());
-        assert_eq!(
-            resolve_inbox_root(Some("default")),
-            default_inbox_root()
-        );
+        assert_eq!(resolve_inbox_root(Some("default")), default_inbox_root());
     }
 
     #[test]
@@ -782,6 +923,87 @@ mod tests {
     }
 
     #[test]
+    fn status_counts_pending_seen_answered_cancelled_and_expired() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let pending_dir = inbox_pending_dir(root);
+        let answered = answered_dir(root);
+        std::fs::create_dir_all(&pending_dir).unwrap();
+        std::fs::create_dir_all(&answered).unwrap();
+
+        fn write_req(dir: &Path, id: &str, state: RequestState, response: Option<ElicitResponse>) {
+            let req = PendingRequest {
+                request_id: id.into(),
+                origin: RequestOrigin {
+                    hostname: "h".into(),
+                    process: "p".into(),
+                    pid: 1,
+                    callback: None,
+                },
+                spec: crate::spec::PromptSpec {
+                    title: id.into(),
+                    question: "?".into(),
+                    field: crate::spec::FieldSpec::Boolean {
+                        label: "?".into(),
+                        default: None,
+                    },
+                    notes: None,
+                    buttons: None,
+                    urgency: crate::spec::Urgency::Info,
+                    timeout_secs: 60,
+                    request_id: Some(id.into()),
+                },
+                queued_at_ms: 1,
+                expires_at_ms: 2,
+                state,
+                response,
+                notified_via: vec![],
+                metadata: serde_json::Map::new(),
+            };
+            std::fs::write(
+                dir.join(format!("{id}.json")),
+                serde_json::to_string_pretty(&req).unwrap(),
+            )
+            .unwrap();
+        }
+
+        write_req(&pending_dir, "p-1", RequestState::Pending, None);
+        write_req(&pending_dir, "s-1", RequestState::Seen, None);
+        write_req(
+            &answered,
+            "a-1",
+            RequestState::Answered,
+            Some(ElicitResponse::Answered {
+                value: crate::spec::FieldValue::Boolean(true),
+                notes: None,
+            }),
+        );
+        write_req(
+            &answered,
+            "c-1",
+            RequestState::Cancelled,
+            Some(ElicitResponse::Cancelled {
+                notes: Some("n".into()),
+            }),
+        );
+        write_req(
+            &answered,
+            "e-1",
+            RequestState::Expired,
+            Some(ElicitResponse::TimedOut { elapsed_secs: 1.0 }),
+        );
+
+        let summary = status(root).unwrap();
+        assert_eq!(summary.pending_count, 1);
+        assert_eq!(summary.seen_count, 1);
+        assert_eq!(summary.answered_count, 1);
+        assert_eq!(summary.cancelled_count, 1);
+        assert_eq!(summary.expired_count, 1);
+        assert_eq!(summary.total_count, 5);
+        assert_eq!(summary.pending_ids, vec!["p-1".to_string()]);
+    }
+
+    #[test]
     fn write_reply_in_namespace_does_not_leak_into_default() {
         let tmp = tempfile::tempdir().unwrap();
         let data_root = tmp.path();
@@ -800,7 +1022,10 @@ mod tests {
 
         // No ghost.reply.json in default
         let default_ghost = inbox_pending_dir(&default_inbox).join("ghost.reply.json");
-        assert!(!default_ghost.exists(), "no reply should leak to default inbox");
+        assert!(
+            !default_ghost.exists(),
+            "no reply should leak to default inbox"
+        );
     }
 
     /// Helper: build a deterministic "default inbox root" inside the given temp dir
@@ -873,6 +1098,66 @@ mod tests {
         }
     }
 
+    #[test]
+    fn cancel_pending_parallel_preserves_first_terminal_result() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let tmp = tempfile::tempdir().unwrap();
+        write_pending_with_urgency(tmp.path(), "c-3", "C3", crate::spec::Urgency::Info);
+
+        let barrier = Arc::new(Barrier::new(3));
+        let root_a = tmp.path().to_path_buf();
+        let root_b = tmp.path().to_path_buf();
+        let barrier_a = barrier.clone();
+        let barrier_b = barrier.clone();
+
+        let first = thread::spawn(move || {
+            barrier_a.wait();
+            cancel_pending(&root_a, "c-3", Some("first")).unwrap()
+        });
+        let second = thread::spawn(move || {
+            barrier_b.wait();
+            cancel_pending(&root_b, "c-3", Some("second")).unwrap()
+        });
+        barrier.wait();
+
+        let first_state = first.join().unwrap();
+        let second_state = second.join().unwrap();
+        assert_eq!(first_state, RequestState::Cancelled);
+        assert_eq!(second_state, RequestState::Cancelled);
+
+        let loaded = load(tmp.path(), "c-3").unwrap();
+        match loaded.response {
+            Some(ElicitResponse::Cancelled { notes }) => {
+                let note = notes.as_deref();
+                assert!(
+                    note == Some("first") || note == Some("second"),
+                    "expected one caller's notes to win, got {note:?}"
+                );
+            }
+            other => panic!("expected Cancelled, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn invalid_request_ids_are_rejected_at_fs_boundaries() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!is_valid_request_id("../escape"));
+        assert!(matches!(
+            load(tmp.path(), "../escape"),
+            Err(ElicitError::InvalidSpec(_))
+        ));
+        assert!(matches!(
+            write_reply(tmp.path(), "../escape", "note"),
+            Err(ElicitError::InvalidSpec(_))
+        ));
+        assert!(matches!(
+            cancel_pending(tmp.path(), "../escape", None),
+            Err(ElicitError::InvalidSpec(_))
+        ));
+    }
+
     // ---- enqueue (Phase 5 — v0.16.0) ----
 
     fn make_spec(title: &str) -> crate::spec::PromptSpec {
@@ -919,11 +1204,7 @@ mod tests {
         spec.request_id = Some("agent-7".into());
         let req = PendingRequest::new(spec, make_origin());
         let path = enqueue(tmp.path(), &req).unwrap();
-        assert!(
-            path.ends_with("agent-7.json"),
-            "got {:?}",
-            path
-        );
+        assert!(path.ends_with("agent-7.json"), "got {:?}", path);
     }
 
     #[test]

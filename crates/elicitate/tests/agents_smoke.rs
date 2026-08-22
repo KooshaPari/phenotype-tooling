@@ -36,11 +36,19 @@ fn config_contains(path: &str, needle: &str) -> bool {
 
 #[test]
 fn forgecode_plugin_toml_exists() {
-    let p = home().join("CodeProjects/Phenotype/repos/phenotype-tooling")
+    let p = home()
+        .join("CodeProjects/Phenotype/repos/phenotype-tooling")
         .join(".forgecode/plugins/elicitate/plugin.toml");
-    assert!(p.exists(), "forgecode plugin.toml missing at {}", p.display());
+    assert!(
+        p.exists(),
+        "forgecode plugin.toml missing at {}",
+        p.display()
+    );
     let content = fs::read_to_string(&p).unwrap();
-    assert!(content.contains("elicitate-mcp"), "plugin.toml must reference elicitate-mcp");
+    assert!(
+        content.contains("elicitate-mcp"),
+        "plugin.toml must reference elicitate-mcp"
+    );
 }
 
 #[test]
@@ -154,7 +162,12 @@ fn mcp_handshake_initialize_and_list_tools() {
                 }
             });
 
-            Self { stdin, stdout_rx: out_rx, stderr_rx: err_rx, child }
+            Self {
+                stdin,
+                stdout_rx: out_rx,
+                stderr_rx: err_rx,
+                child,
+            }
         }
 
         fn send(&mut self, msg: &serde_json::Value) {
@@ -208,7 +221,9 @@ fn mcp_handshake_initialize_and_list_tools() {
         }
     });
     h.send(&init);
-    let resp = h.recv_id(1, Duration::from_secs(3)).expect("initialize response");
+    let resp = h
+        .recv_id(1, Duration::from_secs(3))
+        .expect("initialize response");
     assert_eq!(resp["jsonrpc"], "2.0");
 
     let initialized = serde_json::json!({
@@ -225,23 +240,23 @@ fn mcp_handshake_initialize_and_list_tools() {
     });
     h.send(&request);
 
-    let parsed = h.recv_id(2, Duration::from_secs(3)).expect("tools/list response");
+    let parsed = h
+        .recv_id(2, Duration::from_secs(3))
+        .expect("tools/list response");
 
-    assert_eq!(
-        parsed["id"], 2,
-        "expected id:2 in tools/list response"
-    );
+    assert_eq!(parsed["id"], 2, "expected id:2 in tools/list response");
 
     let tools = parsed["result"]["tools"]
         .as_array()
         .expect("tools/list result.tools is not an array");
 
-    let names: Vec<&str> = tools
-        .iter()
-        .filter_map(|t| t["name"].as_str())
-        .collect();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
 
-    assert!(names.contains(&"elicitate_mcp"), "tools/list must include 'elicitate_mcp', got: {:?}", names);
+    assert!(
+        names.contains(&"elicitate_mcp"),
+        "tools/list must include 'elicitate_mcp', got: {:?}",
+        names
+    );
     let _stderr = h.shutdown();
 }
 
@@ -277,10 +292,7 @@ fn elicitate_version_reports_semver() {
         "expected 'elicitate' in --version output, got: {}",
         stdout
     );
-    assert!(
-        output.status.success(),
-        "elicitate --version failed"
-    );
+    assert!(output.status.success(), "elicitate --version failed");
 }
 
 #[test]

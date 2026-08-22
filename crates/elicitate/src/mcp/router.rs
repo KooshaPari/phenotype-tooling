@@ -12,13 +12,12 @@
 
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{
-    CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo,
-};
+use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo};
 use rmcp::schemars::JsonSchema;
 use rmcp::{tool, tool_handler, tool_router, ServerHandler};
 use serde::{Deserialize, Serialize};
 
+use crate::inbox::{is_valid_request_id, resolve_inbox_root, status as inbox_status};
 use crate::spec::{ElicitResponse, PromptSpec};
 use crate::ElicitOptions;
 
@@ -174,9 +173,8 @@ impl ElicitateMcp {
             }
         };
 
-        let content = ContentBlock::json(&response).map_err(|e| {
-            rmcp::ErrorData::internal_error(format!("content: {e}"), None)
-        })?;
+        let content = ContentBlock::json(&response)
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
 
         let is_failure = matches!(
             &response,
@@ -214,7 +212,9 @@ impl ElicitateMcp {
                     "inbox_id": params.inbox_id,
                 }),
             )
-            .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?])),
+            .map_err(|e| {
+                rmcp::ErrorData::internal_error(format!("content: {e}"), None)
+            })?])),
             Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "write_reply failed: {e}"
             ))])),
@@ -233,15 +233,18 @@ impl ElicitateMcp {
         &self,
         Parameters(params): Parameters<crate::inbox::InboxStatusParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        use crate::inbox::{list_pending, resolve_inbox_root};
         let root = resolve_inbox_root(params.inbox_id.as_deref());
-        match list_pending(&root) {
-            Ok(pending) => {
-                let ids: Vec<&str> = pending.iter().map(|p| p.request_id.as_str()).collect();
+        match inbox_status(&root) {
+            Ok(summary) => {
                 let summary = serde_json::json!({
                     "inbox_id": params.inbox_id,
-                    "pending_count": pending.len(),
-                    "pending_ids": ids,
+                    "pending_count": summary.pending_count,
+                    "pending_ids": summary.pending_ids,
+                    "seen_count": summary.seen_count,
+                    "answered_count": summary.answered_count,
+                    "cancelled_count": summary.cancelled_count,
+                    "expired_count": summary.expired_count,
+                    "total_count": summary.total_count,
                 });
                 Ok(CallToolResult::success(vec![ContentBlock::json(&summary)
                     .map_err(|e| {
@@ -276,6 +279,13 @@ impl ElicitateMcp {
                 "invalid PromptSpec: {msg}"
             ))]));
         }
+        if let Some(request_id) = spec.request_id.as_deref() {
+            if !is_valid_request_id(request_id) {
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                    "invalid request_id: {request_id}"
+                ))]));
+            }
+        }
 
         let inbox_dir = crate::inbox::resolve_inbox_root(inbox_id.as_deref());
         let origin = crate::inbox::RequestOrigin {
@@ -291,14 +301,12 @@ impl ElicitateMcp {
         };
         let req = crate::inbox::PendingRequest::new(spec, origin);
         let request_id = req.request_id.clone();
-        let path = crate::inbox::enqueue(&inbox_dir, &req).map_err(|e| {
-            rmcp::ErrorData::internal_error(format!("enqueue: {e}"), None)
-        })?;
+        crate::inbox::enqueue(&inbox_dir, &req)
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("enqueue: {e}"), None))?;
 
         let content = ContentBlock::json(serde_json::json!({
             "status": "queued",
             "request_id": request_id,
-            "path": path.display().to_string(),
         }))
         .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
         Ok(CallToolResult::success(vec![content]))
@@ -342,10 +350,7 @@ impl ElicitateMcp {
 impl ServerHandler for ElicitateMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::default())
-            .with_server_info(Implementation::new(
-                "elicitate",
-                env!("CARGO_PKG_VERSION"),
-            ))
+            .with_server_info(Implementation::new("elicitate", env!("CARGO_PKG_VERSION")))
     }
 }
 
