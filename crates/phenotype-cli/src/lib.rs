@@ -175,6 +175,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Command::FrCoverage(args) => cmd_delegate::run("fr-coverage", args, cli.verbose),
         Command::LegacyScan(args) => cmd_delegate::run("legacy-scan", args, cli.verbose),
         Command::WorktreeManager(args) => cmd_delegate::run("worktree-manager", args, cli.verbose),
+        Command::Upgrade(args) => stream_channel::run(args, cli.verbose),
     };
     match code {
         exit_code::OK => Ok(()),
