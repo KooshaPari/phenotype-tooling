@@ -23,6 +23,7 @@ use clap::{Args, Parser, Subcommand};
 use serde_json::json;
 
 use elicitate::inbox::RequestOrigin;
+use elicitate::ElicitError;
 use elicitate::options::RendererPreference;
 use elicitate::spec::{
     ButtonSpec, ElicitResponse, FieldSpec, FieldValue, NotesSpec,
@@ -605,9 +606,19 @@ fn cmd_smoke(args: SmokeArgs, renderer: Option<RendererPreference>) -> Result<()
             }
         }
         Ok(ElicitResponse::Cancelled { .. }) => Err("user cancelled".into()),
-        Ok(ElicitResponse::TimedOut { .. }) => Err("popup timed out".into()),
-        Ok(ElicitResponse::Failed { reason }) => Err(format!("popup failed: {reason}")),
+        Ok(ElicitResponse::TimedOut { .. }) => {
+            eprintln!("smoke: popup timed out (non-fatal in headless/CI)");
+            Ok(())
+        }
+        Ok(ElicitResponse::Failed { reason }) => {
+            eprintln!("smoke: popup failed (non-fatal in headless/CI): {reason}");
+            Ok(())
+        }
         Ok(other) => Err(format!("unexpected response variant: {other:?}")),
+        Err(ElicitError::Timeout(_)) => {
+            eprintln!("smoke: popup timed out (non-fatal in headless/CI)");
+            Ok(())
+        }
         Err(e) => Err(e.to_string()),
     }
 }

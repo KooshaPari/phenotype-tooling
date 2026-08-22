@@ -13,7 +13,7 @@
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
-    CallToolResult, Content, Implementation, ServerCapabilities, ServerInfo,
+    CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo,
 };
 use rmcp::schemars::JsonSchema;
 use rmcp::{tool, tool_handler, tool_router, ServerHandler};
@@ -152,7 +152,7 @@ impl ElicitateMcp {
 
         // Validate upfront — a bad spec should fail loudly before we open a window.
         if let Err(msg) = spec.validate() {
-            return Ok(CallToolResult::error(vec![Content::text(format!(
+            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "invalid PromptSpec: {msg}"
             ))]));
         }
@@ -168,13 +168,13 @@ impl ElicitateMcp {
         let response: ElicitResponse = match result {
             Ok(r) => r,
             Err(e) => {
-                return Ok(CallToolResult::error(vec![Content::text(format!(
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                     "popup failed: {e}"
                 ))]));
             }
         };
 
-        let content = Content::json(&response).map_err(|e| {
+        let content = ContentBlock::json(&response).map_err(|e| {
             rmcp::ErrorData::internal_error(format!("content: {e}"), None)
         })?;
 
@@ -207,7 +207,7 @@ impl ElicitateMcp {
         use crate::inbox::{resolve_inbox_root, write_reply};
         let root = resolve_inbox_root(params.inbox_id.as_deref());
         match write_reply(&root, &params.request_id, &params.message) {
-            Ok(()) => Ok(CallToolResult::success(vec![Content::json(
+            Ok(()) => Ok(CallToolResult::success(vec![ContentBlock::json(
                 serde_json::json!({
                     "status": "ok",
                     "request_id": params.request_id,
@@ -215,7 +215,7 @@ impl ElicitateMcp {
                 }),
             )
             .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?])),
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "write_reply failed: {e}"
             ))])),
         }
@@ -243,12 +243,12 @@ impl ElicitateMcp {
                     "pending_count": pending.len(),
                     "pending_ids": ids,
                 });
-                Ok(CallToolResult::success(vec![Content::json(&summary)
+                Ok(CallToolResult::success(vec![ContentBlock::json(&summary)
                     .map_err(|e| {
                         rmcp::ErrorData::internal_error(format!("content: {e}"), None)
                     })?]))
             }
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "inbox_status failed: {e}"
             ))])),
         }
@@ -272,7 +272,7 @@ impl ElicitateMcp {
         let spec: PromptSpec = params.into();
 
         if let Err(msg) = spec.validate() {
-            return Ok(CallToolResult::error(vec![Content::text(format!(
+            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "invalid PromptSpec: {msg}"
             ))]));
         }
@@ -295,7 +295,7 @@ impl ElicitateMcp {
             rmcp::ErrorData::internal_error(format!("enqueue: {e}"), None)
         })?;
 
-        let content = Content::json(serde_json::json!({
+        let content = ContentBlock::json(serde_json::json!({
             "status": "queued",
             "request_id": request_id,
             "path": path.display().to_string(),
@@ -329,7 +329,7 @@ impl ElicitateMcp {
             RequestState::Expired => "already_expired",
             _ => "noop",
         };
-        let content = Content::json(serde_json::json!({
+        let content = ContentBlock::json(serde_json::json!({
             "status": state_str,
             "request_id": params.request_id,
         }))

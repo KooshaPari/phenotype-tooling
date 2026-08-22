@@ -3,9 +3,18 @@
 //! handshake.
 
 use std::fs;
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 // ─── helpers ────────────────────────────────────────────────────────
+fn elicitate_bin() -> PathBuf {
+    PathBuf::from(env!("CARGO_BIN_EXE_elicitate"))
+}
+
 fn home() -> PathBuf {
     dirs::home_dir().expect("$HOME")
 }
@@ -106,54 +115,117 @@ fn elicitate_mcp_is_on_path() {
 
 #[test]
 fn mcp_handshake_initialize_and_list_tools() {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
+    struct McpHandle {
+        stdin: std::process::ChildStdin,
+        stdout_rx: mpsc::Receiver<String>,
+        stderr_rx: mpsc::Receiver<String>,
+        child: std::process::Child,
+    }
 
-    let mut child = Command::new("elicitate-mcp")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("failed to spawn elicitate-mcp");
+    impl McpHandle {
+        fn spawn() -> Self {
+            let mut child = Command::new("elicitate-mcp")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .expect("failed to spawn elicitate-mcp");
 
-    let stdin = child.stdin.as_mut().unwrap();
+            let stdin = child.stdin.take().expect("stdin");
+            let stdout = child.stdout.take().expect("stdout");
+            let stderr = child.stderr.take().expect("stderr");
 
-    // 1. initialize
-    let init = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0.0.1"}}}"#;
-    writeln!(stdin, "{}", init).unwrap();
+            let (out_tx, out_rx) = mpsc::channel::<String>();
+            let (err_tx, err_rx) = mpsc::channel::<String>();
+            thread::spawn(move || {
+                let reader = BufReader::new(stdout);
+                for line in reader.lines().map_while(Result::ok) {
+                    if out_tx.send(line).is_err() {
+                        break;
+                    }
+                }
+            });
+            thread::spawn(move || {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines().map_while(Result::ok) {
+                    if err_tx.send(line).is_err() {
+                        break;
+                    }
+                }
+            });
 
-    // 2. initialized notification
-    let notif = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
-    writeln!(stdin, "{}", notif).unwrap();
+            Self { stdin, stdout_rx: out_rx, stderr_rx: err_rx, child }
+        }
 
-    // 3. tools/list
-    let list = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#;
-    writeln!(stdin, "{}", list).unwrap();
+        fn send(&mut self, msg: &serde_json::Value) {
+            writeln!(self.stdin, "{}", serde_json::to_string(msg).unwrap()).expect("write");
+            self.stdin.flush().expect("flush");
+        }
 
-    // close stdin so the server sees EOF and exits after processing
-    drop(child.stdin.take());
+        fn recv_id(&self, id: i64, timeout: Duration) -> Option<serde_json::Value> {
+            let deadline = std::time::Instant::now() + timeout;
+            loop {
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                if remaining.is_zero() {
+                    return None;
+                }
+                match self.stdout_rx.recv_timeout(remaining) {
+                    Ok(line) => {
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                            if v.get("id").and_then(|i| i.as_i64()) == Some(id) {
+                                return Some(v);
+                            }
+                        }
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => return None,
+                    Err(mpsc::RecvTimeoutError::Disconnected) => return None,
+                }
+            }
+        }
 
-    let output = child
-        .wait_with_output()
-        .expect("failed to wait for elicitate-mcp");
+        fn shutdown(mut self) -> String {
+            drop(self.stdin);
+            let _ = self.child.wait();
+            let mut err = String::new();
+            while let Ok(line) = self.stderr_rx.try_recv() {
+                err.push_str(&line);
+                err.push('\n');
+            }
+            err
+        }
+    }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let mut h = McpHandle::spawn();
 
-    // The server should emit at least 2 JSON responses (initialize + tools/list)
-    let lines: Vec<&str> = stdout.lines().collect();
-    assert!(
-        lines.len() >= 2,
-        "expected ≥2 JSON responses from elicitate-mcp, got {} (stdout: {}, stderr: {})",
-        lines.len(),
-        stdout.chars().take(500).collect::<String>(),
-        stderr.chars().take(500).collect::<String>()
-    );
+    let init = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": { "name": "smoke-test", "version": "0.0.1" }
+        }
+    });
+    h.send(&init);
+    let resp = h.recv_id(1, Duration::from_secs(3)).expect("initialize response");
+    assert_eq!(resp["jsonrpc"], "2.0");
 
-    // Parse tools/list response — must contain "elicitate_mcp"
-    let tools_resp = lines.last().expect("no last line");
-    let parsed: serde_json::Value =
-        serde_json::from_str(tools_resp).expect("tools/list response is not valid JSON");
+    let initialized = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized"
+    });
+    h.send(&initialized);
+
+    let request = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+    });
+    h.send(&request);
+
+    let parsed = h.recv_id(2, Duration::from_secs(3)).expect("tools/list response");
 
     assert_eq!(
         parsed["id"], 2,
@@ -169,18 +241,15 @@ fn mcp_handshake_initialize_and_list_tools() {
         .filter_map(|t| t["name"].as_str())
         .collect();
 
-    assert!(
-        names.contains(&"elicitate_mcp"),
-        "tools/list must include 'elicitate_mcp', got: {:?}",
-        names
-    );
+    assert!(names.contains(&"elicitate_mcp"), "tools/list must include 'elicitate_mcp', got: {:?}", names);
+    let _stderr = h.shutdown();
 }
 
 // ─── smoke: elicitate CLI ──────────────────────────────────────────
 
 #[test]
 fn elicitate_smoke_reports_ok() {
-    let output = std::process::Command::new("elicitate")
+    let output = std::process::Command::new(elicitate_bin())
         .arg("smoke")
         .output()
         .expect("failed to run elicitate smoke");
@@ -197,7 +266,7 @@ fn elicitate_smoke_reports_ok() {
 
 #[test]
 fn elicitate_version_reports_semver() {
-    let output = std::process::Command::new("elicitate")
+    let output = std::process::Command::new(elicitate_bin())
         .arg("--version")
         .output()
         .expect("failed to run elicitate --version");
@@ -216,7 +285,7 @@ fn elicitate_version_reports_semver() {
 
 #[test]
 fn elicitate_schema_exports_valid_json() {
-    let output = std::process::Command::new("elicitate")
+    let output = std::process::Command::new(elicitate_bin())
         .arg("schema")
         .output()
         .expect("failed to run elicitate schema");
@@ -237,7 +306,7 @@ fn elicitate_schema_exports_valid_json() {
 
 #[test]
 fn elicitate_detect_reports_platform() {
-    let output = std::process::Command::new("elicitate")
+    let output = std::process::Command::new(elicitate_bin())
         .arg("detect")
         .output()
         .expect("failed to run elicitate detect");
