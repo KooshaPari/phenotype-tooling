@@ -10,7 +10,7 @@ on:
       - 'crates/phenotype-cli/src/workspace/**'
       - 'crates/phenotype-cli/src/observability/**'
       - 'crates/phenotype-cli/src/deploy.rs'
-  push:
+# push: # DISABLED — scripts/resolve_core_version.py and scripts/pin_core_stream.py not yet implemented
     branches: [main]
   workflow_dispatch:
     inputs:
