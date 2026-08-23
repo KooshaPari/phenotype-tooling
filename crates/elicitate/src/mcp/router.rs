@@ -1,27 +1,31 @@
 //! MCP server router.
 //!
-//! Exposes a single tool — `elicitate_mcp` — to MCP clients (Forge,
-//! Codex, Cursor, Claude Code, etc.). Each tool call is dispatched to
-//! `elicitate::elicit()` and the response is returned as MCP tool output.
+//! Exposes a single tool, `elicitate_mcp`, to MCP clients (Forge, Codex,
+//! Cursor, Claude Code, etc.). Each tool call dispatches to
+//! `elicitate::elicit_with()` and returns the result as MCP tool output.
+//!
+//! Built against `rmcp` 1.4.x. The `Parameters<T>` wrapper lives at
+//! `rmcp::handler::server::wrapper::Parameters` in this version, and
+//! `ServerInfo` is a type alias for `InitializeResult` whose `server_info`
+//! field is `#[non_exhaustive]`, so we use the `ServerInfo::new(...).with_
+//! server_info(Implementation::new(...))` builder.
 
-use std::future::Future;
-
-use rmcp::handler::server::tool::Parameters;
 use rmcp::handler::server::tool::ToolRouter;
-use rmcp::model::*;
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo};
 use rmcp::schemars::JsonSchema;
-use rmcp::ServerHandler;
-use rmcp::{tool, tool_handler, tool_router};
+use rmcp::{tool, tool_handler, tool_router, ServerHandler};
 use serde::{Deserialize, Serialize};
 
+use crate::inbox::{is_valid_request_id, resolve_inbox_root, status as inbox_status};
 use crate::spec::{ElicitResponse, PromptSpec};
 use crate::ElicitOptions;
 
 /// Parameters for the `elicitate_mcp` tool.
 ///
-/// We accept the full [`PromptSpec`] inline rather than wrapping it in
-/// a `spec` object so existing MCP clients can pipe the same JSON they
-/// would send to the CLI without renaming.
+/// We accept the full [`PromptSpec`] inline rather than wrapping it in a
+/// `spec` object so existing MCP clients can pipe the same JSON they would
+/// send to the CLI without renaming.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ElicitateParams {
     /// One-line title.
@@ -67,6 +71,55 @@ impl From<ElicitateParams> for PromptSpec {
     }
 }
 
+/// Parameters for the `elicitate_enqueue` MCP tool — non-blocking inbox enqueue.
+///
+/// Same shape as [`ElicitateParams`] (it's the same [`PromptSpec`]) plus an
+/// optional [`inbox_id`](Self::inbox_id) for routing to a named namespace.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ElicitEnqueueParams {
+    /// One-line title.
+    pub title: String,
+    /// Multi-line body explaining context.
+    #[serde(default)]
+    pub question: String,
+    /// The input field configuration.
+    pub field: crate::spec::FieldSpec,
+    /// Optional notes box.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<crate::spec::NotesSpec>,
+    /// Custom button labels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buttons: Option<crate::spec::ButtonSpec>,
+    /// Urgency hint.
+    #[serde(default)]
+    pub urgency: crate::spec::Urgency,
+    /// Timeout in seconds.
+    #[serde(default = "default_timeout")]
+    pub timeout_secs: u32,
+    /// Optional request ID for correlation. When absent, a UUIDv4 is generated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    /// Optional inbox namespace id. See
+    /// [`crate::inbox::resolve_inbox_root`] for resolution rules.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inbox_id: Option<String>,
+}
+
+impl From<ElicitEnqueueParams> for PromptSpec {
+    fn from(p: ElicitEnqueueParams) -> Self {
+        PromptSpec {
+            title: p.title,
+            question: p.question,
+            field: p.field,
+            notes: p.notes,
+            buttons: p.buttons,
+            urgency: p.urgency,
+            timeout_secs: p.timeout_secs,
+            request_id: p.request_id,
+        }
+    }
+}
+
 /// The MCP server. Single tool, multiple concurrent requests.
 #[derive(Debug, Clone, Default)]
 pub struct ElicitateMcp {
@@ -86,17 +139,19 @@ impl ElicitateMcp {
     /// The single tool: render a native popup and block until the user responds.
     #[tool(
         name = "elicitate_mcp",
-        description = "Render a native OS popup and block until the human operator responds (or the prompt times out). Use this whenever an autonomous agent needs a single, structured decision from a human: a confirmation, a multi-choice selection, a secret, a disambiguation. Returns a typed JSON ElicitResponse."
+        description = "Render a native OS popup and block until the human operator responds (or the prompt times out). Use this whenever an autonomous agent needs a single, structured decision from a human: a confirmation, a multi-choice selection, a secret, a disambiguation. Returns a typed JSON ElicitResponse.",
+        input_schema = rmcp::handler::server::tool::schema_for_type::<ElicitateParams>(),
+        output_schema = rmcp::handler::server::tool::schema_for_type::<crate::spec::ElicitResponse>()
     )]
     async fn elicit(
         &self,
         Parameters(params): Parameters<ElicitateParams>,
-    ) -> Result<CallToolResult, rmcp::Error> {
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
         let spec: PromptSpec = params.into();
 
         // Validate upfront — a bad spec should fail loudly before we open a window.
         if let Err(msg) = spec.validate() {
-            return Ok(CallToolResult::error(vec![Content::text(format!(
+            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "invalid PromptSpec: {msg}"
             ))]));
         }
@@ -106,56 +161,196 @@ impl ElicitateMcp {
         let result = tokio::task::spawn_blocking(move || crate::elicit_with(&spec, &opts))
             .await
             .map_err(|e| {
-                rmcp::Error::internal_error(format!("popup task join failed: {e}"), None)
+                rmcp::ErrorData::internal_error(format!("popup task join failed: {e}"), None)
             })?;
 
         let response: ElicitResponse = match result {
             Ok(r) => r,
             Err(e) => {
-                return Ok(CallToolResult::error(vec![Content::text(format!(
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                     "popup failed: {e}"
                 ))]));
             }
         };
 
-        let json = serde_json::to_value(&response).map_err(|e| {
-            rmcp::Error::internal_error(format!("serialize response: {e}"), None)
-        })?;
+        let content = ContentBlock::json(&response)
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
 
-        let content = Content::json(json.clone()).map_err(|e| {
-            rmcp::Error::internal_error(format!("content: {e}"), None)
-        })?;
-
-        let is_error = matches!(
+        let is_failure = matches!(
             &response,
             ElicitResponse::Failed { .. } | ElicitResponse::TimedOut { .. }
         );
 
-        Ok(CallToolResult {
-            content: vec![content],
-            is_error: if is_error { Some(true) } else { None },
+        Ok(if is_failure {
+            CallToolResult::error(vec![content])
+        } else {
+            CallToolResult::success(vec![content])
         })
+    }
+
+    /// Attach a contextual note to a pending elicit. The note surfaces on the
+    /// form page when the operator opens it. Does NOT block or pop up a
+    /// dialog — use this to provide decision context BEFORE the operator
+    /// answers.
+    #[tool(
+        name = "elicitate_reply",
+        description = "Attach a context message to a pending elicit. The message appears as a note when the operator opens the form. Does NOT block or pop up a dialog — use this to provide decision context BEFORE the operator answers. Errors if no pending request with the given id exists.",
+        input_schema = rmcp::handler::server::tool::schema_for_type::<crate::inbox::ReplyParams>(),
+        output_schema = rmcp::handler::server::tool::schema_for_type::<serde_json::Value>()
+    )]
+    async fn reply(
+        &self,
+        Parameters(params): Parameters<crate::inbox::ReplyParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        use crate::inbox::{resolve_inbox_root, write_reply};
+        let root = resolve_inbox_root(params.inbox_id.as_deref());
+        match write_reply(&root, &params.request_id, &params.message) {
+            Ok(()) => Ok(CallToolResult::success(vec![ContentBlock::json(
+                serde_json::json!({
+                    "status": "ok",
+                    "request_id": params.request_id,
+                    "inbox_id": params.inbox_id,
+                }),
+            )
+            .map_err(|e| {
+                rmcp::ErrorData::internal_error(format!("content: {e}"), None)
+            })?])),
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                "write_reply failed: {e}"
+            ))])),
+        }
+    }
+
+    /// Read-only projection of an inbox's current state. Optionally scoped
+    /// to a namespace via `inbox_id`. Returns counts (pending/answered/etc.).
+    #[tool(
+        name = "inbox_status",
+        description = "Read-only projection of an inbox's current state. Optionally scoped to a namespace via inbox_id. Returns counts: pending, seen, answered, cancelled, expired, total, and a list of pending request IDs.",
+        input_schema = rmcp::handler::server::tool::schema_for_type::<crate::inbox::InboxStatusParams>(),
+        output_schema = rmcp::handler::server::tool::schema_for_type::<serde_json::Value>()
+    )]
+    async fn inbox_status(
+        &self,
+        Parameters(params): Parameters<crate::inbox::InboxStatusParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let root = resolve_inbox_root(params.inbox_id.as_deref());
+        match inbox_status(&root) {
+            Ok(summary) => {
+                let summary = serde_json::json!({
+                    "inbox_id": params.inbox_id,
+                    "pending_count": summary.pending_count,
+                    "pending_ids": summary.pending_ids,
+                    "seen_count": summary.seen_count,
+                    "answered_count": summary.answered_count,
+                    "cancelled_count": summary.cancelled_count,
+                    "expired_count": summary.expired_count,
+                    "total_count": summary.total_count,
+                });
+                Ok(CallToolResult::success(vec![ContentBlock::json(&summary)
+                    .map_err(|e| {
+                        rmcp::ErrorData::internal_error(format!("content: {e}"), None)
+                    })?]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                "inbox_status failed: {e}"
+            ))])),
+        }
+    }
+
+    /// Non-blocking inbox enqueue. Writes the request to disk and returns
+    /// the new `request_id` immediately — never opens a popup. Pair with
+    /// `elicitate_reply` to attach context, and `inbox_status` to poll.
+    /// Pass `inbox_id` to route to a non-default namespace.
+    #[tool(
+        name = "elicitate_enqueue",
+        description = "Queue a prompt in the inbox and return immediately with the new request_id. Does NOT open a popup, does NOT block on the operator. Use this whenever an autonomous agent needs to enqueue a decision without waiting for the operator to be present right now. Pair with `inbox_status` to poll and `elicitate_reply` to attach decision context BEFORE the operator opens the form.",
+        input_schema = rmcp::handler::server::tool::schema_for_type::<ElicitEnqueueParams>(),
+        output_schema = rmcp::handler::server::tool::schema_for_type::<serde_json::Value>()
+    )]
+    async fn enqueue(
+        &self,
+        Parameters(params): Parameters<ElicitEnqueueParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let inbox_id = params.inbox_id.clone();
+        let spec: PromptSpec = params.into();
+
+        if let Err(msg) = spec.validate() {
+            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                "invalid PromptSpec: {msg}"
+            ))]));
+        }
+        if let Some(request_id) = spec.request_id.as_deref() {
+            if !is_valid_request_id(request_id) {
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                    "invalid request_id: {request_id}"
+                ))]));
+            }
+        }
+
+        let inbox_dir = crate::inbox::resolve_inbox_root(inbox_id.as_deref());
+        let origin = crate::inbox::RequestOrigin {
+            hostname: std::env::var("HOSTNAME")
+                .or_else(|_| std::env::var("COMPUTERNAME"))
+                .unwrap_or_else(|_| "unknown".into()),
+            process: std::env::current_exe()
+                .ok()
+                .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+                .unwrap_or_else(|| "elicitate-mcp".into()),
+            pid: std::process::id(),
+            callback: None,
+        };
+        let req = crate::inbox::PendingRequest::new(spec, origin);
+        let request_id = req.request_id.clone();
+        crate::inbox::enqueue(&inbox_dir, &req)
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("enqueue: {e}"), None))?;
+
+        let content = ContentBlock::json(serde_json::json!({
+            "status": "queued",
+            "request_id": request_id,
+        }))
+        .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    /// Cancel a pending elicit. The matching request is moved from pending
+    /// to answered with state `Cancelled`. Idempotent: cancelling an
+    /// already-cancelled (or already-answered) request returns success
+    /// without rewriting. Pass `inbox_id` to cancel in a non-default
+    /// namespace.
+    #[tool(
+        name = "elicitate_cancel",
+        description = "Cancel a pending elicit previously enqueued via elicitate_enqueue. The request moves from the pending dir to the answered dir with state Cancelled. Idempotent — cancelling an already-terminal request is a no-op success. Pass `inbox_id` to cancel in a non-default namespace.",
+        input_schema = rmcp::handler::server::tool::schema_for_type::<crate::inbox::CancelParams>(),
+        output_schema = rmcp::handler::server::tool::schema_for_type::<serde_json::Value>()
+    )]
+    async fn cancel(
+        &self,
+        Parameters(params): Parameters<crate::inbox::CancelParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        use crate::inbox::{cancel_pending, RequestState};
+        let inbox_dir = crate::inbox::resolve_inbox_root(params.inbox_id.as_deref());
+        let cancelled = cancel_pending(&inbox_dir, &params.request_id, params.notes.as_deref())
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("cancel: {e}"), None))?;
+        let state_str = match cancelled {
+            RequestState::Cancelled => "cancelled",
+            RequestState::Answered => "already_answered",
+            RequestState::Expired => "already_expired",
+            _ => "noop",
+        };
+        let content = ContentBlock::json(serde_json::json!({
+            "status": state_str,
+            "request_id": params.request_id,
+        }))
+        .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
+        Ok(CallToolResult::success(vec![content]))
     }
 }
 
 #[tool_handler]
 impl ServerHandler for ElicitateMcp {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::default(),
-            capabilities: ServerCapabilities::default(),
-            server_info: Implementation {
-                name: "elicitate".to_string(),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-            },
-            instructions: Some(
-                "elicitate_mcp renders a native OS popup and blocks until the human responds. \
-                 Use it whenever you need a single, structured decision from the operator: \
-                 confirmations, secrets, multi-choice selection, disambiguation. Returns typed \
-                 JSON: {status: answered|cancelled|timed_out|failed, value?, notes?}."
-                    .to_string(),
-            ),
-        }
+        ServerInfo::new(ServerCapabilities::default())
+            .with_server_info(Implementation::new("elicitate", env!("CARGO_PKG_VERSION")))
     }
 }
 
@@ -180,5 +375,26 @@ mod tests {
         };
         let s: PromptSpec = p.into();
         assert_eq!(s.timeout_secs, 600);
+    }
+
+    #[test]
+    fn params_roundtrip_via_spec() {
+        let p = ElicitateParams {
+            title: "Ship?".into(),
+            question: "Should we ship v1?".into(),
+            field: crate::spec::FieldSpec::Boolean {
+                label: "Ship?".into(),
+                default: Some(true),
+            },
+            notes: None,
+            buttons: None,
+            urgency: crate::spec::Urgency::Warning,
+            timeout_secs: 120,
+            request_id: Some("test-1".into()),
+        };
+        let s: PromptSpec = p.into();
+        assert_eq!(s.title, "Ship?");
+        assert_eq!(s.request_id.as_deref(), Some("test-1"));
+        assert_eq!(s.timeout_secs, 120);
     }
 }
