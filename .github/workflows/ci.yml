@@ -107,7 +107,7 @@ jobs:
             - uses: actions/checkout@v4
             - uses: dtolnay/rust-toolchain@stable
             - name: cargo-deny check
-              uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v6
+              uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v2.0.20
               with:
                   arguments: --all-features
 
@@ -158,18 +158,24 @@ jobs:
             - uses: actions/setup-node@v4
               with:
                   node-version: "20"
+            - name: Setup Bun
+              if: hashFiles('bun.lock') != ''
+              uses: oven-sh/setup-bun@v2
             # This repository may contain package.json without an npm lockfile
             # (the docs workspace is managed by Bun). Do not enable setup-node's
             # npm cache unless a supported lockfile is present; setup-node fails
             # before the job starts when it cannot resolve a cache dependency path.
             - name: Install JavaScript dependencies
               run: |
-                  if [ -f package-lock.json ]; then
+                  if [ -f bun.lock ]; then
+                    bun install --frozen-lockfile
+                  elif [ -f package-lock.json ]; then
                     npm ci --no-audit --no-fund
                   elif [ -f npm-shrinkwrap.json ]; then
                     npm ci --no-audit --no-fund
                   else
-                    npm install --no-package-lock --no-audit --no-fund
+                    echo "No supported JavaScript lockfile found" >&2
+                    exit 1
                   fi
             - name: lint
               run: |
@@ -244,7 +250,7 @@ jobs:
                     "go:${{ needs.go.result }}" \
                     "typescript:${{ needs.typescript.result }}" \
                     "security:${{ needs.security.result }}" \
-                    "dep-review:${{ needs.dependency-review.result }}" \
+                    "dep-review:${{ needs['dep-review'].result }}" \
                     ; do
                     name="${pair%%:*}"
                     result="${pair#*:}"
