@@ -20,15 +20,13 @@ pull_request_rules:
                   {{ title }} (#{{ number }})
 
                   Co-authored-by: {{ author }}
-          post_merge:
-              action: close
 
     # Auto-merge dependabot/Renovate PRs when CI passes
     - name: Auto-merge dependency updates
       conditions:
           - or:
-                - author = dependabot[bot]
-                - author = renovate[bot]
+                - author=dependabot[bot]
+                - author=renovate[bot]
           - check-success=ci
           - -conflict
           - -closed
@@ -44,9 +42,9 @@ pull_request_rules:
     - name: Auto-merge bot housekeeping PRs
       conditions:
           - or:
-                - author = trunk-io[bot]
-                - author = mergify[bot]
-                - author = github-actions[bot]
+                - author=trunk-io[bot]
+                - author=mergify[bot]
+                - author=github-actions[bot]
           - check-success=ci
           - check-success=lint
           - -conflict
