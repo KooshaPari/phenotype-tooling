@@ -43,8 +43,10 @@ allow = [
 
   # Permissive upstream terms emitted by ICU, libfuzzer, and webpki crates.
   "UNICODE-3.0",
+  "UNICODE-DFS-2016",
   "CDLA-PERMISSIVE-2.0",
   "NCSA",
+  "WTFPL",
 ]
 
 deny = [
