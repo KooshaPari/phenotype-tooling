@@ -288,9 +288,7 @@ pub fn render_field_widget(field: &FieldSpec) -> String {
             for (i, opt) in options.iter().enumerate() {
                 let value = html_attr(&opt.value);
                 let label_text = html_escape(&opt.label);
-                let selected = default_index
-                    .map(|d| d == i)
-                    .unwrap_or(false);
+                let selected = default_index.map(|d| d == i).unwrap_or(false);
                 let sel_attr = if selected { " selected" } else { "" };
                 opts.push_str(&format!(
                     r#"<option value="{value}"{sel}>{label}</option>"#,
@@ -353,6 +351,12 @@ pub fn render_field_widget(field: &FieldSpec) -> String {
 /// redirects to `/inbox/{rid}/done`.
 #[must_use]
 pub fn render_form_html(req: &PendingRequest) -> String {
+    render_form_html_with_reply(req, None)
+}
+
+/// Render a form with an optional contextual note supplied by an agent.
+#[must_use]
+pub fn render_form_html_with_reply(req: &PendingRequest, reply: Option<&str>) -> String {
     let field_kind = field_kind_label(&req.spec.field);
     let urgency_badge = match req.spec.urgency {
         crate::spec::Urgency::Warning => " warn",
@@ -381,6 +385,15 @@ pub fn render_form_html(req: &PendingRequest) -> String {
             )
         })
         .unwrap_or_default();
+    let reply_box = reply
+        .filter(|message| !message.is_empty())
+        .map(|message| {
+            format!(
+                r#"<aside class=reply><strong>Agent context</strong><p>{}</p></aside>"#,
+                html_escape(message)
+            )
+        })
+        .unwrap_or_default();
     format!(
         "<!doctype html><html lang=en>\
          <meta charset=utf-8>\
@@ -394,6 +407,7 @@ pub fn render_form_html(req: &PendingRequest) -> String {
          <span class=ago>{ago}</span></div>\
          <div class=row-sub><span>{field_kind}</span></div></div></div>\
          <main class=card><h2>{question}</h2>\
+         {reply_box}\
          {widget}\
          {notes_box}\
          <form method=POST action=/inbox/{rid}/answer class=actions>\
@@ -412,6 +426,7 @@ pub fn render_form_html(req: &PendingRequest) -> String {
         question = html_escape(&req.spec.question),
         widget = widget,
         notes_box = notes_box,
+        reply_box = reply_box,
     )
 }
 
@@ -557,10 +572,10 @@ mod tests {
     #[test]
     fn index_empty() {
         let html = render_inbox_index_html(&[]);
-        assert!(snapshot_contains(&html, &[
-            "No pending requests",
-            "elicitate",
-        ]));
+        assert!(snapshot_contains(
+            &html,
+            &["No pending requests", "elicitate",]
+        ));
         assert!(html.contains("</html>"));
     }
 
@@ -568,11 +583,10 @@ mod tests {
     fn index_with_pending() {
         let reqs = vec![sample_pending("r1", Urgency::Info)];
         let html = render_inbox_index_html(&reqs);
-        assert!(snapshot_contains(&html, &[
-            "r1",
-            "What is your favorite color?",
-            "Info",
-        ]));
+        assert!(snapshot_contains(
+            &html,
+            &["r1", "What is your favorite color?", "Info",]
+        ));
         assert!(html.contains("</html>"));
     }
 

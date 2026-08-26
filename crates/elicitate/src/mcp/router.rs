@@ -176,16 +176,11 @@ impl ElicitateMcp {
         let content = ContentBlock::json(&response)
             .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
 
-        let is_failure = matches!(
-            &response,
-            ElicitResponse::Failed { .. } | ElicitResponse::TimedOut { .. }
-        );
-
-        Ok(if is_failure {
-            CallToolResult::error(vec![content])
-        } else {
-            CallToolResult::success(vec![content])
-        })
+        // A modeled Failed/TimedOut response is still a successful tool
+        // invocation: clients need to decode the advertised ElicitResponse
+        // schema rather than treating a user-facing outcome as transport
+        // failure. Reserve CallToolResult::error for handler/runtime errors.
+        Ok(CallToolResult::success(vec![content]))
     }
 
     /// Attach a contextual note to a pending elicit. The note surfaces on the

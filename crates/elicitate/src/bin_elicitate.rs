@@ -415,6 +415,9 @@ fn cmd_ask(
         build_minimal_spec_from_flags(&args)?
     };
 
+    spec.validate()
+        .map_err(|e| format!("invalid PromptSpec: {e}"))?;
+
     if args.r#async {
         let origin = RequestOrigin {
             hostname: hostname(),
@@ -616,6 +619,8 @@ fn cmd_smoke(args: SmokeArgs, renderer: Option<RendererPreference>) -> Result<()
             Ok(())
         }
         Ok(ElicitResponse::Failed { reason }) => {
+            // Smoke is a liveness probe; renderer limitations on a
+            // headless/permission-limited host are non-fatal.
             eprintln!("smoke: popup failed (non-fatal in headless/CI): {reason}");
             Ok(())
         }
@@ -1005,17 +1010,11 @@ fn cmd_open(args: OpenArgs, inbox_dir: &PathBuf) -> Result<(), String> {
 fn latest_pending_form_url(inbox_dir: &PathBuf, base: &str) -> Option<String> {
     let reqs = elicitate::inbox_list_pending(inbox_dir).ok()?;
     let newest = reqs.into_iter().max_by_key(|r| r.queued_at_ms)?;
-    Some(elicitate::inbox_open_url_for(&newest.request_id))
-        .map(|u| u.replace("127.0.0.1", &base_url_host(base)))
-}
-
-/// Extract the host (and optional port) from a `http://host:port` URL.
-fn base_url_host(base: &str) -> String {
-    base.trim_start_matches("http://")
-        .split('/')
-        .next()
-        .unwrap_or("127.0.0.1")
-        .to_string()
+    Some(format!(
+        "{}/inbox/{}",
+        base.trim_end_matches('/'),
+        newest.request_id
+    ))
 }
 
 #[cfg(unix)]

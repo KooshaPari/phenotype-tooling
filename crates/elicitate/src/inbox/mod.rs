@@ -309,12 +309,10 @@ pub fn resolve_inbox_root(inbox_id: Option<&str>) -> PathBuf {
     match inbox_id {
         None | Some("default") => default_inbox_root(),
         Some(id) if is_valid_inbox_id(id) => {
-            // parent of the default inbox is the elicitate data root
-            let parent = default_inbox_root()
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|| PathBuf::from("."));
-            parent.join("inboxes").join(id)
+            // Keep named namespaces beneath the configured root. This also
+            // honors ELICITATE_INBOX_DIR instead of silently switching to a
+            // sibling of the configured directory.
+            default_inbox_root().join("inboxes").join(id)
         }
         Some(_) => default_inbox_root(),
     }
@@ -349,6 +347,11 @@ pub fn enqueue(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError
 /// Pings the global `InboxChangeBus` after the final write so waiters
 /// unblock immediately (no `poll_interval` latency).
 pub fn finalize(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
+    let _lock = RequestLock::acquire(root, &req.request_id)?;
+    finalize_locked(root, req)
+}
+
+fn finalize_locked(root: &Path, req: &PendingRequest) -> Result<PathBuf, ElicitError> {
     validate_request_id(&req.request_id)?;
     let pending = inbox_pending_dir(root).join(format!("{}.json", req.request_id));
     let answered_dir = answered_dir(root);
@@ -426,8 +429,23 @@ pub fn cancel_pending(
         notes: notes.map(str::to_owned),
     });
     req.state = RequestState::Cancelled;
-    finalize(root, &req)?;
+    finalize_locked(root, &req)?;
     Ok(RequestState::Cancelled)
+}
+
+/// Read an agent's contextual reply for a pending request, if one exists.
+pub fn read_reply(root: &Path, request_id: &str) -> Result<Option<String>, ElicitError> {
+    validate_request_id(request_id)?;
+    let path = inbox_pending_dir(root).join(format!("{request_id}.reply.json"));
+    if !path.exists() {
+        return Ok(None);
+    }
+    let text = fs::read_to_string(path)?;
+    let reply: serde_json::Value = serde_json::from_str(&text).map_err(ElicitError::Json)?;
+    Ok(reply
+        .get("message")
+        .and_then(|m| m.as_str())
+        .map(str::to_owned))
 }
 
 /// Load a single request by id from `dir` (pending OR answered).
@@ -890,9 +908,7 @@ mod tests {
     #[test]
     fn resolve_inbox_root_named_namespace_is_parent_inboxes_id() {
         let root = resolve_inbox_root(Some("proj-a"));
-        let expected_parent = default_inbox_root();
-        let expected_parent = expected_parent.parent().unwrap();
-        assert_eq!(root, expected_parent.join("inboxes").join("proj-a"));
+        assert_eq!(root, default_inbox_root().join("inboxes").join("proj-a"));
     }
 
     #[test]
