@@ -42,7 +42,7 @@ crossbeam-channel = "0.5"
 rmcp = { version = "3.1", features = ["server", "transport-io", "macros"], optional = true }
 inquire = { version = "0.9", features = ["date"] }
 which = "8"
-phenotype-tooling-observability = { path = "../phenotype-tooling-observability", default-features = false, optional = true }
+phenotype-tooling-observability = { path = "../phenotype-tooling-observability", version = "0.1.0", default-features = false, optional = true }
 prometheus = { version = "0.14", optional = true }
 
 # FFI for native tray — only compiled when the `tray-native` feature is on.

@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use clap::Args;
+
 /// Channel a release can be promoted through.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -25,6 +27,12 @@ pub enum Channel {
     Beta,
     /// Every release immediately on tag.
     Nightly,
+}
+
+impl Default for Channel {
+    fn default() -> Self {
+        Self::Stable
+    }
 }
 
 impl Channel {
@@ -146,6 +154,54 @@ impl ChannelsConfig {
             pinned_version: "0.0.0".to_string(),
             last_checked_at: 0,
         })
+    }
+}
+
+/// Arguments for `pt upgrade`.
+#[derive(Debug, Args)]
+pub struct UpgradeArgs {
+    /// Channel to select for the default stream policy.
+    #[arg(value_parser = parse_channel)]
+    pub channel: Option<Channel>,
+    /// Optional stream to update instead of the default policy.
+    #[arg(long)]
+    pub stream: Option<String>,
+    /// Override the channel configuration path.
+    #[arg(long)]
+    pub config: Option<PathBuf>,
+}
+
+fn parse_channel(value: &str) -> Result<Channel, String> {
+    value.parse()
+}
+
+/// Persist the selected channel policy and report the resulting subscription.
+pub fn run(args: UpgradeArgs, _verbosity: u8) -> i32 {
+    let path = args.config.unwrap_or_else(ChannelsConfig::default_path);
+    let mut config = match ChannelsConfig::load_or_default(&path) {
+        Ok(config) => config,
+        Err(error) => {
+            eprintln!("pt upgrade: cannot load {}: {error}", path.display());
+            return crate::exit_code::CONFIG;
+        }
+    };
+    if let Some(channel) = args.channel {
+        config.default_channel = channel;
+    }
+    if let Some(stream) = args.stream {
+        let channel = config.default_channel;
+        let subscription = config.get_or_default_mut(&stream);
+        subscription.channel = channel;
+        println!("{stream}: {channel}");
+    } else {
+        println!("default: {}", config.default_channel);
+    }
+    match config.save(&path) {
+        Ok(()) => crate::exit_code::OK,
+        Err(error) => {
+            eprintln!("pt upgrade: cannot save {}: {error}", path.display());
+            crate::exit_code::CONFIG
+        }
     }
 }
 

@@ -27,7 +27,7 @@ serde_yaml = "0.9"
 anyhow = "1"
 thiserror = "2"
 # Re-use the same observability stack as pt so PTX commands emit metrics
-phenotype-tooling-observability = { path = "../phenotype-tooling-observability", optional = true }
+phenotype-tooling-observability = { path = "../phenotype-tooling-observability", version = "0.1.0", optional = true }
 
 [features]
 default = []

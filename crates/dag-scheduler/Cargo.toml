@@ -11,7 +11,7 @@ homepage = "https://github.com/KooshaPari/phenotype-tooling"
 keywords = ["phenotype", "tooling", "cli"]
 categories = ["command-line-utilities"]
 [dependencies]
-acceptance-contract = { path = "../acceptance-contract" }
+acceptance-contract = { path = "../acceptance-contract", version = "0.1.0" }
 anyhow = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
