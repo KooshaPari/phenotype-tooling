@@ -190,6 +190,18 @@ jobs:
         continue-on-error: true
         steps:
             - uses: actions/checkout@v4
+              with:
+                  # Gitleaks derives its scan range from the PR base SHA. A
+                  # shallow checkout can omit that commit and make the scan
+                  # fail before inspecting any files.
+                  fetch-depth: 0
+            - name: Ensure pull-request base is available
+              if: github.event_name == 'pull_request'
+              run: |
+                  set -euo pipefail
+                  base_sha='${{ github.event.pull_request.base.sha }}'
+                  git fetch --no-tags origin "$base_sha"
+                  git cat-file -e "$base_sha^{commit}"
             - name: gitleaks
               uses: gitleaks/gitleaks-action@v2
               env:
