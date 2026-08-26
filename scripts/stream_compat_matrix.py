@@ -21,7 +21,6 @@ import argparse
 import json
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Iterator
@@ -104,13 +103,16 @@ def load_channel_manifest(path: Path) -> dict[str, list[Channel]]:
     data = json.loads(path.read_text(encoding="utf-8"))
     out: dict[str, list[Channel]] = {}
     for stream_name, channels in data.get("streams", {}).items():
+        # Support both the historical list form and the compact mapping
+        # emitted by the current channel manifest generator.
+        entries = channels if isinstance(channels, list) else [
+            {"name": f"{stream_name}-{name}", **pointer}
+            for name, pointer in channels.items()
+        ]
         out[stream_name] = [
-            Channel(
-                name=c["name"],
-                stream=stream_name,
-                version=c["version"],
-            )
-            for c in channels
+            Channel(name=c["name"], stream=stream_name, version=c["version"])
+            for c in entries
+            if "version" in c
         ]
     return out
 
@@ -142,11 +144,14 @@ def iter_matrix(
     ..., current-depth). The downstream stream stays at its current
     stable version (cross-grade compatibility is upstream-driven).
     """
+    def channels_for(stream: str) -> list[Channel]:
+        return channel_map.get(stream) or channel_map.get(f"{stream}-stream", [])
+
     for edge in edges:
-        upstream_channels = channel_map.get(edge.from_stream, [])
+        upstream_channels = channels_for(edge.from_stream)
         if not upstream_channels:
             continue
-        downstream_channels = channel_map.get(edge.to_stream, [])
+        downstream_channels = channels_for(edge.to_stream)
         if not downstream_channels:
             continue
         # Use stable channel of upstream, current of downstream.
@@ -195,7 +200,8 @@ def run_cell(cell: MatrixCell, workspace_dir: Path) -> None:
     """
     cmd = [
         "cargo", "test",
-        "-p", cell.edge.to_crate,
+        "-p", "phenotype-cli",
+        "--all-features",
         "--test", "stream_compat",
         "--manifest-path", str(workspace_dir / "Cargo.toml"),
     ]
@@ -280,13 +286,10 @@ def main() -> int:
         )
 
     if not args.dry_run:
-        # In a real workflow this would checkout the specific versions
-        # into a temp workspace and run cargo test there. For the
-        # shadow-mode rollout we just run from the current checkout.
-        with tempfile.TemporaryDirectory() as tmp:
-            workspace = Path(tmp) / "workspace"
-            for cell in cells:
-                run_cell(cell, workspace)
+        # Version labels come from the channel manifest. The checked-out
+        # workspace is the source under test and stays immutable.
+        for cell in cells:
+            run_cell(cell, Path.cwd())
     else:
         for cell in cells:
             cell.result = "skip"
@@ -301,9 +304,8 @@ def main() -> int:
             {
                 "edges": [asdict(e) for e in report.edges],
                 "cells": [
-                    {**asdict(c["edge"]) if False else asdict(c),
-                     **{"edge": asdict(c["edge"])}}
-                    for c in [{**asdict(cell), "edge": asdict(cell.edge)} for cell in report.cells]
+                    {**asdict(cell), "edge": asdict(cell.edge)}
+                    for cell in report.cells
                 ],
                 "summary": report.summary,
             },

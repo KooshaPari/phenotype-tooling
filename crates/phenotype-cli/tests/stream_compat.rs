@@ -17,11 +17,21 @@ use std::process::Command;
 /// assert it exits 0 with the expected substring on stdout.
 fn assert_pt_cli_ok(args: &[&str], expect_stdout_substring: &str) {
     let exe = std::env::var("CARGO_BIN_EXE_pt")
-        .unwrap_or_else(|_| "pt".to_string());
+        .or_else(|_| std::env::var("CARGO_BIN_EXE_phenotype_cli"))
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let target = std::env::var_os("CARGO_TARGET_DIR")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| {
+                    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("../..").join("target")
+                });
+            target.join("debug/phenotype-cli")
+        });
     let output = Command::new(&exe)
         .args(args)
         .output()
-        .unwrap_or_else(|e| panic!("failed to invoke `{}`: {}", exe, e));
+        .unwrap_or_else(|e| panic!("failed to invoke `{}`: {}", exe.display(), e));
     assert!(
         output.status.success(),
         "pt {} exited with {:?}\n--- stdout ---\n{}\n--- stderr ---\n{}",
