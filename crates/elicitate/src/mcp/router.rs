@@ -17,7 +17,9 @@ use rmcp::schemars::JsonSchema;
 use rmcp::{tool, tool_handler, tool_router, ServerHandler};
 use serde::{Deserialize, Serialize};
 
-use crate::inbox::{is_valid_request_id, resolve_inbox_root, status as inbox_status};
+use crate::inbox::{
+    is_valid_inbox_id, is_valid_request_id, resolve_inbox_root, status as inbox_status,
+};
 use crate::spec::{ElicitResponse, PromptSpec};
 use crate::ElicitOptions;
 
@@ -281,6 +283,13 @@ impl ElicitateMcp {
                 ))]));
             }
         }
+        if let Some(id) = inbox_id.as_deref() {
+            if id != "default" && !is_valid_inbox_id(id) {
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                    "invalid inbox_id: {id}"
+                ))]));
+            }
+        }
 
         let inbox_dir = crate::inbox::resolve_inbox_root(inbox_id.as_deref());
         let origin = crate::inbox::RequestOrigin {
@@ -296,12 +305,16 @@ impl ElicitateMcp {
         };
         let req = crate::inbox::PendingRequest::new(spec, origin);
         let request_id = req.request_id.clone();
-        crate::inbox::enqueue(&inbox_dir, &req)
-            .map_err(|e| rmcp::ErrorData::internal_error(format!("enqueue: {e}"), None))?;
+        if let Err(e) = crate::inbox::enqueue(&inbox_dir, &req) {
+            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                "enqueue failed: {e}"
+            ))]));
+        }
 
         let content = ContentBlock::json(serde_json::json!({
             "status": "queued",
             "request_id": request_id,
+            "inbox_id": inbox_id,
         }))
         .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
         Ok(CallToolResult::success(vec![content]))
@@ -324,17 +337,24 @@ impl ElicitateMcp {
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         use crate::inbox::{cancel_pending, RequestState};
         let inbox_dir = crate::inbox::resolve_inbox_root(params.inbox_id.as_deref());
-        let cancelled = cancel_pending(&inbox_dir, &params.request_id, params.notes.as_deref())
-            .map_err(|e| rmcp::ErrorData::internal_error(format!("cancel: {e}"), None))?;
+        let request_id = params.request_id.clone();
+        let request_id_for_task = request_id.clone();
+        let notes = params.notes.clone();
+        let cancelled = tokio::task::spawn_blocking(move || {
+            cancel_pending(&inbox_dir, &request_id_for_task, notes.as_deref())
+        })
+        .await
+        .map_err(|e| rmcp::ErrorData::internal_error(format!("cancel task: {e}"), None))?
+        .map_err(|e| rmcp::ErrorData::internal_error(format!("cancel: {e}"), None))?;
         let state_str = match cancelled {
-            RequestState::Cancelled => "cancelled",
             RequestState::Answered => "already_answered",
             RequestState::Expired => "already_expired",
             _ => "noop",
         };
         let content = ContentBlock::json(serde_json::json!({
             "status": state_str,
-            "request_id": params.request_id,
+            "request_id": request_id,
+            "inbox_id": params.inbox_id,
         }))
         .map_err(|e| rmcp::ErrorData::internal_error(format!("content: {e}"), None))?;
         Ok(CallToolResult::success(vec![content]))
@@ -344,7 +364,7 @@ impl ElicitateMcp {
 #[tool_handler]
 impl ServerHandler for ElicitateMcp {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::default())
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("elicitate", env!("CARGO_PKG_VERSION")))
     }
 }

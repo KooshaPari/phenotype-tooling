@@ -36,9 +36,11 @@ fn config_contains(path: &str, needle: &str) -> bool {
 
 #[test]
 fn forgecode_plugin_toml_exists() {
-    let p = home()
-        .join("CodeProjects/Phenotype/repos/phenotype-tooling")
-        .join(".forgecode/plugins/elicitate/plugin.toml");
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("repo root");
+    let p = repo_root.join(".forgecode/plugins/elicitate/plugin.toml");
     assert!(
         p.exists(),
         "forgecode plugin.toml missing at {}",
