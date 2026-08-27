@@ -347,6 +347,7 @@ impl ElicitateMcp {
         .map_err(|e| rmcp::ErrorData::internal_error(format!("cancel task: {e}"), None))?
         .map_err(|e| rmcp::ErrorData::internal_error(format!("cancel: {e}"), None))?;
         let state_str = match cancelled {
+            RequestState::Cancelled => "cancelled",
             RequestState::Answered => "already_answered",
             RequestState::Expired => "already_expired",
             _ => "noop",
