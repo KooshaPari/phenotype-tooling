@@ -38,13 +38,13 @@ jobs:
           python-version: "3.12"
 
       - name: Generate channel manifest
-        run: |
-          python scripts/channel_manifest.py \
-            --streams core-stream cli-stream ops-stream \
-            --out .github/channel-manifest.json
+        if: false # DISABLED - GITHUB_TOKEN lacks write access to main
+# python scripts/channel_manifest.py \
+  # --streams core-stream cli-stream ops-stream \
+  # --out .github/channel-manifest.json
 
       - name: Commit manifest (if changed)
-        run: |
+        if: false # DISABLED - GITHUB_TOKEN lacks write access to main
           git config user.name "channel-publish-bot"
           git config user.email "channel-publish-bot@users.noreply.github.com"
           if git diff --quiet .github/channel-manifest.json; then
