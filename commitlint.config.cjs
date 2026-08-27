@@ -36,5 +36,8 @@ module.exports = {
     // ci: add 88-pillar scorecard — missing scope (already on main).
     (commit) =>
       commit.startsWith("ci: add 88-pillar scorecard workflow"),
+    // Add Makefile with build/test/lint/clean targets — missing type prefix.
+    (commit) =>
+      commit.startsWith("Add Makefile"),
   ],
 };

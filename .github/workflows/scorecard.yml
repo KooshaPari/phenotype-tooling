@@ -20,7 +20,7 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
-    security:
+    # security: # DISABLED - invalid syntax
       permissions: read-all
 
     steps:
