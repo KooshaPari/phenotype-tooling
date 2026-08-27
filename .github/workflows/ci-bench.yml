@@ -138,8 +138,7 @@ jobs:
             # merges stderr back into the .txt file).
             crate="${crate%.err}"
             python scripts/bench_parse_criterion.py \
-              --input "${txt}" \
-              --crate "${crate}" \
+              "${txt}" \
               >> bench_artifacts/current.jsonl
           done
           echo "=== current.jsonl line count: $(wc -l < bench_artifacts/current.jsonl) ==="
