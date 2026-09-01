@@ -1,0 +1,31 @@
+[plugin]
+name        = "pheno-config"
+version     = "0.1.0"
+description = "Config substrate via Configra daemon. Per ADR-022/031, Configra is the canonical config repo for the fleet."
+license     = "Apache-2.0"
+authors     = ["KooshaPari"]
+homepage    = "https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-config"
+keywords    = ["config", "configra", "phenotype", "forgecode"]
+
+[sidecar]
+binary      = "configra"
+args        = ["daemon", "--port", "9100"]
+lifecycle   = "systemd:pheno-config.service"
+endpoints   = ["http://127.0.0.1:9100"]
+mcp_servers = []
+
+[hooks]
+on_session_boot   = ["healthcheck.sh"]
+on_session_exit   = []
+on_plugin_enable  = ["spawn.sh"]
+on_plugin_disable = ["teardown.sh"]
+
+[healthcheck]
+url      = "http://127.0.0.1:9100/health"
+timeout  = "5s"
+interval = "30s"
+
+[scope]
+memory_scope = "none"
+primary      = true
+fallback_for = []

@@ -1,0 +1,32 @@
+[Unit]
+Description=pheno-tracing sidecar (OTLP ingest via otel-collector-contrib)
+Documentation=https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-tracing
+After=network-online.target
+Wants=network-online.target
+PartOf=pheno-forge-sidecars.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/pheno-forge-plugins/pheno-tracing/bin/otelcol-contrib --config /etc/pheno-forge/otelcol-contrib.yaml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pheno-forge/tracing /etc/pheno-forge
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=pheno-forge-sidecars.target multi-user.target

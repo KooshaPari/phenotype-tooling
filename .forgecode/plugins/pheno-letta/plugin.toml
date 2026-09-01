@@ -1,0 +1,31 @@
+[plugin]
+name        = "pheno-letta"
+version     = "0.1.0"
+description = "Subconscious memory blocks (per-agent identity) via letta server. Serves the Identity MemoryScope."
+license     = "Apache-2.0"
+authors     = ["KooshaPari"]
+homepage    = "https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-letta"
+keywords    = ["memory", "letta", "subconscious", "identity", "phenotype", "forgecode"]
+
+[sidecar]
+binary      = "letta"
+args        = ["server", "--port", "8283"]
+lifecycle   = "systemd:pheno-letta.service"
+endpoints   = ["http://127.0.0.1:8283"]
+mcp_servers = []
+
+[hooks]
+on_session_boot   = ["healthcheck.sh"]
+on_session_exit   = []
+on_plugin_enable  = ["spawn.sh"]
+on_plugin_disable = ["teardown.sh"]
+
+[healthcheck]
+url      = "http://127.0.0.1:8283/v1/health"
+timeout  = "5s"
+interval = "30s"
+
+[scope]
+memory_scope = "Identity"
+primary      = true
+fallback_for = []

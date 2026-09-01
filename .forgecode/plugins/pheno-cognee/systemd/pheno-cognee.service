@@ -1,0 +1,35 @@
+[Unit]
+Description=pheno-cognee sidecar (project knowledge graph via cognee MCP)
+Documentation=https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-cognee
+After=network-online.target
+Wants=network-online.target
+PartOf=pheno-forge-sidecars.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/pheno-forge-plugins/pheno-cognee/bin/cognee-mcp --transport stdio
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+Environment=COGNEE_DATASETS=phenotype-code,phenotype-docs,phenotype-adrs
+Environment=COGNEE_LOG_LEVEL=INFO
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pheno-forge/cognee
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=pheno-forge-sidecars.target multi-user.target

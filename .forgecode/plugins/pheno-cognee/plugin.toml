@@ -1,0 +1,32 @@
+[plugin]
+name        = "pheno-cognee"
+version     = "0.1.0"
+description = "Project knowledge graph (code, docs, ADRs) via cognee MCP server. Serves the ProjectKnowledge MemoryScope."
+license     = "Apache-2.0"
+authors     = ["KooshaPari"]
+homepage    = "https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-cognee"
+keywords    = ["memory", "cognee", "knowledge-graph", "project-knowledge", "phenotype", "forgecode"]
+
+[sidecar]
+binary      = "cognee-mcp"
+args        = ["--transport", "stdio"]
+lifecycle   = "systemd:pheno-cognee.service"
+endpoints   = ["stdio: cognee-mcp"]
+mcp_servers = ["stdio:cognee-mcp"]
+
+[hooks]
+on_session_boot   = ["healthcheck.sh"]
+on_session_exit   = []
+on_plugin_enable  = ["spawn.sh"]
+on_plugin_disable = ["teardown.sh"]
+
+[healthcheck]
+# cognee-mcp is a stdio server; no HTTP endpoint. Use a command-based check.
+cmd     = "test -S /var/run/pheno-forge/cognee.sock"
+timeout = "5s"
+interval = "30s"
+
+[scope]
+memory_scope = "ProjectKnowledge"
+primary      = true
+fallback_for = []

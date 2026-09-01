@@ -1,0 +1,35 @@
+[Unit]
+Description=pheno-mem0 sidecar (fallback memory)
+Documentation=https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-mem0
+After=network-online.target
+Wants=network-online.target
+PartOf=pheno-forge-sidecars.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/pheno-forge-plugins/pheno-mem0/bin/mem0 server --port 8000
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+Environment=MEM0_VECTOR_STORE=qdrant
+Environment=MEM0_LLM_PROVIDER=openai
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pheno-forge/mem0
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=pheno-forge-sidecars.target multi-user.target

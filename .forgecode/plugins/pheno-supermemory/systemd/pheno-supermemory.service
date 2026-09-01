@@ -1,0 +1,35 @@
+[Unit]
+Description=pheno-supermemory sidecar (primary memory store, smfs filesystem)
+Documentation=https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-supermemory
+After=network-online.target
+Wants=network-online.target
+PartOf=pheno-forge-sidecars.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/lib/pheno-forge-plugins/pheno-supermemory/bin/supermemory --port 3030 --store /var/lib/pheno-forge/supermemory
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+NotifyAccess=main
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pheno-forge/supermemory
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=pheno-forge-sidecars.target multi-user.target
