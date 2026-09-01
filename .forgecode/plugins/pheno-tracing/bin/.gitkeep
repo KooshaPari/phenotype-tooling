@@ -1,0 +1,1 @@
+Placeholder for the `otelcol-contrib` binary, fetched at install time by `scripts/fetch-sidecars.sh`. Per ADR-027, Tier 2 (on-demand track).

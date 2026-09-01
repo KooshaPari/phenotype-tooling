@@ -1,0 +1,31 @@
+[plugin]
+name        = "pheno-tracing"
+version     = "0.1.0"
+description = "OTLP trace ingest via otel-collector-contrib. Routes forgecode + sidecar traces to pheno-tracing (ADR-012/ADR-036B)."
+license     = "Apache-2.0"
+authors     = ["KooshaPari"]
+homepage    = "https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-tracing"
+keywords    = ["tracing", "otel", "otlp", "phenotype", "forgecode"]
+
+[sidecar]
+binary      = "otelcol-contrib"
+args        = ["--config", "/etc/pheno-forge/otelcol-contrib.yaml"]
+lifecycle   = "systemd:pheno-tracing.service"
+endpoints   = ["http://127.0.0.1:4318", "grpc://127.0.0.1:4317"]
+mcp_servers = []
+
+[hooks]
+on_session_boot   = ["healthcheck.sh"]
+on_session_exit   = []
+on_plugin_enable  = ["spawn.sh"]
+on_plugin_disable = ["teardown.sh"]
+
+[healthcheck]
+url      = "http://127.0.0.1:13133/health"
+timeout  = "5s"
+interval = "30s"
+
+[scope]
+memory_scope = "none"
+primary      = true
+fallback_for = []

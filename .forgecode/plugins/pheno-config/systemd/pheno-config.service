@@ -1,0 +1,34 @@
+[Unit]
+Description=pheno-config sidecar (Configra config substrate)
+Documentation=https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-config
+After=network-online.target
+Wants=network-online.target
+PartOf=pheno-forge-sidecars.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/lib/pheno-forge-plugins/pheno-config/bin/configra daemon --port 9100
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+Environment=CONFIGRA_CONFIG_PATH=/etc/pheno-forge/config.toml
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pheno-forge/configra /etc/pheno-forge
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=pheno-forge-sidecars.target multi-user.target

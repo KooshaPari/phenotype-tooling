@@ -1,0 +1,31 @@
+[plugin]
+name        = "pheno-supermemory"
+version     = "0.1.0"
+description = "Primary memory store via supermemory binary + smfs filesystem interface. Serves the Episodic MemoryScope (per thegent/docs/specs/memory/v2.md)."
+license     = "Apache-2.0"
+authors     = ["KooshaPari"]
+homepage    = "https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-supermemory"
+keywords    = ["memory", "supermemory", "smfs", "episodic", "phenotype", "forgecode"]
+
+[sidecar]
+binary      = "supermemory"
+args        = ["--port", "3030", "--store", "/var/lib/pheno-forge/supermemory"]
+lifecycle   = "systemd:pheno-supermemory.service"
+endpoints   = ["http://127.0.0.1:3030"]
+mcp_servers = ["stdio:supermemory-mcp"]
+
+[hooks]
+on_session_boot   = ["healthcheck.sh"]
+on_session_exit   = []
+on_plugin_enable  = ["spawn.sh"]
+on_plugin_disable = ["teardown.sh"]
+
+[healthcheck]
+url      = "http://127.0.0.1:3030/health"
+timeout  = "5s"
+interval = "30s"
+
+[scope]
+memory_scope = "Episodic"
+primary      = true
+fallback_for = []

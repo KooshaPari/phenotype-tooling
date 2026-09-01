@@ -1,0 +1,3 @@
+Placeholder for the `supermemory` binary, fetched at install time by `scripts/fetch-sidecars.sh`.
+
+Per ADR-027 (Git LFS 3-tier policy), this is a Tier 2 asset (on-demand track). The real binary is downloaded from `https://github.com/supermemoryai/supermemory/releases` and placed at `bin/supermemory` (made executable) during `install.sh`.

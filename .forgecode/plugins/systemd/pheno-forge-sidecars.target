@@ -1,0 +1,8 @@
+[Unit]
+Description=Phenotype forge sidecar stack (memory + config + tracing)
+Documentation=https://github.com/KooshaPari/pheno-forge-plugins
+Wants=pheno-supermemory.service pheno-letta.service pheno-cognee.service pheno-mem0.service pheno-config.service pheno-tracing.service
+After=pheno-supermemory.service pheno-letta.service pheno-cognee.service pheno-mem0.service pheno-config.service pheno-tracing.service
+
+[Install]
+WantedBy=multi-user.target

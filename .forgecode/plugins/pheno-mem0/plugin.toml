@@ -1,0 +1,31 @@
+[plugin]
+name        = "pheno-mem0"
+version     = "0.1.0"
+description = "Fallback memory via mem0 server. Activated only when the primary adapter for a MemoryScope fails."
+license     = "Apache-2.0"
+authors     = ["KooshaPari"]
+homepage    = "https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-mem0"
+keywords    = ["memory", "mem0", "fallback", "phenotype", "forgecode"]
+
+[sidecar]
+binary      = "mem0"
+args        = ["server", "--port", "8000"]
+lifecycle   = "systemd:pheno-mem0.service"
+endpoints   = ["http://127.0.0.1:8000"]
+mcp_servers = []
+
+[hooks]
+on_session_boot   = ["healthcheck.sh"]
+on_session_exit   = []
+on_plugin_enable  = ["spawn.sh"]
+on_plugin_disable = ["teardown.sh"]
+
+[healthcheck]
+url      = "http://127.0.0.1:8000/health"
+timeout  = "5s"
+interval = "30s"
+
+[scope]
+memory_scope = "Fallback"
+primary      = false
+fallback_for = ["Episodic", "Identity", "ProjectKnowledge"]

@@ -1,0 +1,36 @@
+[Unit]
+Description=pheno-letta sidecar (subconscious memory blocks per-agent)
+Documentation=https://github.com/KooshaPari/pheno-forge-plugins/tree/main/plugins/pheno-letta
+After=network-online.target
+Wants=network-online.target
+PartOf=pheno-forge-sidecars.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/pheno-forge-plugins/pheno-letta/bin/letta server --port 8283
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+Environment=LETTA_AGENT_ID=default-agent
+Environment=LETTA_PG_URI=postgresql://localhost/letta
+Environment=LETTA_LLM_API_KEY=
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pheno-forge/letta
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=pheno-forge-sidecars.target multi-user.target
