@@ -1,5 +1,7 @@
 # Genesis documentation scaffold
 
+
+[![AI slop inside](https://sladge.net/badge.svg)](https://sladge.net) [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/KooshaPari/phenotype-tooling/total)](https://github.com/KooshaPari/phenotype-tooling/releases)
 ## Quickstart
 
 > Phenotype org internal tooling: usage-poll, agent-forecast, temporal-grounding
