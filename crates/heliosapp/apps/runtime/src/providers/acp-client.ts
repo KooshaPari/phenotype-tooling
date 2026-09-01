@@ -18,6 +18,7 @@ import type {
   ACPExecuteOutput,
 } from "./adapter.js";
 
+import { NormalizedProviderError, normalizeError } from "./errors.js";
 
 /**
  * Policy gate interface for access control.
