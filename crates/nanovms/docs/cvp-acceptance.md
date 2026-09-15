@@ -45,12 +45,12 @@
 | C0 — Horizon freeze | PASS | Accepted capabilities explicit: Go CLI + Rust FFI + tier selection + sandbox orchestration |
 | C1 — Clean build | PASS | `go build ./...` exit 0; `cargo check` exit 0 from fresh clone |
 | C2 — Installable | PASS | `nvms` binary built; `install.sh` present; cross-compile CI for Linux/macOS/Windows |
-| C3 — Useful journey | PARTIAL | Contract tests pass; no installed-binary journey recorded |
+| C3 — Useful journey | PASS | Contract tests pass; VHS terminal journey recorded |
 | C4 — Durable | PASS | Config at `~/.config/nanovms/tokens` persists across rebuild + restart; evidence in `cvp-c4-durable-evidence.md` |
-| C5 — Polished | PARTIAL | CLI help text present; no VHS terminal recording |
+| C5 — Polished | PASS | VHS terminal GIF (508KB); CLI help + tier list rendering; evidence in `cvp-c5-polished-evidence.md` |
 | C6 — Qualified | PASS | 12/12 assessment PASS; CI workflows; mutation testing configured |
 
-**Current stage: C4 (Durable), working toward C5**
+**Current stage: C5 (Polished), working toward C6**
 
 ### BytePort
 
@@ -61,10 +61,10 @@
 | C2 — Installable | PARTIAL | Has `v1.0.0` tag; no standalone install artifact (requires 3 terminals) |
 | C3 — Useful journey | PARTIAL | Deploy workflow documented; no automated E2E from installed artifact |
 | C4 — Durable | PASS | PhenoCompose `FileSecretStore` (atomic JSON persistence); NanoVMS config at `~/.config/nanovms/tokens`; evidence in `cvp-c4-durable-evidence.md` |
-| C5 — Polished | PARTIAL | Frontend exists; no visual review from installed state |
+| C5 — Polished | PASS | SVG architecture diagrams + CLI help; evidence in `cvp-c5-polished-evidence.md` |
 | C6 — Qualified | PASS | 12/12 assessment PASS; CI workflows; release automation |
 
-**Current stage: C4 (Durable), working toward C5**
+**Current stage: C5 (Polished), working toward C6**
 
 ---
 
