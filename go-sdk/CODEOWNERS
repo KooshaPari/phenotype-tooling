@@ -1,0 +1,18 @@
+# Default owners for everything in the repo.
+*							@KooshaPari
+
+# Go packages
+/packages/devhex/			@KooshaPari
+/packages/platformkit/		@KooshaPari
+/packages/mcpkit/			@KooshaPari
+
+# Governance
+/CLAUDE.md					@KooshaPari
+/AGENTS.md					@KooshaPari
+/CODEOWNERS					@KooshaPari
+/SECURITY.md				@KooshaPari
+/CONTRIBUTING.md			@KooshaPari
+/.editorconfig				@KooshaPari
+/justfile					@KooshaPari
+/go.work					@KooshaPari
+/go.work.sum				@KooshaPari

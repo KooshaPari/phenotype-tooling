@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main, docs]
+  pull_request:
+    branches: [main]
+
+env:
+  GO_VERSION: '1.23'
+  GOFLAGS: '-count=1'
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage.out
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  build:
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    runs-on: ${{ matrix.goos == 'windows' && 'windows-latest' || matrix.goos == 'darwin' && 'macos-latest' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -v -ldflags="-s -w" -o devenv-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/devenv-abstraction
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: devenv-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: devenv-*
+
+  benchmark:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run benchmarks
+        run: go test -bench=. -benchmem -run=^$ ./benchmarks/...
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'go'
+          outputFilePath: 'benchmarks.txt'
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+
+  test-cross-platform:
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        if: contains(matrix.platform, 'arm')
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build for ${{ matrix.platform }}
+        env:
+          GOOS: ${{ split(matrix.platform, '/')[0] }}
+          GOARCH: ${{ split(matrix.platform, '/')[1] }}
+        run: go build -v ./...
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -no-fail -fmt json -out=security.json ./...
+
+      - name: Upload security scan
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan
+          path: security.json

@@ -1,0 +1,24 @@
+# qgate configuration for phenotype-go-sdk
+#
+# Adopted via the "1 via 2" protocol (gate-first-red-then-backfill).
+# The reusable workflow surfaces the gate as an artifact + comment;
+# once per-module coverage reaches the threshold, the workflow can be
+# flipped to blocking (remove `continue-on-error: true` in qgate.yml).
+
+# Granular-recursive coverage threshold per module.
+coverage_threshold = 85.0
+
+# devhex is the only package with tests today; the others are pending
+# backfill (each will need its own coverage step).
+coverage_path = "coverage/lcov.info"
+coverage_format = "lcov"
+
+# Categories that don't apply to a Go SDK repo (no Rust, no UI, no
+# schemathesis spec yet). Add a base_url + OpenAPI to opt in to DAST.
+not_applicable = [
+    "mutation",      # no cargo-mutants; Go mutation runner not wired
+    "perf",          # no bench harness yet
+    "e2e",           # no playwright; CLI smoke tests live under integration
+    "a11y",          # no UI
+    "dast",          # no OpenAPI spec published; opt-in via QGATE_DAST_BASE_URL
+]

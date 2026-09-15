@@ -1,0 +1,110 @@
+# qgate quality gate for phenotype-go-sdk.
+#
+# Runs the reusable qgate workflow from KooshaPari/phenotype-tooling on a
+# Linux standard runner (no billed macOS/Windows). The gate currently runs
+# in non-blocking mode (continue-on-error: true) per the "1 via 2"
+# protocol: wire the gate first so it goes RED and surfaces coverage
+# gaps, then backfill tests until the per-module coverage threshold is
+# met, then flip to blocking.
+#
+# To make the gate BLOCKING once coverage is healthy:
+#   1) remove `continue-on-error: true` from the qgate job
+#   2) raise per-module coverage to ≥85% across all .go files
+#
+# To opt into the spectrum-extension checks (DAST/SAST/SBOM) from PR #198:
+#   - dast-base-url + dast-schema-url (after publishing an OpenAPI spec)
+#   - sast-config: 'auto'  (semgrep scans Go natively)
+#   - sbom-command: 'cyclonedx-gomod app -o target/sbom.cdx.json'
+
+name: qgate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  qgate:
+    # Non-blocking until per-module coverage ≥85%. See file header.
+    continue-on-error: true
+
+    # Linux standard only — no billed runners per global billing policy.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
+        with:
+          go-version: '1.25'
+
+      # Workspace-aware: build/vet/test every member, but only devhex has
+      # tests today (others will gain coverage as backfill progresses).
+      - name: go work sync
+        run: go work sync
+
+      - name: Build all members
+        run: |
+          for d in packages/*/; do
+            if [ -f "$d/go.mod" ]; then
+              echo "::group::build $d"
+              (cd "$d" && go build ./...)
+              echo "::endgroup::"
+            fi
+          done
+
+      - name: Vet all members
+        run: |
+          for d in packages/*/; do
+            if [ -f "$d/go.mod" ]; then
+              echo "::group::vet $d"
+              (cd "$d" && go vet ./...)
+              echo "::endgroup::"
+            fi
+          done
+
+      # Generate lcov coverage for the package(s) with tests.
+      # Today: only devhex. Extend this loop as backfill adds tests.
+      - name: Generate coverage (lcov)
+        run: |
+          mkdir -p coverage
+          cd packages/devhex
+          go test ./... -coverprofile=../../coverage/devhex.out
+          go tool cover -func=../../coverage/devhex.out -o ../../coverage/devhex.func
+          # Convert Go's text coverprofile to lcov so qgate can parse it.
+          # We use the standard `go2lcov`-shaped transform: SF / LF / LH.
+          {
+            echo "TN:"
+            for f in $(grep -oE '^[^:]+:[0-9]+\.[0-9]+,[0-9]+' ../../coverage/devhex.out \
+                       | cut -d: -f1 | sort -u); do
+              echo "SF:$f"
+              awk -v file="$f" '$1==file && $2 != 0 {
+                lf++; if ($3 != "0") lh++;
+                printf "DA:%s,%s\n", $2, ($3 == "0" ? 0 : 1)
+              } END {
+                printf "LF:%d\nLH:%d\nend_of_record\n", lf+0, lh+0
+              }' ../../coverage/devhex.out
+            done
+          } > ../../coverage/lcov.info
+          echo "lcov lines: $(wc -l < ../../coverage/lcov.info)"
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          retention-days: 14
+
+      # qgate reusable workflow — runs the gate, emits JSON report.
+      - name: qgate quality gate
+        uses: KooshaPari/phenotype-tooling/.github/workflows/reusable/quality-gate.yml@main
+        with:
+          coverage-report: coverage/lcov.info
+          coverage-format: lcov
+          threshold: 85
+          not-applicable: 'mutation,perf,e2e,a11y,dast'
+          sast-config: 'auto'
+        secrets: inherit

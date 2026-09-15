@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        goos: [darwin, linux, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race -count=1 ./...
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean
+          version: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Homebrew Tap
+        run: |
+          mkdir -p Formula
+          cat > Formula/devenv-abstraction.rb << 'RUBY'
+          class DevenvAbstraction < Formula
+            desc "Docker-alternative VM stack with OCI/sandbox support"
+            homepage "https://github.com/KooshaPari/devenv-abstraction"
+            version "VERSION_PLACEHOLDER"
+            url "https://github.com/KooshaPari/devenv-abstraction/archive/refs/tags/vVERSION_PLACEHOLDER.tar.gz"
+            sha256 "CHECKSUM_PLACEHOLDER"
+            license "MIT"
+            
+            def install
+              bin.install "devenv-abstraction"
+            end
+          end
+          RUBY
+          
+          VERSION=$(gh release view --json tagName --jq '.tagName' | sed 's/v//')
+          CHECKSUM=$(curl -sL "https://github.com/KooshaPari/devenv-abstraction/releases/download/v${VERSION}/devenv-abstraction_darwin_amd64.tar.gz" | shasum -a 256 | cut -d' ' -f1)
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" Formula/devenv-abstraction.rb
+          sed -i "s/CHECKSUM_PLACEHOLDER/${CHECKSUM}/g" Formula/devenv-abstraction.rb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  chocolatey:
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Chocolatey Package
+        run: |
+          $version = gh release view --json tagName --jq '.tagName' -R KooshaPari/devenv-abstraction | ForEach-Object { $_ -replace 'v', '' }
+          $url = "https://github.com/KooshaPari/devenv-abstraction/releases/download/v${version}/devenv-abstraction_windows_amd64.zip"
+          
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+            <metadata>
+              <id>devenv-abstraction</id>
+              <version>${version}</version>
+              <description>Docker-alternative VM stack with OCI/sandbox support</description>
+              <authors>KooshaPari</authors>
+              <license>MIT</license>
+              <projectUrl>https://github.com/KooshaPari/devenv-abstraction</projectUrl>
+              <downloadUrl>${url}</downloadUrl>
+            </metadata>
+            <files>
+              <file src="tools\**" target="tools" />
+            </files>
+          </package>
+          "@ | Out-File -Encoding UTF8 devenv-abstraction.nuspec
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
